@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbwfUhRr1WmEmfNQzN12W_kX1Lcf7VSWX2c-QT5dERX4JnRT7ntUQ7bLLwFHQpQpxsdXpA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwwylCO1wrs-MtTMWxFEb2dgNLynskK0GUuyKYm7XSjCz2NTnp9zNw3yePPNNGHVb6DEw/exec";
 
 // Helper to make POST requests to GAS
 // We use 'text/plain' because GAS often fails CORS preflight with 'application/json'

@@ -66,10 +66,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasPermission = React.useCallback((actionName) => {
-    if (role && role === 'Admin') return true;
+    if (user?.role && user.role.toLowerCase() === 'admin') return true;
+    if (role && role.toLowerCase() === 'admin') return true; // Fallback
+    
     const allowedRoles = permissions[actionName] || [];
     return allowedRoles.includes(role);
-  }, [role, permissions]);
+  }, [user, role, permissions]);
 
   const updatePermissions = React.useCallback((newPermissions) => {
     setPermissions(newPermissions);

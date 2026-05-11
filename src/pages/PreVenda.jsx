@@ -15,10 +15,8 @@ import {
   ChevronRight,
   Search
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import JsBarcode from 'jsbarcode';
 import { api } from '../lib/api';
+import { generatePreVendaPDF } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -128,7 +126,7 @@ export default function PreVenda() {
       };
       
       await api.createPreVenda(pedidoData);
-      generatePDF(); // Auto-generate PDF
+      generatePreVendaPDF(cart, atribuicao, total); // Auto-generate PDF
       alert("Pré-Venda enviada para logística e PDF gerado!");
       setCart([]);
       setAtribuicao('');
@@ -145,79 +143,7 @@ export default function PreVenda() {
   };
 
   const generatePDF = () => {
-    if (cart.length === 0) return;
-    
-    const doc = new jsPDF();
-    const docWidth = doc.internal.pageSize.getWidth();
-    
-    // Header Corporate
-    doc.setFillColor(255, 215, 0); // Primary Yellow
-    doc.rect(0, 0, docWidth, 40, 'F');
-    
-    doc.setFontSize(28);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(0, 0, 0);
-    doc.text("SmartStock ERP", 14, 25);
-    
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("CONTROLE DE LOGÍSTICA & PRÉ-VENDA", 14, 32);
-    
-    doc.setFontSize(12);
-    doc.text(`Documento: #${Date.now().toString().slice(-6)}`, docWidth - 60, 20);
-    doc.text(`Data: ${new Date().toLocaleDateString()}`, docWidth - 60, 28);
-
-    // Summary Section
-    doc.setFillColor(245, 245, 245);
-    doc.roundedRect(14, 45, docWidth - 28, 20, 3, 3, 'F');
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("Responsável Separação:", 20, 54);
-    doc.setTextColor(0);
-    doc.setFont("helvetica", "bold");
-    doc.text(atribuicao || "NÃO DEFINIDO", 65, 54);
-    
-    doc.setFontSize(16);
-    doc.text(`TOTAL GERAL: ${formatCurrency(total)}`, docWidth - 85, 58);
-
-    const tableData = cart.map(item => [
-      { content: "", styles: { minCellHeight: 20 } }, // Barcode
-      item.codigo,
-      item.descricao,
-      item.emb,
-      item.qtd.toString(),
-      formatCurrency(item.preco),
-      formatCurrency(item.subtotal)
-    ]);
-
-    doc.autoTable({
-      startY: 75,
-      head: [['Cod. Barras', 'Cód', 'Descrição', 'Emb', 'Qtd', 'Preço', 'Subtotal']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [0, 0, 0], textColor: [255, 215, 0], fontStyle: 'bold', fontSize: 9 },
-      styles: { valign: 'middle', fontSize: 8 },
-      columnStyles: {
-        0: { cellWidth: 35 },
-        2: { cellWidth: 'auto' }
-      },
-      didDrawCell: (data) => {
-        if (data.section === 'body' && data.column.index === 0) {
-          const item = cart[data.row.index];
-          const canvas = document.createElement("canvas");
-          try {
-            JsBarcode(canvas, item.codigo, { format: "CODE128", displayValue: false, height: 40, width: 2, margin: 0 });
-            const barcodeDataUrl = canvas.toDataURL("image/png");
-            doc.addImage(barcodeDataUrl, 'PNG', data.cell.x + 2, data.cell.y + 2, 30, 15);
-          } catch (e) {
-            console.error("Barcode fail:", e);
-          }
-        }
-      }
-    });
-
-    doc.save(`prevenda_${Date.now()}.pdf`);
+    generatePreVendaPDF(cart, atribuicao, total);
   };
 
   const handleDeleteHistory = async () => {

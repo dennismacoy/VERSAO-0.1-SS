@@ -12,9 +12,8 @@ import {
   Loader2,
   DollarSign
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import { api } from '../lib/api';
+import { generateRelatorioPDF } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -81,40 +80,7 @@ export default function Relatorios() {
   const riskCount = filteredData.filter(i => Number(i.dias_sem_venda) > 6).length;
 
   const generateReportPDF = () => {
-    const doc = new jsPDF();
-    const docWidth = doc.internal.pageSize.getWidth();
-
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, docWidth, 40, 'F');
-    
-    doc.setTextColor(255, 215, 0);
-    doc.setFontSize(22);
-    doc.text("RELATÓRIO DE AUDITORIA DE ESTOQUE", 14, 25);
-    
-    doc.setFontSize(10);
-    doc.text(`TOTAL EM RISCO (IDW): ${formatCurrency(totalInRisk)}`, 14, 32);
-
-    if (selectedRazao) {
-      doc.setFontSize(12);
-      doc.text(`RAZÃO SOCIAL: ${selectedRazao}`, 14, 38);
-    }
-
-    doc.autoTable({
-      startY: selectedRazao ? 45 : 40,
-      head: [['Cód', 'Descrição', 'Razão Social', 'Dias S/ Venda', 'Valor Est.', 'Risco (V*D)']],
-      body: filteredData.map(item => [
-        item.codigo,
-        item.descricao,
-        item.razaosocial,
-        item.dias_sem_venda || '0',
-        formatCurrency(item.valor_estoque),
-        formatCurrency((Number(item.dias_sem_venda) || 0) * (Number(item.valor_estoque) || 0))
-      ]),
-      theme: 'grid',
-      headStyles: { fillColor: [0, 0, 0], textColor: [255, 215, 0] }
-    });
-
-    doc.save(`relatorio_auditoria_${Date.now()}.pdf`);
+    generateRelatorioPDF(filteredData, totalInRisk, selectedRazao);
   };
 
   const handleSaveToHistory = async () => {

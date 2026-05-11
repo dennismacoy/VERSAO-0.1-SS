@@ -247,7 +247,8 @@ export default function Consulta() {
                     <InfoItem icon={MapPin} label="Corredor" value={selectedProduct.corredor} />
                     <InfoItem icon={Package} label="Palete / Palete Estoque" value={`${selectedProduct.palete || '-'} / ${selectedProduct.palete_estoque || '-'}`} />
                     <InfoItem icon={TrendingUp} label="Venda Mês" value={selectedProduct.venda_mes} />
-                    <InfoItem icon={History} label="Idade / Dias S/ Venda" value={`${selectedProduct.idade || '0'} dias / ${selectedProduct.dias_sem_venda || '0'} dias`} />
+                    <InfoItem icon={History} label="Idade / Dias S/ Venda" value={`${selectedProduct.idade || '0'} / ${selectedProduct.dias_sem_venda || '0'} dias`} />
+                    <InfoItem icon={BarcodeIcon} label="Código Interno" value={selectedProduct.codigo_interno || '-'} />
                   </div>
                 </div>
 
@@ -277,6 +278,9 @@ export default function Consulta() {
                         {selectedProduct.estoque || 0}
                       </span>
                     </div>
+                    {canSeeCost && (
+                      <InfoItem icon={DollarSign} label="Valor em Estoque" value={formatCurrency(selectedProduct.valor_estoque)} className="text-primary font-black" />
+                    )}
                     <InfoItem icon={Package} label="Embalagem" value={selectedProduct.embalagem} />
                     <InfoItem icon={History} label="Autonomia" value={`${selectedProduct.autonomia_dias || 0} dias`} />
                     <InfoItem icon={Search} label="Pedido Sugerido" value={selectedProduct.pedido} />

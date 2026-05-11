@@ -12,9 +12,8 @@ import {
   User,
   ArrowRight
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import { api } from '../lib/api';
+import { generatePickingPDF } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 
@@ -62,44 +61,7 @@ export default function Separacao() {
     }
   };
 
-  const generatePickingPDF = (item) => {
-    const doc = new jsPDF();
-    const docWidth = doc.internal.pageSize.getWidth();
 
-    // Picking Header
-    doc.setFillColor(0, 0, 0);
-    doc.rect(0, 0, docWidth, 35, 'F');
-    
-    doc.setTextColor(255, 215, 0);
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.text("LISTA DE SEPARAÇÃO (PICKING)", 14, 22);
-    
-    doc.setFontSize(10);
-    doc.text(`PEDIDO: ${item.id} | RESPONSÁVEL: ${item.responsavel || 'S/ Atrib'}`, 14, 30);
-
-    // Grid Info
-    doc.autoTable({
-      startY: 45,
-      head: [['Local/Corredor', 'Cód', 'Descrição', 'Emb', 'Estoque', 'Qtd Sep.']],
-      body: (item.itens || []).map(p => [
-        p.corredor || 'N/A',
-        p.codigo,
-        p.descricao,
-        p.emb || 'UN',
-        p.estoque || '0',
-        { content: p.qtd.toString(), styles: { fontStyle: 'bold', fontSize: 14 } }
-      ]),
-      theme: 'grid',
-      headStyles: { fillColor: [60, 60, 60], textColor: [255, 255, 255], fontStyle: 'bold' },
-      styles: { fontSize: 10, cellPadding: 5 },
-      columnStyles: {
-        5: { halign: 'center', cellWidth: 30 }
-      }
-    });
-
-    doc.save(`picking_${item.id}.pdf`);
-  };
 
   if (!hasPermission('Ver Aba Separação')) {
     return (
