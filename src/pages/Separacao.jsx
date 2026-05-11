@@ -21,21 +21,11 @@ export default function Separacao() {
       } else if (Array.isArray(res)) {
         setSeparacoes(res);
       } else {
-        // Fallback mock
-        setSeparacoes([
-          { id: 'PV-1001', pedido: 'PV-1001', responsavel: 'Repositor Marcos', status: 'Aberta', itens: [{codigo: '1001', descricao: 'REFRIGERANTE COLA 2L', emb: 'UN', estoque: 150, qtd: 10}] },
-          { id: 'PV-1002', pedido: 'PV-1002', responsavel: 'Repositor Marcos', status: 'Iniciada', itens: [{codigo: '1002', descricao: 'SABAO EM PO 1KG', emb: 'CX', estoque: 80, qtd: 2}] },
-          { id: 'PV-1003', pedido: 'PV-1003', responsavel: 'Lider João', status: 'Em Andamento', itens: [{codigo: '1003', descricao: 'ARROZ 5KG', emb: 'FD', estoque: 50, qtd: 5}] },
-          { id: 'PV-1004', pedido: 'PV-1004', responsavel: 'Repositor Marcos', status: 'Finalizada', itens: [{codigo: '1004', descricao: 'FEIJAO 1KG', emb: 'FD', estoque: 100, qtd: 10}] },
-        ]);
+        setSeparacoes([]);
       }
     } catch (e) {
       console.error(e);
-      // Fallback mock
-      setSeparacoes([
-        { id: 'PV-1001', pedido: 'PV-1001', responsavel: 'Repositor Marcos', status: 'Aberta', itens: [{codigo: '1001', descricao: 'REFRIGERANTE COLA 2L', emb: 'UN', estoque: 150, qtd: 10}] },
-        { id: 'PV-1002', pedido: 'PV-1002', responsavel: 'Repositor Marcos', status: 'Iniciada', itens: [{codigo: '1002', descricao: 'SABAO EM PO 1KG', emb: 'CX', estoque: 80, qtd: 2}] },
-      ]);
+      setSeparacoes([]);
     } finally {
       setLoading(false);
     }

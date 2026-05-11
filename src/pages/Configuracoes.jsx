@@ -18,8 +18,10 @@ export default function Configuracoes() {
     'Ver Preço de Custo',
     'Acionar WhatsApp',
     'Ver Aba Relatórios',
+    'Ver Aba Separação',
     'Ver Histórico de Vendas',
-    'Gerar PDF Pré-Venda'
+    'Gerar PDF Pré-Venda',
+    'Botão Gerar PDF'
   ];
 
   const handleTogglePermission = (action, targetRole) => {

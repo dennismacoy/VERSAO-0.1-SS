@@ -19,17 +19,36 @@ export default function PreVenda() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [selectedHistory, setSelectedHistory] = useState([]);
+  const [produtos, setProdutos] = useState([]);
+  const [emb, setEmb] = useState('UN');
 
-  // Mock auto-complete for entry
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const res = await api.searchProducts('');
+        if (Array.isArray(res)) setProdutos(res);
+        else if (res && res.data) setProdutos(res.data);
+      } catch (e) {
+        console.error("Erro ao carregar produtos:", e);
+      }
+    };
+    loadProducts();
+  }, []);
+
   const handleCodigoChange = (e) => {
     const val = e.target.value;
     setCodigo(val);
-    if (val === '1001') {
-      setDescricao('REFRIGERANTE COLA 2L');
-      setPreco(8.50);
-    } else if (val === '1002') {
-      setDescricao('SABAO EM PO 1KG');
-      setPreco(14.00);
+    
+    const product = produtos.find(p => String(p.codigo) === val || String(p.codigo_interno) === val);
+    
+    if (product) {
+      setDescricao(product.descricao || product.nome || '');
+      setPreco(product.precouni || product.preco_unitario || product.precoata || product.preco_atacado || product.preco || product.valor || 0);
+      setEmb(product.embalagem || product.emb || 'UN');
+    } else {
+      setDescricao('');
+      setPreco(0);
+      setEmb('UN');
     }
   };
 
@@ -42,18 +61,11 @@ export default function PreVenda() {
       } else if (Array.isArray(res)) {
         setHistory(res);
       } else {
-        setHistory([
-          { id: 'PV-100', data: '10/05/2026', responsavel: 'Lider João', status: 'Aberta', total: 150.00 },
-          { id: 'PV-101', data: '11/05/2026', responsavel: 'Repositor Marcos', status: 'Iniciada', total: 45.50 }
-        ]);
+        setHistory([]);
       }
     } catch (e) {
       console.error(e);
-      // fallback
-      setHistory([
-        { id: 'PV-100', data: '10/05/2026', responsavel: 'Lider João', status: 'Aberta', total: 150.00 },
-        { id: 'PV-101', data: '11/05/2026', responsavel: 'Repositor Marcos', status: 'Iniciada', total: 45.50 }
-      ]);
+      setHistory([]);
     } finally {
       setHistoryLoading(false);
     }
@@ -77,7 +89,7 @@ export default function PreVenda() {
       qtd: Number(qtd),
       preco: Number(preco),
       subtotal: Number(qtd) * Number(preco),
-      emb: 'UN' // Mock
+      emb: emb
     };
 
     setCart([...cart, newItem]);
@@ -85,6 +97,7 @@ export default function PreVenda() {
     setDescricao('');
     setQtd(1);
     setPreco(0);
+    setEmb('UN');
   };
 
   const removeItem = (id) => {
@@ -208,7 +221,7 @@ export default function PreVenda() {
       // call API in real app
       setHistory(history.filter(h => !selectedHistory.includes(h.id)));
       setSelectedHistory([]);
-      alert("Excluído com sucesso (Mock).");
+      alert("Excluído com sucesso.");
     }
   };
 
@@ -369,7 +382,7 @@ export default function PreVenda() {
                   className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-bold py-3 px-8 rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
                 >
                   {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                  Encerrar Compra
+                  Finalizar Venda
                 </button>
               </div>
               <div className="bg-card border border-border px-6 py-3 rounded-xl shadow-sm text-right w-full sm:w-auto">

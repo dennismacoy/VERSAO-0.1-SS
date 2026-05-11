@@ -9,8 +9,10 @@ const defaultPermissions = {
   'Ver Preço de Custo': ['Admin', 'Gerente'],
   'Acionar WhatsApp': ['Admin', 'Gerente', 'Lider', 'Colaborador'],
   'Ver Aba Relatórios': ['Admin', 'Gerente'],
+  'Ver Aba Separação': ['Admin', 'Gerente', 'Lider', 'Colaborador', 'Repositor'],
   'Ver Histórico de Vendas': ['Admin', 'Gerente', 'Lider'],
   'Gerar PDF Pré-Venda': ['Admin', 'Gerente', 'Lider', 'Colaborador'],
+  'Botão Gerar PDF': ['Admin', 'Gerente', 'Lider', 'Colaborador'],
 };
 
 export const AuthProvider = ({ children }) => {
@@ -23,21 +25,14 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await api.login(username, password);
       
-      // Since backend might not be fully functional during development, 
-      // we'll mock the success if the API returns undefined or fails softly.
-      let userRole = 'Colaborador';
-      let userData = { username, name: username };
+      let userRole = '';
+      let userData = null;
       
       if (response && response.success) {
         userRole = response.role;
         userData = response.user;
       } else {
-        // Fallback mock based on username input for testing UI
-        if (username.toLowerCase().includes('admin')) userRole = 'Admin';
-        else if (username.toLowerCase().includes('gerente')) userRole = 'Gerente';
-        else if (username.toLowerCase().includes('lider')) userRole = 'Lider';
-        else if (username.toLowerCase().includes('terceiro')) userRole = 'Tercerizado';
-        else if (username.toLowerCase().includes('repositor')) userRole = 'Repositor';
+        throw new Error("Credenciais inválidas ou erro na API");
       }
 
       setUser(userData);
@@ -59,7 +54,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasPermission = (actionName) => {
-    if (role === 'Admin') return true; // Admin always has full access
+    if (role && role.toLowerCase() === 'admin') return true; // Admin always has full access
     const allowedRoles = permissions[actionName] || [];
     return allowedRoles.includes(role);
   };

@@ -24,11 +24,7 @@ export default function Consulta() {
       } else if (response && response.data) {
         setProducts(response.data);
       } else {
-        // Mock fallback if API fails
-        setProducts([
-          { codigo: '1001', descricao: 'REFRIGERANTE COLA 2L', emb: 'UN', precoata: 7.99, precouni: 8.50, estoque: 150, comprador: 'Joao', telefone: '5511999999999', entrada: '10/05/2026', custo: 5.00, idade: 30, categoria: 'Bebidas', marca: 'MarcaA' },
-          { codigo: '1002', descricao: 'SABAO EM PO 1KG', emb: 'CX', precoata: 12.50, precouni: 14.00, estoque: 80, comprador: 'Maria', telefone: '5511988888888', entrada: '05/05/2026', custo: 9.00, idade: 45, categoria: 'Limpeza', marca: 'MarcaB' },
-        ]);
+        setProducts([]);
       }
     } catch (err) {
       console.error(err);

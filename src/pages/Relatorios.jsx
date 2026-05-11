@@ -24,17 +24,11 @@ export default function Relatorios() {
       } else if (Array.isArray(res)) {
         setHistory(res);
       } else {
-        // Fallback mock
-        setHistory([
-          { id: 'REL-001', data: '10/05/2026', razao: 'MERCADO ABC LTDA', riscoTotal: 2500.50, itensCriticos: 4, responsavel: 'Admin' }
-        ]);
+        setHistory([]);
       }
     } catch (e) {
       console.error(e);
-      // Fallback mock
-      setHistory([
-        { id: 'REL-001', data: '10/05/2026', razao: 'MERCADO ABC LTDA', riscoTotal: 2500.50, itensCriticos: 4, responsavel: 'Admin' }
-      ]);
+      setHistory([]);
     } finally {
       setHistoryLoading(false);
     }
@@ -48,19 +42,16 @@ export default function Relatorios() {
     if (!query) return;
     setLoading(true);
     try {
-      // Assuming searchProducts handles 'razaosocial' if passed. Or backend searches globally.
-      const res = await api.searchProducts(query, 'razao_social');
-      if (Array.isArray(res)) setItems(res);
-      else if (res && res.data) setItems(res.data);
-      else {
-        // mock
-        setItems([
-          { codigo: '1001', descricao: 'REFRIGERANTE COLA 2L', emb: 'UN', entrada: '10/05/2026', dias_sem_venda: 2, estoque: 150, custo: 5.00 },
-          { codigo: '1002', descricao: 'SABAO EM PO 1KG', emb: 'CX', entrada: '05/05/2026', dias_sem_venda: 8, estoque: 80, custo: 9.00 },
-          { codigo: '1003', descricao: 'ARROZ 5KG', emb: 'FD', entrada: '01/05/2026', dias_sem_venda: 15, estoque: 50, custo: 20.00 },
-          { codigo: '1004', descricao: 'FEIJAO 1KG', emb: 'FD', entrada: '08/05/2026', dias_sem_venda: 4, estoque: 100, custo: 8.50 },
-        ]);
-      }
+      const res = await api.searchProducts(query);
+      let data = Array.isArray(res) ? res : (res?.data || []);
+      
+      const q = query.toLowerCase();
+      data = data.filter(p => 
+        (p.descricao && p.descricao.toLowerCase().includes(q)) || 
+        (p.razaosocial && p.razaosocial.toLowerCase().includes(q))
+      );
+      
+      setItems(data);
     } catch (e) {
       console.error(e);
       setItems([]);
