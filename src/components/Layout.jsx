@@ -93,9 +93,13 @@ export default function Layout({ children }) {
                       : "text-muted-foreground hover:bg-muted hover:text-foreground font-semibold"
                   )}
                 >
-                  <item.icon size={22} className={cn("flex-shrink-0 transition-transform group-hover:scale-110", isActive && "text-primary-foreground")} />
-                  {isSidebarOpen && <span className="text-sm tracking-tight">{item.name}</span>}
-                  {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/20" />}
+                  {({ isActive }) => (
+                    <>
+                      <item.icon size={22} className={cn("flex-shrink-0 transition-transform group-hover:scale-110", isActive && "text-primary-foreground")} />
+                      {isSidebarOpen && <span className="text-sm tracking-tight">{item.name}</span>}
+                      {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/20" />}
+                    </>
+                  )}
                 </NavLink>
               </li>
             ))}
