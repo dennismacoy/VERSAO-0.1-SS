@@ -128,7 +128,8 @@ export default function PreVenda() {
       };
       
       await api.createPreVenda(pedidoData);
-      alert("Pré-Venda enviada para logística!");
+      generatePDF(); // Auto-generate PDF
+      alert("Pré-Venda enviada para logística e PDF gerado!");
       setCart([]);
       setAtribuicao('');
       

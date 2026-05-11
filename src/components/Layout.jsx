@@ -47,10 +47,10 @@ export default function Layout({ children }) {
   };
 
   const menuItems = [
-    { name: 'Consulta Inteligente', path: '/', icon: Search, condition: true },
-    { name: 'Pré-Venda', path: '/pre-venda', icon: ShoppingCart, condition: hasPermission('Gerar PDF Pré-Venda') },
-    { name: 'Separação', path: '/separacao', icon: ListChecks, condition: hasPermission('Ver Aba Separação') },
-    { name: 'Relatórios', path: '/relatorios', icon: BarChart3, condition: hasPermission('Ver Aba Relatórios') },
+    { name: 'Consulta Inteligente', path: '/', icon: Search, condition: hasPermission('Acesso Consulta') },
+    { name: 'Pré-Venda', path: '/pre-venda', icon: ShoppingCart, condition: hasPermission('Acesso Pre-Venda') },
+    { name: 'Separação', path: '/separacao', icon: ListChecks, condition: hasPermission('Acesso Separacao') },
+    { name: 'Relatórios', path: '/relatorios', icon: BarChart3, condition: hasPermission('Acesso Relatorios') },
     { name: 'Configurações', path: '/configuracoes', icon: Settings, condition: role === 'Admin' },
   ];
 

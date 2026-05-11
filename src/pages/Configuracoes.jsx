@@ -30,16 +30,19 @@ export default function Configuracoes() {
   const rolesAvailable = ['Gerente', 'Lider', 'Colaborador', 'Tercerizado', 'Repositor'];
   
   const actionsList = [
+    // Páginas
+    { id: 'Acesso Consulta', icon: Eye, label: 'Acesso à Aba Consulta' },
+    { id: 'Acesso Pre-Venda', icon: FileText, label: 'Acesso à Aba Pré-Venda' },
+    { id: 'Acesso Separacao', icon: Package, label: 'Acesso à Aba Separação' },
+    { id: 'Acesso Relatorios', icon: FileText, label: 'Acesso à Aba Relatórios' },
+    // Info
     { id: 'Ver Preço de Custo', icon: Eye, label: 'Visualizar Preço de Custo' },
     { id: 'Ver Margem', icon: TrendingUp, label: 'Visualizar Margem de Lucro' },
-    { id: 'Acionar WhatsApp', icon: PhoneCall, label: 'Acionar WhatsApp Comprador' },
-    { id: 'Ver Aba Relatórios', icon: FileText, label: 'Acesso à Aba de Relatórios' },
-    { id: 'Ver Aba Separação', icon: Package, label: 'Acesso à Aba de Separação' },
-    { id: 'Ver Histórico de Vendas', icon: History, label: 'Ver Histórico de Vendas' },
-    { id: 'Gerar PDF Pré-Venda', icon: FileText, label: 'Gerar PDF de Pré-Venda' },
-    { id: 'Botão Gerar PDF', icon: Download, label: 'Botão Gerar PDF (Geral)' },
-    { id: 'Botão Excluir Histórico', icon: Trash2, label: 'Excluir Registros de Histórico' },
     { id: 'Ver Telefone do Comprador', icon: PhoneCall, label: 'Visualizar Telefone do Comprador' },
+    // Buttons
+    { id: 'Botão Finalizar Venda', icon: CheckCircle2, label: 'Botão Finalizar Venda' },
+    { id: 'Botão Gerar PDF', icon: Download, label: 'Botão Gerar PDF' },
+    { id: 'Botão Excluir Histórico', icon: Trash2, label: 'Botão Excluir Histórico' },
   ];
 
   const handleTogglePermission = (action, targetRole) => {

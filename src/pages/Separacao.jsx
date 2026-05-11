@@ -41,7 +41,10 @@ export default function Separacao() {
   }, []);
 
   const handleUpdateStatus = async (id, currentStatus) => {
-    const statusSequence = ['Aberta', 'Iniciada', 'Em Andamento', 'Finalizada'];
+    // Treat 'Iniciada' as 'Aberta' just in case old data has it
+    if (currentStatus === 'Iniciada') currentStatus = 'Aberta';
+    
+    const statusSequence = ['Aberta', 'Em Andamento', 'Finalizada'];
     const currentIndex = statusSequence.indexOf(currentStatus);
     
     if (currentIndex === -1 || currentIndex === statusSequence.length - 1) return;
@@ -190,7 +193,7 @@ export default function Separacao() {
               <div className="mt-8 pt-6 border-t border-dashed border-border flex gap-3">
                 <button 
                   onClick={() => generatePickingPDF(item)}
-                  className="p-4 bg-card border-2 border-border text-foreground hover:bg-muted rounded-2xl transition-all shadow-sm active:scale-90"
+                  className="min-h-[44px] p-4 bg-card border-2 border-border text-foreground hover:bg-muted rounded-2xl transition-all shadow-sm active:scale-90"
                   title="Imprimir Guia de Picking"
                 >
                   <FileText size={20} />
@@ -200,7 +203,7 @@ export default function Separacao() {
                   disabled={item.status === 'Finalizada' || updatingId === item.id}
                   onClick={() => handleUpdateStatus(item.id, item.status)}
                   className={cn(
-                    "flex-1 flex items-center justify-center gap-2 font-black text-xs uppercase tracking-widest py-4 rounded-2xl transition-all shadow-lg active:scale-95 disabled:opacity-50",
+                    "min-h-[44px] flex-1 flex items-center justify-center gap-2 font-black text-xs uppercase tracking-widest py-4 rounded-2xl transition-all shadow-lg active:scale-95 disabled:opacity-50",
                     item.status === 'Finalizada' ? "bg-success text-success-foreground" : "bg-primary text-primary-foreground hover:shadow-primary/20"
                   )}
                 >
@@ -212,7 +215,6 @@ export default function Separacao() {
                     <Play size={18} />
                   )}
                   {item.status === 'Aberta' && 'Iniciar Separação'}
-                  {item.status === 'Iniciada' && 'Em Andamento'}
                   {item.status === 'Em Andamento' && 'Finalizar'}
                   {item.status === 'Finalizada' && 'Concluído'}
                 </button>

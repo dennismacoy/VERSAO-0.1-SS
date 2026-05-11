@@ -6,16 +6,19 @@ const AuthContext = createContext({});
 export const useAuth = () => useContext(AuthContext);
 
 const defaultPermissions = {
-  'Ver Preço de Custo': ['Admin', 'Gerente'],
-  'Ver Margem': ['Admin', 'Gerente'],
-  'Acionar WhatsApp': ['Admin', 'Gerente', 'Lider', 'Colaborador'],
-  'Ver Aba Relatórios': ['Admin', 'Gerente'],
-  'Ver Aba Separação': ['Admin', 'Gerente', 'Lider', 'Colaborador', 'Repositor'],
-  'Ver Histórico de Vendas': ['Admin', 'Gerente', 'Lider'],
-  'Gerar PDF Pré-Venda': ['Admin', 'Gerente', 'Lider', 'Colaborador'],
-  'Botão Gerar PDF': ['Admin', 'Gerente', 'Lider', 'Colaborador'],
-  'Botão Excluir Histórico': ['Admin', 'Gerente'],
-  'Ver Telefone do Comprador': ['Admin', 'Gerente', 'Lider'],
+  // Pages
+  'Acesso Consulta': ['Gerente', 'Lider', 'Colaborador', 'Tercerizado', 'Repositor'],
+  'Acesso Pre-Venda': ['Gerente', 'Lider', 'Colaborador'],
+  'Acesso Separacao': ['Gerente', 'Lider', 'Colaborador', 'Tercerizado', 'Repositor'],
+  'Acesso Relatorios': ['Gerente'],
+  // Info
+  'Ver Preço de Custo': ['Gerente'],
+  'Ver Margem': ['Gerente'],
+  'Ver Telefone do Comprador': ['Gerente', 'Lider'],
+  // Buttons
+  'Botão Finalizar Venda': ['Gerente', 'Lider', 'Colaborador'],
+  'Botão Gerar PDF': ['Gerente', 'Lider', 'Colaborador'],
+  'Botão Excluir Histórico': ['Gerente'],
 };
 
 export const AuthProvider = ({ children }) => {
@@ -62,16 +65,16 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('role');
   };
 
-  const hasPermission = (actionName) => {
-    if (role && role.toLowerCase() === 'admin') return true; // Admin always has full access
+  const hasPermission = React.useCallback((actionName) => {
+    if (role && role === 'Admin') return true;
     const allowedRoles = permissions[actionName] || [];
     return allowedRoles.includes(role);
-  };
+  }, [role, permissions]);
 
-  const updatePermissions = (newPermissions) => {
+  const updatePermissions = React.useCallback((newPermissions) => {
     setPermissions(newPermissions);
     localStorage.setItem('permissions_matrix', JSON.stringify(newPermissions));
-  };
+  }, []);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -88,8 +91,12 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  const contextValue = React.useMemo(() => ({
+    user, role, login, logout, loading, permissions, hasPermission, updatePermissions
+  }), [user, role, loading, permissions, hasPermission, updatePermissions]);
+
   return (
-    <AuthContext.Provider value={{ user, role, login, logout, loading, permissions, hasPermission, updatePermissions }}>
+    <AuthContext.Provider value={contextValue}>
       {!loading && children}
     </AuthContext.Provider>
   );

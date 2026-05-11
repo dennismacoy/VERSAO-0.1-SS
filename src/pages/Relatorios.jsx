@@ -22,6 +22,7 @@ export default function Relatorios() {
   const { hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('geral');
   const [query, setQuery] = useState('');
+  const [selectedRazao, setSelectedRazao] = useState('');
   const [data, setData] = useState([]);
   const [reportHistory, setReportHistory] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -52,12 +53,23 @@ export default function Relatorios() {
 
   const filteredData = data.filter(item => {
     const term = query.toLowerCase();
-    return (
+    const matchTerm = (
       item.descricao?.toLowerCase().includes(term) || 
       item.razaosocial?.toLowerCase().includes(term) ||
       item.codigo?.toString().includes(term)
     );
+    if (selectedRazao) {
+      return matchTerm && item.razaosocial === selectedRazao;
+    }
+    return matchTerm;
   });
+
+  const handleRowClick = (item) => {
+    if (item.razaosocial) {
+      setSelectedRazao(item.razaosocial);
+      setQuery(''); // Optionally clear the query so we see all products for this company
+    }
+  };
 
   // Risk Analysis
   const totalInRisk = filteredData.reduce((acc, item) => {
@@ -82,8 +94,13 @@ export default function Relatorios() {
     doc.setFontSize(10);
     doc.text(`TOTAL EM RISCO (IDW): ${formatCurrency(totalInRisk)}`, 14, 32);
 
+    if (selectedRazao) {
+      doc.setFontSize(12);
+      doc.text(`RAZÃO SOCIAL: ${selectedRazao}`, 14, 38);
+    }
+
     doc.autoTable({
-      startY: 45,
+      startY: selectedRazao ? 45 : 40,
       head: [['Cód', 'Descrição', 'Razão Social', 'Dias S/ Venda', 'Valor Est.', 'Risco (V*D)']],
       body: filteredData.map(item => [
         item.codigo,
@@ -94,18 +111,31 @@ export default function Relatorios() {
         formatCurrency((Number(item.dias_sem_venda) || 0) * (Number(item.valor_estoque) || 0))
       ]),
       theme: 'grid',
-      headStyles: { fillColor: [0, 0, 0], textColor: [255, 215, 0] },
-      didDrawCell: (data) => {
-        if (data.section === 'body') {
-          const item = filteredData[data.row.index];
-          if (Number(item.dias_sem_venda) > 6) {
-             // We can highlight text or cell, but for now just marking the data
-          }
-        }
-      }
+      headStyles: { fillColor: [0, 0, 0], textColor: [255, 215, 0] }
     });
 
     doc.save(`relatorio_auditoria_${Date.now()}.pdf`);
+  };
+
+  const handleSaveToHistory = async () => {
+    if (!hasPermission('Botão Gerar PDF')) return; // Reusing this permission conceptually or create a new one
+    try {
+      const reportData = {
+        id: `REL-${Date.now().toString().slice(-6)}`,
+        data: new Date().toISOString(),
+        razao: selectedRazao || 'Geral',
+        itensCriticos: riskCount,
+        riscoTotal: totalInRisk,
+        responsavel: 'Admin'
+      };
+      // Mock API call to save history
+      // await api.saveReport(reportData);
+      setReportHistory([{...reportData, nome: reportData.id, geradoPor: reportData.responsavel, valorTotal: reportData.riscoTotal}, ...reportHistory]);
+      alert("Relatório salvo no histórico com sucesso!");
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao salvar relatório.");
+    }
   };
 
   return (
@@ -176,23 +206,43 @@ export default function Relatorios() {
           </div>
 
           <div className="erp-card p-4 flex flex-col md:flex-row gap-4 items-center">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-primary w-5 h-5" />
-              <input 
-                type="text"
-                placeholder="Filtrar por Descrição ou Razão Social..."
-                className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold transition-all"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+            <div className="flex-1 flex gap-2 w-full">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-primary w-5 h-5" />
+                <input 
+                  type="text"
+                  placeholder="Filtrar por Descrição ou Razão Social..."
+                  className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold transition-all"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+              {selectedRazao && (
+                <button 
+                  onClick={() => setSelectedRazao('')}
+                  className="px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all min-h-[44px]"
+                >
+                  Limpar Razão
+                </button>
+              )}
             </div>
-            <button 
-              onClick={generateReportPDF}
-              className="w-full md:w-auto flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black px-10 py-4 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-sm"
-            >
-              <Download size={20} />
-              Gerar PDF Consolidado
-            </button>
+            
+            <div className="flex gap-2 w-full md:w-auto">
+              <button 
+                onClick={handleSaveToHistory}
+                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-muted text-foreground font-black px-6 py-4 rounded-2xl transition-all shadow-sm hover:bg-muted/80 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
+              >
+                <HistoryIcon size={18} />
+                Guardar Relatório
+              </button>
+              <button 
+                onClick={generateReportPDF}
+                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black px-8 py-4 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
+              >
+                <Download size={18} />
+                Gerar PDF
+              </button>
+            </div>
           </div>
 
           <div className="erp-card overflow-hidden">
@@ -218,11 +268,13 @@ export default function Relatorios() {
                     const dias = Number(item.dias_sem_venda || 0);
                     const risco = dias * (Number(item.valor_estoque) || 0);
                     return (
-                      <tr 
+                        <tr 
                         key={idx} 
+                        onClick={() => handleRowClick(item)}
                         className={cn(
-                          "hover:bg-primary/5 transition-all",
-                          dias > 6 ? "bg-destructive/5" : ""
+                          "hover:bg-primary/5 transition-all cursor-pointer",
+                          dias > 6 ? "bg-destructive/5" : "",
+                          selectedRazao === item.razaosocial ? "border-l-4 border-l-primary bg-primary/5" : ""
                         )}
                       >
                         <td className="px-6 py-4">
