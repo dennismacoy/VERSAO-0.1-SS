@@ -7,12 +7,15 @@ export const useAuth = () => useContext(AuthContext);
 
 const defaultPermissions = {
   'Ver Preço de Custo': ['Admin', 'Gerente'],
+  'Ver Margem': ['Admin', 'Gerente'],
   'Acionar WhatsApp': ['Admin', 'Gerente', 'Lider', 'Colaborador'],
   'Ver Aba Relatórios': ['Admin', 'Gerente'],
   'Ver Aba Separação': ['Admin', 'Gerente', 'Lider', 'Colaborador', 'Repositor'],
   'Ver Histórico de Vendas': ['Admin', 'Gerente', 'Lider'],
   'Gerar PDF Pré-Venda': ['Admin', 'Gerente', 'Lider', 'Colaborador'],
   'Botão Gerar PDF': ['Admin', 'Gerente', 'Lider', 'Colaborador'],
+  'Botão Excluir Histórico': ['Admin', 'Gerente'],
+  'Ver Telefone do Comprador': ['Admin', 'Gerente', 'Lider'],
 };
 
 export const AuthProvider = ({ children }) => {

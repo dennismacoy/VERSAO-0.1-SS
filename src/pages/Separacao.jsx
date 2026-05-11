@@ -1,190 +1,226 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Clock, CheckCircle2, PlayCircle, Archive, Loader2 } from 'lucide-react';
+import { 
+  ListChecks, 
+  Play, 
+  CheckCircle2, 
+  Clock, 
+  FileText, 
+  Loader2, 
+  AlertCircle,
+  Package,
+  MapPin,
+  User,
+  ArrowRight
+} from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { api } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { cn } from '../lib/utils';
 
 export default function Separacao() {
-  const [separacoes, setSeparacoes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { hasPermission } = useAuth();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadItems = async () => {
     setLoading(true);
     try {
       const res = await api.getHistory('Prevendas');
-      if (res && res.data) {
-        setSeparacoes(res.data);
-      } else if (Array.isArray(res)) {
-        setSeparacoes(res);
-      } else {
-        setSeparacoes([]);
-      }
+      setItems(Array.isArray(res) ? res : (res?.data || []));
     } catch (e) {
       console.error(e);
-      setSeparacoes([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateStatus = async (id, newStatus) => {
-    // Optimistic UI Update
-    const original = [...separacoes];
-    setSeparacoes(separacoes.map(s => s.id === id ? { ...s, status: newStatus } : s));
+  useEffect(() => {
+    loadItems();
+  }, []);
+
+  const handleUpdateStatus = async (id, currentStatus) => {
+    const statusSequence = ['Aberta', 'Iniciada', 'Em Andamento', 'Finalizada'];
+    const currentIndex = statusSequence.indexOf(currentStatus);
     
+    if (currentIndex === -1 || currentIndex === statusSequence.length - 1) return;
+    
+    const nextStatus = statusSequence[currentIndex + 1];
+    
+    setUpdatingId(id);
     try {
-      await api.updateStatus(id, newStatus);
+      await api.updateStatus(id, nextStatus);
+      setItems(items.map(item => item.id === id ? { ...item, status: nextStatus } : item));
     } catch (e) {
-      console.error("Erro ao atualizar status", e);
-      // Revert if error
-      setSeparacoes(original);
-      alert("Erro ao sincronizar status com o servidor.");
+      alert("Erro ao atualizar status.");
+    } finally {
+      setUpdatingId(null);
     }
   };
 
-  const statusColors = {
-    'Aberta': 'bg-muted text-muted-foreground border-border',
-    'Iniciada': 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-500 dark:border-yellow-900/50',
-    'Em Andamento': 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-500 dark:border-blue-900/50',
-    'Finalizada': 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-500 dark:border-green-900/50',
-  };
-
-  const statusIcons = {
-    'Aberta': Archive,
-    'Iniciada': PlayCircle,
-    'Em Andamento': Clock,
-    'Finalizada': CheckCircle2,
-  };
-
-  const statusSequence = ['Aberta', 'Iniciada', 'Em Andamento', 'Finalizada'];
-
-  const generatePDF = (separacao) => {
+  const generatePickingPDF = (item) => {
     const doc = new jsPDF();
-    
-    doc.setFontSize(24);
-    doc.setTextColor(0);
-    doc.text(`Separação: ${separacao.pedido || separacao.id}`, 14, 22);
-    
-    doc.setFontSize(14);
-    doc.setTextColor(100);
-    doc.text(`Responsável: ${separacao.responsavel || 'Não informado'}`, 14, 32);
-    doc.text(`Data Impressão: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, 14, 40);
+    const docWidth = doc.internal.pageSize.getWidth();
 
-    const itens = separacao.itens || [];
-    const tableData = itens.map(item => [
-      item.codigo,
-      item.descricao,
-      item.emb || 'UN',
-      item.estoque || '-',
-      item.qtd || '-'
-    ]);
+    // Picking Header
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, docWidth, 35, 'F');
+    
+    doc.setTextColor(255, 215, 0);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("LISTA DE SEPARAÇÃO (PICKING)", 14, 22);
+    
+    doc.setFontSize(10);
+    doc.text(`PEDIDO: ${item.id} | RESPONSÁVEL: ${item.responsavel || 'S/ Atrib'}`, 14, 30);
 
+    // Grid Info
     doc.autoTable({
-      startY: 50,
-      head: [['Código', 'Descrição', 'Emb', 'Estoque', 'Separar']],
-      body: tableData,
+      startY: 45,
+      head: [['Local/Corredor', 'Cód', 'Descrição', 'Emb', 'Estoque', 'Qtd Sep.']],
+      body: (item.itens || []).map(p => [
+        p.corredor || 'N/A',
+        p.codigo,
+        p.descricao,
+        p.emb || 'UN',
+        p.estoque || '0',
+        { content: p.qtd.toString(), styles: { fontStyle: 'bold', fontSize: 14 } }
+      ]),
       theme: 'grid',
-      headStyles: { fillColor: [230, 230, 230], textColor: 0, fontSize: 14, fontStyle: 'bold' },
-      bodyStyles: { fontSize: 16, fontStyle: 'bold', textColor: 20 }, // Fontes grandes para leitura logística
-      styles: { cellPadding: 8, valign: 'middle' },
+      headStyles: { fillColor: [60, 60, 60], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 10, cellPadding: 5 },
       columnStyles: {
-        4: { fillColor: [255, 250, 230] } // Destacar a coluna "Separar"
+        5: { halign: 'center', cellWidth: 30 }
       }
     });
 
-    doc.save(`logistica_separacao_${separacao.pedido || separacao.id}.pdf`);
+    doc.save(`picking_${item.id}.pdf`);
   };
 
-  const renderColumn = (title, statusName) => {
-    const columnItems = separacoes.filter(s => s.status === statusName);
-    const Icon = statusIcons[statusName];
-
+  if (!hasPermission('Ver Aba Separação')) {
     return (
-      <div className="flex flex-col bg-muted/20 border border-border rounded-2xl p-4 min-w-[320px] max-w-[320px] h-full shadow-sm">
-        <div className="flex items-center justify-between mb-4 px-2">
-          <h3 className="font-bold text-foreground flex items-center gap-2">
-            <Icon size={20} className={statusColors[statusName].split(' ')[1]} />
-            {title}
-          </h3>
-          <span className="bg-background px-3 py-1 rounded-full text-xs font-black border border-border shadow-sm">
-            {columnItems.length}
-          </span>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto space-y-4 px-1 custom-scrollbar pb-4">
-          {columnItems.map(s => {
-            const currentIndex = statusSequence.indexOf(s.status);
-            const itensList = s.itens || [];
-            
-            return (
-              <div key={s.id} className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
-                <div className="flex justify-between items-start mb-4">
-                  <span className="font-black text-xl text-primary">{s.pedido || s.id}</span>
-                  <span className={`text-xs px-2.5 py-1 rounded-md border font-bold ${statusColors[s.status]}`}>
-                    {s.status}
-                  </span>
-                </div>
-                
-                <div className="mb-5 bg-muted/30 p-3 rounded-lg border border-border/50">
-                  <p className="text-xs font-bold text-muted-foreground uppercase mb-1">Responsável</p>
-                  <p className="font-semibold text-foreground">{s.responsavel || 'Não Atribuído'}</p>
-                  <p className="text-xs text-muted-foreground mt-2 font-medium">{itensList.length} itens a separar</p>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <button 
-                    onClick={() => generatePDF(s)}
-                    className="w-full bg-background hover:bg-muted text-foreground border border-border text-sm font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
-                  >
-                    <FileText size={16} className="text-primary" /> Gerar PDF de Separação
-                  </button>
-                  
-                  <select
-                    className="w-full bg-secondary text-secondary-foreground border border-border rounded-lg text-sm font-bold px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary shadow-sm"
-                    value={s.status}
-                    onChange={(e) => updateStatus(s.id, e.target.value)}
-                  >
-                    {/* Disable options that are before the current state (except if it is Aberta) */}
-                    <option value="Aberta" disabled={currentIndex > 0}>Aberta (Pendente)</option>
-                    <option value="Iniciada" disabled={currentIndex > 1}>Iniciar Separação</option>
-                    <option value="Em Andamento" disabled={currentIndex > 2}>Em Andamento</option>
-                    <option value="Finalizada">Finalizar Pedido</option>
-                  </select>
-                </div>
-              </div>
-            );
-          })}
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <AlertCircle size={64} className="mx-auto text-destructive" />
+          <h2 className="text-2xl font-black uppercase">Acesso Negado</h2>
+          <p className="text-muted-foreground">Você não tem permissão para acessar o módulo de logística.</p>
         </div>
       </div>
     );
-  };
+  }
 
   return (
-    <div className="flex flex-col h-full space-y-6 pb-4">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Separação Logística</h1>
-        <p className="text-muted-foreground mt-1">Gestão de fluxo e emissão de mapa de separação sem valores</p>
+    <div className="flex flex-col h-full space-y-8 pb-10">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase italic">
+            Fluxo de <span className="text-primary">Separação</span>
+          </h1>
+          <p className="text-muted-foreground font-bold text-sm tracking-widest uppercase">
+            Controle de Picking e Expedição em Tempo Real
+          </p>
+        </div>
+        <button 
+          onClick={loadItems}
+          className="flex items-center gap-2 bg-card border-2 border-border px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-muted transition-all active:scale-95 shadow-sm"
+        >
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />} 
+          Sincronizar Filas
+        </button>
       </div>
 
-      <div className="flex-1 overflow-x-auto pb-4 custom-scrollbar">
-        {loading ? (
-          <div className="h-full flex items-center justify-center text-muted-foreground gap-3">
-            <Loader2 className="animate-spin" size={32} />
-            <span className="font-medium text-lg">Carregando painel de separação...</span>
-          </div>
-        ) : (
-          <div className="flex gap-6 h-full min-w-max items-start">
-            {renderColumn('Aberta', 'Aberta')}
-            {renderColumn('Iniciada', 'Iniciada')}
-            {renderColumn('Em Andamento', 'Em Andamento')}
-            {renderColumn('Finalizada', 'Finalizada')}
-          </div>
-        )}
-      </div>
+      {loading && items.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center py-32 space-y-4">
+          <Loader2 className="animate-spin text-primary w-16 h-16" />
+          <p className="text-muted-foreground font-black uppercase tracking-widest text-xs">Mapeando pedidos pendentes...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {items.map((item) => (
+            <div 
+              key={item.id} 
+              className={cn(
+                "erp-card p-6 flex flex-col border-t-8 transition-all relative overflow-hidden",
+                item.status === 'Aberta' ? "border-t-muted" : 
+                item.status === 'Finalizada' ? "border-t-success" : "border-t-primary"
+              )}
+            >
+              <div className={cn(
+                "absolute -right-8 -top-8 w-24 h-24 rotate-45 flex items-end justify-center pb-2 opacity-10",
+                item.status === 'Aberta' ? "bg-muted-foreground" : 
+                item.status === 'Finalizada' ? "bg-success" : "bg-primary"
+              )}>
+                <Package size={32} />
+              </div>
+
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Pedido ID</span>
+                  <h3 className="text-2xl font-black tracking-tighter text-foreground">{item.id || item.data?.slice(-6)}</h3>
+                </div>
+                <span className={cn(
+                  "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm",
+                  item.status === 'Aberta' ? "bg-muted text-muted-foreground border-border" :
+                  item.status === 'Finalizada' ? "bg-success/10 text-success border-success/20" :
+                  "bg-primary/10 text-primary border-primary/20"
+                )}>
+                  {item.status}
+                </span>
+              </div>
+
+              <div className="space-y-4 flex-1">
+                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
+                  <User size={18} className="text-primary" />
+                  <div className="flex-1 overflow-hidden">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">Responsável</p>
+                    <p className="font-bold truncate mt-1">{item.responsavel || item.atribuicao || 'Não Atribuído'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
+                  <ListChecks size={18} className="text-primary" />
+                  <div className="flex-1 overflow-hidden">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">Itens no Pedido</p>
+                    <p className="font-bold truncate mt-1">{(item.itens || []).length} Produtos cadastrados</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-dashed border-border flex gap-3">
+                <button 
+                  onClick={() => generatePickingPDF(item)}
+                  className="p-4 bg-card border-2 border-border text-foreground hover:bg-muted rounded-2xl transition-all shadow-sm active:scale-90"
+                  title="Imprimir Guia de Picking"
+                >
+                  <FileText size={20} />
+                </button>
+                
+                <button 
+                  disabled={item.status === 'Finalizada' || updatingId === item.id}
+                  onClick={() => handleUpdateStatus(item.id, item.status)}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 font-black text-xs uppercase tracking-widest py-4 rounded-2xl transition-all shadow-lg active:scale-95 disabled:opacity-50",
+                    item.status === 'Finalizada' ? "bg-success text-success-foreground" : "bg-primary text-primary-foreground hover:shadow-primary/20"
+                  )}
+                >
+                  {updatingId === item.id ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : item.status === 'Finalizada' ? (
+                    <CheckCircle2 size={18} />
+                  ) : (
+                    <Play size={18} />
+                  )}
+                  {item.status === 'Aberta' && 'Iniciar Separação'}
+                  {item.status === 'Iniciada' && 'Em Andamento'}
+                  {item.status === 'Em Andamento' && 'Finalizar'}
+                  {item.status === 'Finalizada' && 'Concluído'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

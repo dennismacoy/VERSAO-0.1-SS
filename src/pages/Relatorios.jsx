@@ -1,359 +1,294 @@
 import React, { useState, useEffect } from 'react';
-import { Search, AlertTriangle, FileText, Download, Loader2, Save, History, CheckCircle2 } from 'lucide-react';
+import { 
+  BarChart3, 
+  Search, 
+  FileText, 
+  Download, 
+  TrendingDown, 
+  AlertTriangle, 
+  Calendar, 
+  History as HistoryIcon,
+  Filter,
+  Loader2,
+  DollarSign
+} from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { cn } from '../lib/utils';
 
 export default function Relatorios() {
-  const { user } = useAuth();
+  const { hasPermission } = useAuth();
+  const [activeTab, setActiveTab] = useState('geral');
   const [query, setQuery] = useState('');
-  const [items, setItems] = useState([]);
+  const [data, setData] = useState([]);
+  const [reportHistory, setReportHistory] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  
-  const [history, setHistory] = useState([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
 
-  const loadHistory = async () => {
-    setHistoryLoading(true);
-    try {
-      const res = await api.getHistory('Relatorios_Hist');
-      if (res && res.data) {
-        setHistory(res.data);
-      } else if (Array.isArray(res)) {
-        setHistory(res);
-      } else {
-        setHistory([]);
-      }
-    } catch (e) {
-      console.error(e);
-      setHistory([]);
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadHistory();
-  }, []);
-
-  const handleSearch = async () => {
-    if (!query) return;
+  const loadData = async () => {
     setLoading(true);
     try {
-      const res = await api.searchProducts(query);
-      let data = Array.isArray(res) ? res : (res?.data || []);
-      
-      const q = query.toLowerCase();
-      data = data.filter(p => 
-        (p.descricao && p.descricao.toLowerCase().includes(q)) || 
-        (p.razaosocial && p.razaosocial.toLowerCase().includes(q))
-      );
-      
-      setItems(data);
+      const [res, hist] = await Promise.all([
+        api.searchProducts(''),
+        api.getHistory('Relatorios_Hist')
+      ]);
+      setData(Array.isArray(res) ? res : (res?.data || []));
+      setReportHistory(Array.isArray(hist) ? hist : (hist?.data || []));
     } catch (e) {
       console.error(e);
-      setItems([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleSearch();
-  };
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
   };
 
-  const criticalItems = items.filter(p => (p.dias_sem_venda || 0) > 6);
-  
-  const riscoFinanceiro = criticalItems.reduce((acc, p) => {
-    const dsv = p.dias_sem_venda || 0;
-    const est = p.estoque || 0;
-    const cst = p.custo || p.valor || 0;
-    return acc + (dsv * (est * cst));
+  const filteredData = data.filter(item => {
+    const term = query.toLowerCase();
+    return (
+      item.descricao?.toLowerCase().includes(term) || 
+      item.razaosocial?.toLowerCase().includes(term) ||
+      item.codigo?.toString().includes(term)
+    );
+  });
+
+  // Risk Analysis
+  const totalInRisk = filteredData.reduce((acc, item) => {
+    const dias = Number(item.dias_sem_venda || 0);
+    const valor = Number(item.valor_estoque || 0);
+    return dias > 0 ? acc + (dias * valor) : acc;
   }, 0);
 
-  const handleSaveAndGenerate = async () => {
-    if (items.length === 0) {
-      alert("Nenhum dado para gerar relatório.");
-      return;
-    }
-    setSaving(true);
-    
-    // Generate PDF First
+  const riskCount = filteredData.filter(i => Number(i.dias_sem_venda) > 6).length;
+
+  const generateReportPDF = () => {
     const doc = new jsPDF();
+    const docWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFillColor(0, 0, 0);
+    doc.rect(0, 0, docWidth, 40, 'F');
     
-    // Header
-    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 215, 0);
     doc.setFontSize(22);
-    doc.setTextColor(0);
-    doc.text("Auditoria de Risco de Estoque", 14, 20);
+    doc.text("RELATÓRIO DE AUDITORIA DE ESTOQUE", 14, 25);
     
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
-    doc.setTextColor(100);
-    doc.text(`Razão Social / Pesquisa: ${query.toUpperCase()}`, 14, 28);
-    doc.text(`Data da Emissão: ${new Date().toLocaleDateString()} às ${new Date().toLocaleTimeString()}`, 14, 34);
-    doc.text(`Responsável: ${user?.name || 'Sistema'}`, 14, 40);
-    
-    // Risco Financeiro Block
-    doc.setFillColor(255, 243, 205); // light yellow
-    doc.setDrawColor(234, 179, 8); // primary yellow border
-    doc.rect(14, 48, 182, 30, 'FD');
-    
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(133, 100, 4);
-    doc.text("RISCO FINANCEIRO (ITENS CRÍTICOS > 6 DIAS S/ VENDA)", 20, 58);
-    
-    doc.setFontSize(20);
-    doc.text(`${formatCurrency(riscoFinanceiro)}`, 20, 70);
-    
-    // Table
-    const tableData = items.map(item => [
-      item.codigo,
-      item.descricao,
-      item.emb || 'UN',
-      item.entrada || '-',
-      (item.dias_sem_venda || 0).toString(),
-      (item.estoque || 0).toString()
-    ]);
+    doc.setFontSize(10);
+    doc.text(`TOTAL EM RISCO (IDW): ${formatCurrency(totalInRisk)}`, 14, 32);
 
     doc.autoTable({
-      startY: 85,
-      head: [['Código', 'Descrição', 'Emb', 'Últ. Entrada', 'Dias s/ Venda', 'Estoque']],
-      body: tableData,
-      theme: 'plain',
-      headStyles: { fillColor: [240, 240, 240], textColor: 0, fontStyle: 'bold', lineWidth: 0.1, lineColor: 200 },
-      bodyStyles: { textColor: 50, lineWidth: 0.1, lineColor: 220 },
-      alternateRowStyles: { fillColor: [250, 250, 250] },
-      styles: { font: 'helvetica', fontSize: 10, cellPadding: 4 },
-      didParseCell: function (data) {
+      startY: 45,
+      head: [['Cód', 'Descrição', 'Razão Social', 'Dias S/ Venda', 'Valor Est.', 'Risco (V*D)']],
+      body: filteredData.map(item => [
+        item.codigo,
+        item.descricao,
+        item.razaosocial,
+        item.dias_sem_venda || '0',
+        formatCurrency(item.valor_estoque),
+        formatCurrency((Number(item.dias_sem_venda) || 0) * (Number(item.valor_estoque) || 0))
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [0, 0, 0], textColor: [255, 215, 0] },
+      didDrawCell: (data) => {
         if (data.section === 'body') {
-          // Highlight rows with > 6 days
-          const dsv = parseInt(data.row.raw[4]);
-          if (dsv > 6) {
-            data.cell.styles.fillColor = [255, 240, 240]; // Light red
-            if (data.column.index === 4) {
-              data.cell.styles.textColor = [200, 0, 0];
-              data.cell.styles.fontStyle = 'bold';
-            }
+          const item = filteredData[data.row.index];
+          if (Number(item.dias_sem_venda) > 6) {
+             // We can highlight text or cell, but for now just marking the data
           }
         }
       }
     });
 
-    const pdfBase64 = doc.output('datauristring'); // could save to backend if needed
-    doc.save(`auditoria_${query.replace(/\s+/g, '_')}.pdf`);
-
-    // Save to backend
-    try {
-      const reportData = {
-        data: new Date().toISOString(),
-        razao: query,
-        riscoTotal: riscoFinanceiro,
-        itensCriticos: criticalItems.length,
-        responsavel: user?.name,
-        // pdfData: pdfBase64 // if backend supports large strings
-      };
-      await api.saveReport(reportData);
-      loadHistory(); // refresh history
-    } catch (err) {
-      console.error("Erro ao salvar relatório na API", err);
-    } finally {
-      setSaving(false);
-    }
+    doc.save(`relatorio_auditoria_${Date.now()}.pdf`);
   };
 
   return (
     <div className="flex flex-col h-full space-y-8 pb-10">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Relatórios por Razão Social</h1>
-          <p className="text-muted-foreground mt-1">Gere auditorias financeiras e analise o giro de estoque</p>
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase italic">
+            Inteligência de <span className="text-primary">Dados</span>
+          </h1>
+          <p className="text-muted-foreground font-bold text-sm tracking-widest uppercase">
+            Auditoria, Performance e Análise de Risco
+          </p>
         </div>
-        
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="relative w-full md:w-[350px]">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-muted-foreground" />
-            </div>
-            <input
-              type="text"
-              className="block w-full pl-10 pr-24 py-3 border border-border rounded-xl bg-card text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm font-medium"
-              placeholder="Digite a Razão Social..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-            <div className="absolute inset-y-1 right-1">
-              <button
-                onClick={handleSearch}
-                className="bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-lg font-bold text-sm h-full transition-colors border border-border"
-              >
-                Buscar
-              </button>
-            </div>
-          </div>
+        <div className="flex gap-3">
+          <button 
+            onClick={() => setActiveTab('geral')}
+            className={cn(
+              "px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border-2",
+              activeTab === 'geral' ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
+            )}
+          >
+            Relatório Atual
+          </button>
+          <button 
+            onClick={() => setActiveTab('historico')}
+            className={cn(
+              "px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border-2",
+              activeTab === 'historico' ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
+            )}
+          >
+            Histórico de Relatórios
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
-        {/* Left Stats & Action */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
-          <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/30 dark:to-orange-950/30 border border-yellow-200 dark:border-yellow-900/50 rounded-2xl p-6 shadow-sm flex flex-col items-center text-center">
-            <div className="p-4 bg-yellow-100 dark:bg-yellow-900/50 rounded-full text-yellow-600 dark:text-yellow-500 mb-4 shadow-sm">
-              <AlertTriangle size={36} />
+      {activeTab === 'geral' ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="erp-card p-6 bg-destructive/5 border-l-8 border-l-destructive flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-destructive uppercase tracking-widest mb-1">Total em Risco (IDW)</p>
+                <h3 className="text-3xl font-black tracking-tighter text-destructive">{formatCurrency(totalInRisk)}</h3>
+              </div>
+              <div className="p-4 bg-destructive/10 rounded-2xl text-destructive">
+                <TrendingDown size={32} />
+              </div>
             </div>
-            <h2 className="text-lg font-bold text-yellow-800 dark:text-yellow-500 leading-tight">Risco Financeiro<br/>Total</h2>
-            <p className="text-xs font-semibold text-yellow-700/80 dark:text-yellow-500/80 mt-2 bg-yellow-200/50 dark:bg-yellow-900/30 px-3 py-1 rounded-full">
-              Fórmula: Dias s/ Venda × (Estoque × Custo)
-            </p>
-            <p className="text-4xl font-black text-yellow-900 dark:text-yellow-400 mt-4 break-all">
-              {formatCurrency(riscoFinanceiro)}
-            </p>
-            <p className="text-sm font-bold text-danger mt-2">
-              {criticalItems.length} itens em estado crítico
-            </p>
+
+            <div className="erp-card p-6 border-l-8 border-l-primary flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Itens Críticos (+6 Dias)</p>
+                <h3 className="text-3xl font-black tracking-tighter text-foreground">{riskCount}</h3>
+              </div>
+              <div className="p-4 bg-primary/10 rounded-2xl text-primary">
+                <AlertTriangle size={32} />
+              </div>
+            </div>
+
+            <div className="erp-card p-6 border-l-8 border-l-success flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-black text-success uppercase tracking-widest mb-1">Base Analisada</p>
+                <h3 className="text-3xl font-black tracking-tighter text-foreground">{filteredData.length}</h3>
+              </div>
+              <div className="p-4 bg-success/10 rounded-2xl text-success">
+                <BarChart3 size={32} />
+              </div>
+            </div>
           </div>
 
-          <button 
-            onClick={handleSaveAndGenerate}
-            disabled={items.length === 0 || saving}
-            className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 py-4 rounded-2xl font-bold transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-95 text-lg"
-          >
-            {saving ? <Loader2 className="animate-spin" size={24} /> : <Save size={24} />}
-            Salvar e Gerar PDF
-          </button>
-        </div>
-
-        {/* Right Table */}
-        <div className="lg:col-span-3 bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[400px]">
-          <div className="p-5 border-b border-border bg-muted/30">
-            <h3 className="font-bold text-foreground text-lg flex items-center gap-2">
-              <FileText size={20} className="text-primary" />
-              Resultado da Consulta
-            </h3>
+          <div className="erp-card p-4 flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-primary w-5 h-5" />
+              <input 
+                type="text"
+                placeholder="Filtrar por Descrição ou Razão Social..."
+                className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold transition-all"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+            <button 
+              onClick={generateReportPDF}
+              className="w-full md:w-auto flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black px-10 py-4 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-sm"
+            >
+              <Download size={20} />
+              Gerar PDF Consolidado
+            </button>
           </div>
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-muted text-muted-foreground font-semibold uppercase tracking-wider text-xs border-b border-border sticky top-0">
-                <tr>
-                  <th className="px-5 py-4">Código</th>
-                  <th className="px-5 py-4">Descrição</th>
-                  <th className="px-5 py-4 text-center">Emb</th>
-                  <th className="px-5 py-4 text-center">Entrada</th>
-                  <th className="px-5 py-4 text-center">Dias s/ Venda</th>
-                  <th className="px-5 py-4 text-center">Estoque</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {loading ? (
+
+          <div className="erp-card overflow-hidden">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead className="bg-muted/50 border-b border-border">
                   <tr>
-                    <td colSpan="6" className="px-5 py-12 text-center">
-                      <Loader2 className="animate-spin mx-auto text-primary" size={32} />
-                    </td>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Produto</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Razão Social</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-center">Dias S/ Venda</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-right">Valor Est.</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-right">Risco Calc.</th>
                   </tr>
-                ) : items.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="px-5 py-12 text-center text-muted-foreground font-medium">
-                      Faça uma busca por Razão Social.
-                    </td>
-                  </tr>
-                ) : (
-                  items.map((p, idx) => {
-                    const isCritical = (p.dias_sem_venda || 0) > 6;
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {loading ? (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-20 text-center">
+                        <Loader2 className="animate-spin mx-auto text-primary w-12 h-12" />
+                      </td>
+                    </tr>
+                  ) : filteredData.map((item, idx) => {
+                    const dias = Number(item.dias_sem_venda || 0);
+                    const risco = dias * (Number(item.valor_estoque) || 0);
                     return (
                       <tr 
                         key={idx} 
-                        className={`transition-colors ${isCritical ? 'bg-red-50/40 hover:bg-red-50/80 dark:bg-red-950/20 dark:hover:bg-red-950/40' : 'hover:bg-muted/50'}`}
+                        className={cn(
+                          "hover:bg-primary/5 transition-all",
+                          dias > 6 ? "bg-destructive/5" : ""
+                        )}
                       >
-                        <td className="px-5 py-4 font-bold">{p.codigo}</td>
-                        <td className="px-5 py-4 font-medium">{p.descricao}</td>
-                        <td className="px-5 py-4 text-center">
-                          <span className="bg-background border border-border text-foreground px-2 py-1 rounded-md text-xs font-bold shadow-sm">
-                            {p.emb || 'UN'}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-center font-medium">{p.entrada || '-'}</td>
-                        <td className="px-5 py-4 text-center">
-                          <div className={`inline-flex items-center justify-center px-4 py-1.5 rounded-full text-sm font-black shadow-sm ${
-                            isCritical 
-                              ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400 animate-pulse border border-red-200 dark:border-red-800' 
-                              : 'bg-muted text-muted-foreground border border-border'
-                          }`}>
-                            {p.dias_sem_venda || 0}
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-foreground">{item.descricao}</span>
+                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">{item.codigo}</span>
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-center font-black">{p.estoque || 0}</td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-bold text-muted-foreground">{item.razaosocial}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={cn(
+                            "px-3 py-1 rounded-full font-black text-xs",
+                            dias > 6 ? "bg-destructive text-destructive-foreground" : "bg-muted text-muted-foreground"
+                          )}>
+                            {dias} Dias
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right font-bold">
+                          {formatCurrency(item.valor_estoque)}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className={cn("font-black text-lg", dias > 0 ? "text-destructive" : "text-success")}>
+                            {formatCurrency(risco)}
+                          </span>
+                        </td>
                       </tr>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
+        </>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {reportHistory.length === 0 ? (
+            <div className="col-span-full erp-card p-20 flex flex-col items-center justify-center text-muted-foreground/30 border-dashed border-4">
+              <HistoryIcon size={80} strokeWidth={1} />
+              <p className="mt-4 font-black uppercase tracking-widest">Nenhum histórico disponível</p>
+            </div>
+          ) : (
+            reportHistory.map((h, idx) => (
+              <div key={idx} className="erp-card p-6 flex flex-col gap-4 border-l-4 border-l-primary hover:scale-[1.02]">
+                <div className="flex justify-between items-start">
+                  <div className="p-3 bg-muted rounded-2xl">
+                    <FileText size={24} className="text-primary" />
+                  </div>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{h.data}</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-black tracking-tight">{h.nome || h.id}</h3>
+                  <p className="text-xs font-bold text-muted-foreground uppercase mt-1">Gerado por: {h.geradoPor || h.responsavel}</p>
+                </div>
+                <div className="pt-4 border-t border-border flex justify-between items-center">
+                  <div className="text-xs font-black text-primary uppercase">Total: {formatCurrency(h.valorTotal || h.total)}</div>
+                  <button className="p-2 bg-muted hover:bg-primary hover:text-primary-foreground rounded-xl transition-all">
+                    <Download size={18} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
-      </div>
-
-      {/* Histórico Table */}
-      <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col mt-4">
-        <div className="p-5 border-b border-border bg-muted/30 flex justify-between items-center">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <History size={24} className="text-primary" />
-            Histórico de Relatórios Gerados
-          </h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-muted text-muted-foreground font-semibold uppercase tracking-wider text-xs border-b border-border">
-              <tr>
-                <th className="px-5 py-4">ID</th>
-                <th className="px-5 py-4">Data</th>
-                <th className="px-5 py-4">Razão Social</th>
-                <th className="px-5 py-4 text-center">Itens Críticos</th>
-                <th className="px-5 py-4 text-right">Risco Total Apurado</th>
-                <th className="px-5 py-4">Gerado Por</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {historyLoading ? (
-                <tr>
-                  <td colSpan="6" className="px-5 py-8 text-center text-muted-foreground">
-                    <Loader2 className="animate-spin mx-auto mb-2" size={24} />
-                  </td>
-                </tr>
-              ) : history.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="px-5 py-8 text-center text-muted-foreground font-medium">
-                    Nenhum relatório foi salvo ainda.
-                  </td>
-                </tr>
-              ) : (
-                history.map((h, idx) => (
-                  <tr key={idx} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-5 py-4 font-bold text-primary">{h.id}</td>
-                    <td className="px-5 py-4 font-medium">{h.data}</td>
-                    <td className="px-5 py-4 font-bold">{h.razao}</td>
-                    <td className="px-5 py-4 text-center font-black text-danger">{h.itensCriticos}</td>
-                    <td className="px-5 py-4 text-right font-black">{formatCurrency(h.riscoTotal)}</td>
-                    <td className="px-5 py-4">
-                      <span className="bg-muted/50 border border-border px-3 py-1 rounded-lg text-xs font-bold">
-                        {h.responsavel}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
