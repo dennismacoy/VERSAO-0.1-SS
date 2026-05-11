@@ -31,11 +31,17 @@ export const AuthProvider = ({ children }) => {
       let userRole = '';
       let userData = null;
       
-      if (response && response.success) {
-        userRole = response.role;
-        userData = response.user;
+      if (response && response.success === true) {
+        userRole = response.role || 'Admin';
+        
+        // Force exact "Admin" capitalization to match permissions matrix
+        if (userRole.toLowerCase() === 'admin') {
+          userRole = 'Admin';
+        }
+        
+        userData = response.user || { name: username };
       } else {
-        throw new Error("Credenciais inválidas ou erro na API");
+        throw new Error(response?.message || "Credenciais inválidas ou erro na API");
       }
 
       setUser(userData);

@@ -29,7 +29,7 @@ const fetchGAS = async (payload) => {
 
 export const api = {
   async login(username, password) {
-    return await fetchGAS({ action: 'login', username, password });
+    return await fetchGAS({ action: 'login', usuario: username, senha: password });
   },
 
   async searchProducts(query, type = 'geral') {
