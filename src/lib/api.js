@@ -1,58 +1,98 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbw0mQy3XLnfpf-EaKjScjG9PAam4p8Br7X0do9b6SrL_Cwdb7I_lXDd0lSaHtI0CpCxOw/exec";
+import {
+  createPreVendaFirebase,
+  createPedidoFirebase,
+  getHistoryFirebase,
+  updateStatusFirebase,
+  updateRecordFirebase,
+  deleteRecordFirebase,
+  deleteMultipleFirebase,
+} from './firebase';
 
-// Helper to make POST requests to GAS
-// We use 'text/plain' because GAS often fails CORS preflight with 'application/json'
+// =============================================
+// Google Apps Script (mantido APENAS para Login)
+// =============================================
+const GAS_URL = "https://script.google.com/macros/s/AKfycbw0mQy3XLnfpf-EaKjScjG9PAam4p8Br7X0do9b6SrL_Cwdb7I_lXDd0lSaHtI0CpCxOw/exec";
+
 const fetchGAS = async (payload) => {
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(GAS_URL, {
       method: "POST",
       redirect: "follow",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8",
-      },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
     });
-
-    // Attempt to parse JSON response. 
-    // Note: If no-cors is used, response is opaque. We assume CORS is handled in GAS via Content-Type text/plain workaround.
     const text = await response.text();
     try {
       return JSON.parse(text);
     } catch (e) {
-      // If it's not JSON, return the text directly
       return text;
     }
   } catch (error) {
-    console.error(`Error in GAS fetch (action: ${payload.action}):`, error);
+    console.error(`[GAS] Erro (action: ${payload.action}):`, error);
     throw error;
   }
 };
 
+// =============================================
+// API Pública (usada pelo resto do app)
+// =============================================
 export const api = {
+  // Login continua no Google Apps Script (lê a aba "Usuarios")
   async login(username, password) {
     return await fetchGAS({ action: 'login', usuario: username, senha: password });
   },
 
-  async searchProducts(query, type = 'geral') {
-    return await fetchGAS({ action: 'searchProducts', query, type, limit: 999999 });
-  },
-
-  async getAllProducts() {
-    return await fetchGAS({ action: 'getAllProducts' });
-  },
-
+  // --- FIREBASE: Pré-Vendas ---
   async createPreVenda(pedidoData) {
-    return await fetchGAS({ action: 'createPreVenda', data: pedidoData });
+    return await createPreVendaFirebase(pedidoData);
   },
 
-  async getHistory(sheetName) {
-    return await fetchGAS({ action: 'getHistory', sheetName });
+  async getPreVendas() {
+    return await getHistoryFirebase('prevendas');
   },
 
-  async updateStatus(id, newStatus) {
-    return await fetchGAS({ action: 'updateStatus', id, status: newStatus });
+  // --- FIREBASE: Pedidos B2B (Clientes) ---
+  async createPedido(pedidoData) {
+    return await createPedidoFirebase(pedidoData);
   },
 
+  async getPedidos() {
+    return await getHistoryFirebase('pedidos');
+  },
+
+  // --- FIREBASE: Histórico genérico ---
+  async getHistory(nodeName) {
+    // Mapeia nomes legados para nós do Firebase
+    const nodeMap = {
+      'Prevendas': 'prevendas',
+      'prevendas': 'prevendas',
+      'Pedidos': 'pedidos',
+      'pedidos': 'pedidos',
+    };
+    const resolvedNode = nodeMap[nodeName] || nodeName;
+    return await getHistoryFirebase(resolvedNode);
+  },
+
+  // --- FIREBASE: Atualização de Status ---
+  async updateStatus(firebaseId, newStatus, nodeName = 'prevendas') {
+    return await updateStatusFirebase(nodeName, firebaseId, newStatus);
+  },
+
+  // --- FIREBASE: Atualização de campos arbitrários ---
+  async updateRecord(nodeName, firebaseId, fields) {
+    return await updateRecordFirebase(nodeName, firebaseId, fields);
+  },
+
+  // --- FIREBASE: Exclusão ---
+  async deleteRecord(nodeName, firebaseId) {
+    return await deleteRecordFirebase(nodeName, firebaseId);
+  },
+
+  async deleteMultiple(nodeName, firebaseIds) {
+    return await deleteMultipleFirebase(nodeName, firebaseIds);
+  },
+
+  // --- GAS: Upload de dados para planilha (relatórios/backoffice) ---
   async saveReport(reportData) {
     return await fetchGAS({ action: 'saveReport', data: reportData });
   },
@@ -61,3 +101,4 @@ export const api = {
     return await fetchGAS({ action: 'uploadData', targetBase, data: payload });
   }
 };
+
