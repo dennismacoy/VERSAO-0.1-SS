@@ -113,10 +113,10 @@ export default function Relatorios() {
     <div className="flex flex-col h-full space-y-8 pb-10">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div className="space-y-1">
-          <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase italic">
+          <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase italic">
             Inteligência de <span className="text-primary">Dados</span>
           </h1>
-          <p className="text-muted-foreground font-bold text-sm tracking-widest uppercase">
+          <p className="text-muted-foreground font-bold text-xs md:text-sm tracking-widest uppercase">
             Auditoria, Performance e Análise de Risco
           </p>
         </div>
@@ -144,8 +144,8 @@ export default function Relatorios() {
 
       {activeTab === 'geral' ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="erp-card p-6 bg-destructive/5 border-l-8 border-l-destructive flex items-center justify-between">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            <div className="erp-card p-4 md:p-6 bg-destructive/5 border-l-8 border-l-destructive flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-black text-destructive uppercase tracking-widest mb-1">Total em Risco (IDW)</p>
                 <h3 className="text-3xl font-black tracking-tighter text-destructive">{formatCurrency(totalInRisk)}</h3>
@@ -155,7 +155,7 @@ export default function Relatorios() {
               </div>
             </div>
 
-            <div className="erp-card p-6 border-l-8 border-l-primary flex items-center justify-between">
+            <div className="erp-card p-4 md:p-6 border-l-8 border-l-primary flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Itens Críticos (+6 Dias)</p>
                 <h3 className="text-3xl font-black tracking-tighter text-foreground">{riskCount}</h3>
@@ -165,7 +165,7 @@ export default function Relatorios() {
               </div>
             </div>
 
-            <div className="erp-card p-6 border-l-8 border-l-success flex items-center justify-between">
+            <div className="erp-card p-4 md:p-6 border-l-8 border-l-success flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-black text-success uppercase tracking-widest mb-1">Base Analisada</p>
                 <h3 className="text-3xl font-black tracking-tighter text-foreground">{filteredData.length}</h3>
@@ -183,7 +183,7 @@ export default function Relatorios() {
                 <input
                   type="text"
                   placeholder="Filtrar por Descrição ou Razão Social..."
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold transition-all"
+                  className="w-full pl-12 pr-4 py-3 md:py-4 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold transition-all"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
@@ -191,7 +191,7 @@ export default function Relatorios() {
               {selectedRazao && (
                 <button
                   onClick={() => setSelectedRazao('')}
-                  className="px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all min-h-[44px]"
+                  className="px-6 py-3 md:py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all min-h-[44px]"
                 >
                   Limpar Razão
                 </button>
@@ -201,14 +201,14 @@ export default function Relatorios() {
             <div className="flex gap-2 w-full md:w-auto">
               <button
                 onClick={handleSaveToHistory}
-                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-muted text-foreground font-black px-6 py-4 rounded-2xl transition-all shadow-sm hover:bg-muted/80 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
+                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-muted text-foreground font-black px-6 py-3 md:py-4 rounded-2xl transition-all shadow-sm hover:bg-muted/80 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
               >
                 <HistoryIcon size={18} />
                 Guardar Relatório
               </button>
               <button
                 onClick={generateReportPDF}
-                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black px-8 py-4 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
+                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black px-8 py-3 md:py-4 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
               >
                 <Download size={18} />
                 Gerar PDF

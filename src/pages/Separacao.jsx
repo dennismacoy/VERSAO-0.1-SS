@@ -77,10 +77,10 @@ export default function Separacao() {
     <div className="flex flex-col h-full space-y-8 pb-10">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div className="space-y-1">
-          <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase italic">
+          <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase italic">
             Fluxo de <span className="text-primary">Separação</span>
           </h1>
-          <p className="text-muted-foreground font-bold text-sm tracking-widest uppercase">
+          <p className="text-muted-foreground font-bold text-xs md:text-sm tracking-widest uppercase">
             Controle de Picking e Expedição em Tempo Real
           </p>
         </div>
@@ -99,12 +99,12 @@ export default function Separacao() {
           <p className="text-muted-foreground font-black uppercase tracking-widest text-xs">Mapeando pedidos pendentes...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
           {items.map((item) => (
             <div
               key={item.id}
               className={cn(
-                "erp-card p-6 flex flex-col border-t-8 transition-all relative overflow-hidden",
+                "erp-card p-4 md:p-6 flex flex-col border-t-8 transition-all relative overflow-hidden",
                 item.status === 'Aberta' ? "border-t-muted" :
                   item.status === 'Finalizada' ? "border-t-success" : "border-t-primary"
               )}

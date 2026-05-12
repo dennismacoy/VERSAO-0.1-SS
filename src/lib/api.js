@@ -33,7 +33,7 @@ export const api = {
   },
 
   async searchProducts(query, type = 'geral') {
-    return await fetchGAS({ action: 'searchProducts', query, type });
+    return await fetchGAS({ action: 'searchProducts', query, type, limit: 999999 });
   },
 
   async createPreVenda(pedidoData) {

@@ -180,10 +180,10 @@ export default function PreVenda() {
   return (
     <div className="flex flex-col h-full space-y-8 pb-10">
       <div className="space-y-1">
-        <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase italic">
+        <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase italic">
           Painel de <span className="text-primary">Pré-Venda</span>
         </h1>
-        <p className="text-muted-foreground font-bold text-sm tracking-widest uppercase">
+        <p className="text-muted-foreground font-bold text-xs md:text-sm tracking-widest uppercase">
           Gestão de Pedidos e Emissão de Documentos Fiscais
         </p>
       </div>
@@ -191,8 +191,8 @@ export default function PreVenda() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         {/* Adicionar Itens Section */}
         <div className="xl:col-span-4 space-y-6">
-          <div className="erp-card p-8 border-t-8 border-t-primary">
-            <div className="flex items-center gap-3 mb-8">
+          <div className="erp-card p-4 md:p-8 border-t-8 border-t-primary">
+            <div className="flex items-center gap-3 mb-6 md:mb-8">
               <div className="p-3 bg-primary/10 rounded-2xl text-primary">
                 <Plus size={24} />
               </div>
@@ -209,7 +209,7 @@ export default function PreVenda() {
                   <input
                     type="text"
                     required
-                    className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-border bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 font-bold transition-all"
+                    className="w-full pl-12 pr-4 py-3 md:py-4 rounded-2xl border-2 border-border bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 font-bold transition-all"
                     value={codigo}
                     onChange={handleCodigoChange}
                     placeholder="Digite ou Bip o código..."
@@ -223,7 +223,7 @@ export default function PreVenda() {
                   type="text"
                   required
                   readOnly
-                  className="w-full px-5 py-4 rounded-2xl border-2 border-border bg-muted/30 text-muted-foreground font-bold"
+                  className="w-full px-5 py-3 md:py-4 rounded-2xl border-2 border-border bg-muted/30 text-muted-foreground font-bold"
                   value={descricao || "Produto não identificado"}
                 />
               </div>
@@ -235,7 +235,7 @@ export default function PreVenda() {
                     type="number"
                     min="1"
                     required
-                    className="w-full px-5 py-4 rounded-2xl border-2 border-border bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 font-black text-center text-xl transition-all"
+                    className="w-full px-5 py-3 md:py-4 rounded-2xl border-2 border-border bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 font-black text-center text-xl transition-all"
                     value={qtd}
                     onChange={(e) => setQtd(e.target.value)}
                   />
@@ -246,7 +246,7 @@ export default function PreVenda() {
                     type="number"
                     step="0.01"
                     required
-                    className="w-full px-5 py-4 rounded-2xl border-2 border-border bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 font-black text-center text-xl transition-all"
+                    className="w-full px-5 py-3 md:py-4 rounded-2xl border-2 border-border bg-background focus:border-primary focus:ring-4 focus:ring-primary/10 font-black text-center text-xl transition-all"
                     value={preco}
                     onChange={(e) => setPreco(e.target.value)}
                   />
@@ -256,20 +256,20 @@ export default function PreVenda() {
               <button
                 type="submit"
                 disabled={!descricao}
-                className="w-full bg-primary text-primary-foreground font-black py-5 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 transform hover:-translate-y-1 active:scale-95 uppercase tracking-widest text-sm disabled:opacity-50 disabled:transform-none"
+                className="w-full bg-primary text-primary-foreground font-black py-4 md:py-5 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 transform hover:-translate-y-1 active:scale-95 uppercase tracking-widest text-xs md:text-sm disabled:opacity-50 disabled:transform-none"
               >
                 Incluir no Carrinho
               </button>
             </form>
 
-            <div className="mt-10 pt-8 border-t-2 border-dashed border-border">
+            <div className="mt-8 md:mt-10 pt-6 md:pt-8 border-t-2 border-dashed border-border">
               <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1 block mb-3">Atribuir Separação a</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-primary">
                   <User size={18} />
                 </div>
                 <select
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold appearance-none cursor-pointer"
+                  className="w-full pl-12 pr-4 py-3 md:py-4 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold appearance-none cursor-pointer"
                   value={atribuicao}
                   onChange={(e) => setAtribuicao(e.target.value)}
                 >
@@ -287,10 +287,10 @@ export default function PreVenda() {
         {/* Carrinho Section */}
         <div className="xl:col-span-8 flex flex-col space-y-6">
           <div className="erp-card flex-1 flex flex-col overflow-hidden">
-            <div className="p-6 border-b border-border bg-muted/20 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <ShoppingCart size={24} className="text-primary" />
-                <h2 className="text-xl font-black uppercase tracking-tight">Checkout de Itens</h2>
+            <div className="p-4 md:p-6 border-b border-border bg-muted/20 flex justify-between items-center">
+              <div className="flex items-center gap-2 md:gap-3">
+                <ShoppingCart size={24} className="text-primary hidden md:block" />
+                <h2 className="text-lg md:text-xl font-black uppercase tracking-tight">Checkout de Itens</h2>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest bg-background px-3 py-1 rounded-full border border-border">

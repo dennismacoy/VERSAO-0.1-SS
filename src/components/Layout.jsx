@@ -36,9 +36,9 @@ export default function Layout({ children }) {
     }
   }, [darkMode]);
 
-  // Close mobile menu on route change
+  // Scroll to top on route change
   useEffect(() => {
-    setIsMobileMenuOpen(false);
+    window.scrollTo(0, 0);
   }, [location]);
 
   const handleLogout = () => {
@@ -141,17 +141,13 @@ export default function Layout({ children }) {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Top Navbar */}
         <header className="h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 z-20 shadow-sm sticky top-0">
           <div className="flex items-center gap-4">
-            <button 
-              className="md:hidden p-2 rounded-xl hover:bg-muted text-muted-foreground transition-all active:scale-90"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
             <div className="md:hidden flex items-center gap-2">
-              <span className="font-black text-xl tracking-tighter text-primary">SmartStock</span>
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg transform rotate-3">
+                <span className="font-black text-primary-foreground text-sm">SS</span>
+              </div>
+              <span className="font-black text-lg tracking-tighter text-primary">SmartStock</span>
             </div>
             <h2 className="hidden md:block font-bold text-muted-foreground text-sm uppercase tracking-widest">
               {menuItems.find(i => i.path === location.pathname)?.name || 'Início'}
@@ -160,77 +156,52 @@ export default function Layout({ children }) {
 
           <div className="flex items-center gap-3">
             <button
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-background hover:bg-muted text-muted-foreground transition-all shadow-sm active:scale-95 group"
+              className="flex items-center gap-2 px-3 py-2 md:px-4 rounded-xl border border-border bg-background hover:bg-muted text-muted-foreground transition-all shadow-sm active:scale-95 group"
               onClick={() => setDarkMode(!darkMode)}
             >
               {darkMode ? <Sun size={18} className="text-primary group-hover:rotate-45 transition-transform" /> : <Moon size={18} className="text-primary group-hover:-rotate-12 transition-transform" />}
               <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">{darkMode ? 'Claro' : 'Escuro'}</span>
             </button>
+            <button
+              onClick={handleLogout}
+              className="md:hidden flex items-center justify-center p-2 rounded-xl border border-destructive/20 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-all active:scale-95"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 
         {/* Page Container */}
-        <div className="flex-1 overflow-auto custom-scrollbar bg-muted/30 p-4 md:p-8">
+        <div className="flex-1 overflow-auto custom-scrollbar bg-muted/30 p-4 pb-24 md:p-8 md:pb-8">
           <div className="max-w-[1600px] mx-auto h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
             {children}
           </div>
         </div>
       </main>
 
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-background/95 backdrop-blur-md" />
-          <div className="relative h-full flex flex-col p-6">
-            <div className="flex justify-between items-center mb-12">
-              <span className="font-black text-3xl tracking-tighter text-primary">SmartStock</span>
-              <button 
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="p-3 bg-muted rounded-full"
+      {/* Bottom Navigation for Mobile */}
+      <nav className="md:hidden fixed bottom-0 left-0 w-full z-50 bg-card border-t border-border shadow-[0_-5px_15px_-10px_rgba(0,0,0,0.3)] pb-safe">
+        <ul className="flex items-center justify-around p-2">
+          {filteredMenu.slice(0, 4).map((item) => (
+            <li key={item.path} className="flex-1">
+              <NavLink
+                to={item.path}
+                className={({ isActive }) => cn(
+                  "flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-xl transition-all duration-200",
+                  isActive 
+                    ? "text-primary font-bold scale-110" 
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
-                <X size={28} />
-              </button>
-            </div>
-            
-            <nav className="flex-1">
-              <ul className="space-y-6">
-                {filteredMenu.map((item) => (
-                  <li key={item.path}>
-                    <NavLink
-                      to={item.path}
-                      className={({ isActive }) => cn(
-                        "flex items-center gap-6 text-2xl font-black transition-all",
-                        isActive ? "text-primary translate-x-4" : "text-muted-foreground"
-                      )}
-                    >
-                      <item.icon size={32} />
-                      {item.name}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-
-            <div className="pt-8 border-t border-border flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center font-black text-2xl text-primary-foreground">
-                  {user?.name?.charAt(0) || 'U'}
-                </div>
-                <div>
-                  <p className="font-black text-xl">{user?.name || 'Usuário'}</p>
-                  <p className="text-sm font-bold text-primary uppercase tracking-widest">{role}</p>
-                </div>
-              </div>
-              <button 
-                onClick={handleLogout}
-                className="p-4 bg-destructive/10 text-destructive rounded-2xl"
-              >
-                <LogOut size={28} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <item.icon size={22} className="transition-transform" />
+                <span className="text-[10px] uppercase tracking-tighter truncate max-w-[80px] text-center">
+                  {item.name}
+                </span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </div>
   );
 }

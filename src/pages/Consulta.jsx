@@ -75,10 +75,10 @@ export default function Consulta() {
     <div className="flex flex-col h-full space-y-8 pb-10">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div className="space-y-1">
-          <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase italic">
+          <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase italic">
             Consulta <span className="text-primary">Inteligente</span>
           </h1>
-          <p className="text-muted-foreground font-bold text-sm tracking-widest uppercase">
+          <p className="text-muted-foreground font-bold text-xs md:text-sm tracking-widest uppercase">
             Acesso em tempo real à base de 40k itens
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function Consulta() {
           </div>
           <input
             type="text"
-            className="block w-full pl-12 pr-32 py-4 border-2 border-border rounded-2xl bg-card text-foreground focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all shadow-xl font-bold placeholder:text-muted-foreground/50"
+            className="block w-full pl-12 pr-32 py-3 md:py-4 border-2 border-border rounded-2xl bg-card text-foreground focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all shadow-xl font-bold placeholder:text-muted-foreground/50"
             placeholder="Código ou Descrição..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -246,8 +246,8 @@ export default function Consulta() {
             </div>
 
             <div className="p-4 md:p-8 overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="erp-card p-6 border-l-4 border-l-primary space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                <div className="erp-card p-4 md:p-6 border-l-4 border-l-primary space-y-4">
                   <h4 className="font-black text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">Informações Logísticas</h4>
                   <div className="space-y-4">
                     <InfoItem icon={MapPin} label="Corredor" value={selectedProduct.corredor} />
@@ -292,7 +292,7 @@ export default function Consulta() {
                 </div>
               </div>
 
-              <div className="mt-8 bg-muted/30 p-8 rounded-[2rem] border-2 border-border flex flex-col lg:flex-row items-center justify-between gap-6">
+              <div className="mt-8 bg-muted/30 p-4 md:p-8 rounded-[2rem] border-2 border-border flex flex-col lg:flex-row items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
                   <div className="w-16 h-16 bg-card rounded-2xl flex items-center justify-center text-primary border border-border shadow-sm">
                     <User size={32} />
