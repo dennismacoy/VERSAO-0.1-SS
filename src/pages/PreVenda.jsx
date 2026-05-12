@@ -5,18 +5,19 @@ import { useProducts } from '../context/ProductsContext';
 import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 import { generatePreVendaPDF } from '../lib/pdfGenerator';
+import { cn } from '../lib/utils';
 
 export default function PreVenda() {
   const { user, hasPermission } = useAuth();
   const { searchLocal } = useProducts();
   const location = useLocation();
-  
+
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [filterDate, setFilterDate] = useState('');
   const [filterText, setFilterText] = useState('');
-  
+
   const [isNova, setIsNova] = useState(false);
   const [cart, setCart] = useState([]);
   const [query, setQuery] = useState('');
@@ -70,10 +71,10 @@ export default function PreVenda() {
     if (exists) {
       setCart(cart.map(i => i.codigo === exists.codigo ? { ...i, qtd: i.qtd + 1 } : i));
     } else {
-      setCart([...cart, { 
+      setCart([...cart, {
         id: p.CODIGO || p.codigo,
-        codigo: p.CODIGO || p.codigo, 
-        descricao: p.DESCRICAO || p.descricao, 
+        codigo: p.CODIGO || p.codigo,
+        descricao: p.DESCRICAO || p.descricao,
         qtd: 1,
         preco: Number(p.PRECO_ATACADO || p.preco_atacado || 0),
         emb: p.EMBALAGEM || p.emb || 'UN'
@@ -82,7 +83,7 @@ export default function PreVenda() {
   };
 
   const updateCartQtd = (id, qtd) => {
-    if(qtd <= 0) {
+    if (qtd <= 0) {
       setCart(cart.filter(i => i.id !== id));
       return;
     }
@@ -116,7 +117,7 @@ export default function PreVenda() {
   };
 
   const handleDeleteHistory = () => {
-    if(window.confirm('Excluir registros selecionados?')) {
+    if (window.confirm('Excluir registros selecionados?')) {
       setHistory(history.filter(h => !selectedIds.includes(h.id)));
       setSelectedIds([]);
     }
@@ -152,9 +153,9 @@ export default function PreVenda() {
       <div className="erp-card p-4 flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <input 
-            type="text" 
-            placeholder="Filtrar por Cliente ou ID..." 
+          <input
+            type="text"
+            placeholder="Filtrar por Cliente ou ID..."
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
@@ -162,8 +163,8 @@ export default function PreVenda() {
         </div>
         <div className="relative w-full md:w-64">
           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <input 
-            type="date" 
+          <input
+            type="date"
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background"
             value={filterDate}
             onChange={(e) => setFilterDate(e.target.value)}
@@ -180,7 +181,7 @@ export default function PreVenda() {
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-3"><input type="checkbox" onChange={(e) => setSelectedIds(e.target.checked ? filteredHistory.map(h=>h.id) : [])} checked={selectedIds.length === filteredHistory.length && filteredHistory.length > 0} /></th>
+                <th className="px-4 py-3"><input type="checkbox" onChange={(e) => setSelectedIds(e.target.checked ? filteredHistory.map(h => h.id) : [])} checked={selectedIds.length === filteredHistory.length && filteredHistory.length > 0} /></th>
                 <th className="px-4 py-3 font-bold">ID / Cliente</th>
                 <th className="px-4 py-3 font-bold">Data</th>
                 <th className="px-4 py-3 font-bold text-center">Status</th>
@@ -209,22 +210,22 @@ export default function PreVenda() {
                   <td className="px-4 py-3 text-right font-black">{formatCurrency(h.total)}</td>
                   <td className="px-4 py-3 text-center">
                     {hasPermission('Acesso Requisições') ? (
-                       <select 
-                        value={h.separador} 
+                      <select
+                        value={h.separador}
                         onChange={(e) => assignSeparador(h.id, e.target.value)}
                         className="bg-background border border-border rounded px-2 py-1 text-xs"
                       >
-                         <option value="">Não atribuído</option>
-                         <option value="João">João (Repositor)</option>
-                         <option value="Marcos">Marcos (Repositor)</option>
-                       </select>
+                        <option value="">Não atribuído</option>
+                        <option value="João">João (Repositor)</option>
+                        <option value="Marcos">Marcos (Repositor)</option>
+                      </select>
                     ) : (
                       <span className="text-xs">{h.separador || 'N/A'}</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <button 
-                      className="text-primary hover:bg-primary/10 p-2 rounded" 
+                    <button
+                      className="text-primary hover:bg-primary/10 p-2 rounded"
                       title="Gerar PDF Profissional"
                       onClick={() => generatePreVendaPDF(h)}
                     >
@@ -243,17 +244,17 @@ export default function PreVenda() {
           <div className="bg-card w-full max-w-5xl max-h-[95vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
             <div className="p-4 border-b border-border bg-primary/5 flex justify-between items-center">
               <h2 className="text-xl font-black flex items-center gap-2"><ShoppingCart size={24} /> Criação de Pré-Venda</h2>
-              <button onClick={() => setIsNova(false)} className="p-2 hover:bg-destructive rounded-full hover:text-destructive-foreground"><X size={20}/></button>
+              <button onClick={() => setIsNova(false)} className="p-2 hover:bg-destructive rounded-full hover:text-destructive-foreground"><X size={20} /></button>
             </div>
-            
+
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
               <div className="w-full md:w-5/12 p-4 border-r border-border flex flex-col gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                  <input 
-                    type="text" 
-                    className="w-full pl-9 pr-4 py-3 rounded-lg border border-border bg-background" 
-                    placeholder="Buscar Código ou Descrição..." 
+                  <input
+                    type="text"
+                    className="w-full pl-9 pr-4 py-3 rounded-lg border border-border bg-background"
+                    placeholder="Buscar Código ou Descrição..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
@@ -284,13 +285,13 @@ export default function PreVenda() {
                           <p className="font-bold text-sm text-primary">{item.codigo}</p>
                           <p className="text-xs line-clamp-1">{item.descricao}</p>
                         </div>
-                        <button onClick={() => updateCartQtd(item.id, 0)} className="text-muted-foreground hover:text-destructive"><Trash2 size={16}/></button>
+                        <button onClick={() => updateCartQtd(item.id, 0)} className="text-muted-foreground hover:text-destructive"><Trash2 size={16} /></button>
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-bold uppercase text-muted-foreground">Qtd:</span>
-                          <input 
-                            type="number" 
+                          <input
+                            type="number"
                             min="0"
                             value={item.qtd}
                             onChange={(e) => updateCartQtd(item.id, Number(e.target.value))}
@@ -306,13 +307,13 @@ export default function PreVenda() {
                     </div>
                   ))}
                 </div>
-                
+
                 <div className="mt-4 pt-4 border-t-2 border-primary bg-card p-4 rounded-xl shadow-lg">
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-xs font-black uppercase text-muted-foreground tracking-widest">Total da Pré-Venda</span>
                     <span className="text-3xl font-black text-primary">{formatCurrency(totalCart)}</span>
                   </div>
-                  <button 
+                  <button
                     onClick={handleSalvarPreVenda}
                     disabled={saving || cart.length === 0}
                     className="w-full btn-primary py-4 flex items-center justify-center gap-2 text-lg shadow-xl"

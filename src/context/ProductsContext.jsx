@@ -72,10 +72,20 @@ export const ProductsProvider = ({ children }) => {
   const searchLocal = (query) => {
     if (!query) return products;
     const lowerQ = query.toLowerCase();
-    return products.filter(p =>
-      (p.CODIGO && p.CODIGO.toString().includes(lowerQ)) ||
-      (p.DESCRICAO && p.DESCRICAO.toLowerCase().includes(lowerQ))
-    );
+
+    return products.filter(p => {
+      // Puxa o dado independente se a chave do banco veio em Maiúsculo ou Minúsculo
+      const cod = p.CODIGO || p.codigo || '';
+      const desc = p.DESCRICAO || p.descricao || '';
+      const rz = p.RAZAOSOCIAL || p.razaosocial || p.fornecedor || '';
+
+      // Verifica se o texto digitado bate com o código, descrição ou fornecedor
+      return (
+        cod.toString().toLowerCase().includes(lowerQ) ||
+        desc.toString().toLowerCase().includes(lowerQ) ||
+        rz.toString().toLowerCase().includes(lowerQ)
+      );
+    });
   };
 
   return (
