@@ -18,7 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 
 export default function Separacao() {
-  const { hasPermission } = useAuth();
+  const { user, role, hasPermission } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
@@ -61,6 +61,12 @@ export default function Separacao() {
     }
   };
 
+  const handleReatribuir = (id, newSeparador) => {
+    // Simulando reatribuição via API
+    setItems(items.map(item => item.id === id ? { ...item, separador: newSeparador, atribuicao: newSeparador } : item));
+    alert('Reatribuído com sucesso para ' + newSeparador);
+  };
+
   if (!hasPermission('Ver Aba Separação')) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -100,7 +106,13 @@ export default function Separacao() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
-          {items.map((item) => (
+          {items
+            .filter(item => item.status !== 'Finalizada') // Quando for finalizada, some
+            .filter(item => {
+              if (role === 'admin' || role === 'gerente') return true;
+              return item.separador === user?.name || item.atribuicao === user?.name;
+            })
+            .map((item) => (
             <div
               key={item.id}
               className={cn(
@@ -137,7 +149,18 @@ export default function Separacao() {
                   <User size={18} className="text-primary" />
                   <div className="flex-1 overflow-hidden">
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">Responsável</p>
-                    <p className="font-bold truncate mt-1">{item.responsavel || item.atribuicao || 'Não Atribuído'}</p>
+                    <p className="font-bold truncate mt-1">{item.responsavel || item.atribuicao || item.separador || 'Não Atribuído'}</p>
+                    {(role === 'admin' || role === 'gerente') && (
+                      <select 
+                        className="mt-2 text-xs border rounded p-1"
+                        value={item.separador || item.atribuicao || ''}
+                        onChange={(e) => handleReatribuir(item.id, e.target.value)}
+                      >
+                        <option value="">Reatribuir</option>
+                        <option value="João">João (Repositor)</option>
+                        <option value="Marcos">Marcos (Repositor)</option>
+                      </select>
+                    )}
                   </div>
                 </div>
 

@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbwwylCO1wrs-MtTMWxFEb2dgNLynskK0GUuyKYm7XSjCz2NTnp9zNw3yePPNNGHVb6DEw/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbw0mQy3XLnfpf-EaKjScjG9PAam4p8Br7X0do9b6SrL_Cwdb7I_lXDd0lSaHtI0CpCxOw/exec";
 
 // Helper to make POST requests to GAS
 // We use 'text/plain' because GAS often fails CORS preflight with 'application/json'
@@ -11,7 +11,7 @@ const fetchGAS = async (payload) => {
       },
       body: JSON.stringify(payload),
     });
-    
+
     // Attempt to parse JSON response. 
     // Note: If no-cors is used, response is opaque. We assume CORS is handled in GAS via Content-Type text/plain workaround.
     const text = await response.text();
@@ -34,6 +34,10 @@ export const api = {
 
   async searchProducts(query, type = 'geral') {
     return await fetchGAS({ action: 'searchProducts', query, type, limit: 999999 });
+  },
+
+  async getAllProducts() {
+    return await fetchGAS({ action: 'getAllProducts' });
   },
 
   async createPreVenda(pedidoData) {

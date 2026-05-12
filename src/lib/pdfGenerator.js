@@ -6,8 +6,8 @@ const formatCurrency = (val) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 };
 
-export const generatePreVendaPDF = (cart, atribuicao, total) => {
-  if (!cart || cart.length === 0) return;
+export const generatePreVendaPDF = (item) => {
+  if (!item || !item.itens || item.itens.length === 0) return;
   
   try {
     const doc = new jsPDF();
@@ -24,11 +24,13 @@ export const generatePreVendaPDF = (cart, atribuicao, total) => {
     
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("CONTROLE DE LOGÍSTICA & PRÉ-VENDA", 14, 32);
+    doc.text("PRÉ-VENDA / DOCUMENTO NÃO FISCAL", 14, 32);
+    
+    const dataObj = new Date(item.data);
     
     doc.setFontSize(12);
-    doc.text(`Documento: #${Date.now().toString().slice(-6)}`, docWidth - 60, 20);
-    doc.text(`Data: ${new Date().toLocaleDateString()}`, docWidth - 60, 28);
+    doc.text(`Documento: #${item.id}`, docWidth - 60, 20);
+    doc.text(`Data: ${dataObj.toLocaleDateString()} ${dataObj.toLocaleTimeString()}`, docWidth - 60, 28);
 
     // Summary Section
     doc.setFillColor(245, 245, 245);
@@ -36,20 +38,20 @@ export const generatePreVendaPDF = (cart, atribuicao, total) => {
     
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text("Responsável Separação:", 20, 54);
+    doc.text("Cliente:", 20, 54);
     doc.setTextColor(0);
     doc.setFont("helvetica", "bold");
-    doc.text(atribuicao || "NÃO DEFINIDO", 65, 54);
+    doc.text(item.cliente || "NÃO INFORMADO", 35, 54);
     
     doc.setFontSize(16);
-    doc.text(`TOTAL GERAL: ${formatCurrency(total)}`, docWidth - 85, 58);
+    doc.text(`TOTAL GERAL: ${formatCurrency(item.total)}`, docWidth - 85, 58);
 
-    const tableData = cart.map(item => [
+    const tableData = item.itens.map(prod => [
       { content: "", styles: { minCellHeight: 20 } }, // Barcode
-      item.codigo,
-      item.descricao,
-      item.embalagem || item.emb || '',
-      item.qtd.toString(),
+      prod.codigo,
+      prod.descricao,
+      prod.embalagem || prod.emb || '',
+      prod.qtd.toString(),
       formatCurrency(item.preco_unitario || item.preco),
       formatCurrency(item.subtotal)
     ]);
@@ -67,10 +69,10 @@ export const generatePreVendaPDF = (cart, atribuicao, total) => {
       },
       didDrawCell: (data) => {
         if (data.section === 'body' && data.column.index === 0) {
-          const item = cart[data.row.index];
+          const prod = item.itens[data.row.index];
           const canvas = document.createElement("canvas");
           try {
-            JsBarcode(canvas, item.codigo, { format: "CODE128", displayValue: false, height: 40, width: 2, margin: 0 });
+            JsBarcode(canvas, prod.codigo, { format: "CODE128", displayValue: false, height: 40, width: 2, margin: 0 });
             const barcodeDataUrl = canvas.toDataURL("image/png");
             doc.addImage(barcodeDataUrl, 'PNG', data.cell.x + 2, data.cell.y + 2, 30, 15);
           } catch (e) {
@@ -80,7 +82,7 @@ export const generatePreVendaPDF = (cart, atribuicao, total) => {
       }
     });
 
-    doc.save(`prevenda_${Date.now()}.pdf`);
+    doc.save(`prevenda_${item.id}.pdf`);
   } catch (error) {
     console.error("Erro crítico ao gerar PDF de Pré-Venda:", error);
     alert("Ocorreu um erro ao gerar o PDF. Verifique o console para mais detalhes.");
@@ -171,5 +173,47 @@ export const generateRelatorioPDF = (filteredData, totalInRisk, selectedRazao) =
   } catch (error) {
     console.error("Erro crítico ao gerar PDF de Relatório:", error);
     alert("Ocorreu um erro ao gerar o PDF. Verifique o console para mais detalhes.");
+  }
+};
+
+export const generateB2BPDF = (pedido) => {
+  if (!pedido || !pedido.itens || pedido.itens.length === 0) return;
+  
+  try {
+    const doc = new jsPDF();
+    const docWidth = doc.internal.pageSize.getWidth();
+    
+    // Header Limpo B2B
+    doc.setFillColor(40, 167, 69); // Green Primary
+    doc.rect(0, 0, docWidth, 30, 'F');
+    
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("Pedido B2B", 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`ID: ${pedido.id} | Data: ${new Date(pedido.data).toLocaleDateString()}`, docWidth - 80, 20);
+
+    const tableData = pedido.itens.map(prod => [
+      prod.codigo,
+      prod.descricao,
+      prod.embalagem || prod.emb || '',
+      prod.qtd.toString()
+    ]);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [['Código', 'Descrição do Produto', 'Emb', 'Qtd Solicitada']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
+    });
+
+    doc.save(`pedido_b2b_${pedido.id}.pdf`);
+  } catch (error) {
+    console.error("Erro crítico ao gerar PDF B2B:", error);
+    alert("Ocorreu um erro ao gerar o PDF.");
   }
 };

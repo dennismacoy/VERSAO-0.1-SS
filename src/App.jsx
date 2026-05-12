@@ -3,7 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import Consulta from './pages/Consulta';
+import Pedidos from './pages/Pedidos';
+import Requisicoes from './pages/Requisicoes';
 import PreVenda from './pages/PreVenda';
 import Separacao from './pages/Separacao';
 import Relatorios from './pages/Relatorios';
@@ -47,25 +50,45 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const PrivateRoute = ({ children }) => {
-  const { user, loading } = useAuth();
+const PrivateRoute = ({ children, permissionName }) => {
+  const { user, loading, hasPermission } = useAuth();
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-primary font-bold">Carregando...</div>;
   }
   
-  return user ? <Layout>{children}</Layout> : <Navigate to="/login" replace />;
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (permissionName && !hasPermission(permissionName)) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-[80vh]">
+          <div className="text-center p-8 bg-card rounded-xl border">
+            <h2 className="text-xl font-bold text-destructive mb-2">Acesso Negado</h2>
+            <p className="text-muted-foreground">Você não tem permissão para visualizar esta página.</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+  
+  return <Layout>{children}</Layout>;
 };
 
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/" element={<PrivateRoute><Consulta /></PrivateRoute>} />
-      <Route path="/pre-venda" element={<PrivateRoute><PreVenda /></PrivateRoute>} />
-      <Route path="/separacao" element={<PrivateRoute><Separacao /></PrivateRoute>} />
-      <Route path="/relatorios" element={<PrivateRoute><Relatorios /></PrivateRoute>} />
-      <Route path="/configuracoes" element={<PrivateRoute><Configuracoes /></PrivateRoute>} />
+      <Route path="/" element={<PrivateRoute permissionName="Acesso Dashboard"><Dashboard /></PrivateRoute>} />
+      <Route path="/consulta" element={<PrivateRoute permissionName="Acesso Consulta"><Consulta /></PrivateRoute>} />
+      <Route path="/pedidos" element={<PrivateRoute permissionName="Acesso Pedidos"><Pedidos /></PrivateRoute>} />
+      <Route path="/requisicoes" element={<PrivateRoute permissionName="Acesso Requisições"><Requisicoes /></PrivateRoute>} />
+      <Route path="/pre-venda" element={<PrivateRoute permissionName="Acesso Pre-Venda"><PreVenda /></PrivateRoute>} />
+      <Route path="/separacao" element={<PrivateRoute permissionName="Acesso Separacao"><Separacao /></PrivateRoute>} />
+      <Route path="/relatorios" element={<PrivateRoute permissionName="Acesso Relatorios"><Relatorios /></PrivateRoute>} />
+      <Route path="/configuracoes" element={<PrivateRoute permissionName="Acesso Configuracoes"><Configuracoes /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

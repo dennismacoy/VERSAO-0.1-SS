@@ -7,18 +7,31 @@ export const useAuth = () => useContext(AuthContext);
 
 const defaultPermissions = {
   // Pages
-  'Acesso Consulta': ['Gerente', 'Lider', 'Colaborador', 'Tercerizado', 'Repositor'],
-  'Acesso Pre-Venda': ['Gerente', 'Lider', 'Colaborador'],
-  'Acesso Separacao': ['Gerente', 'Lider', 'Colaborador', 'Tercerizado', 'Repositor'],
-  'Acesso Relatorios': ['Gerente'],
-  // Info
-  'Ver Preço de Custo': ['Gerente'],
-  'Ver Margem': ['Gerente'],
-  'Ver Telefone do Comprador': ['Gerente', 'Lider'],
-  // Buttons
-  'Botão Finalizar Venda': ['Gerente', 'Lider', 'Colaborador'],
-  'Botão Gerar PDF': ['Gerente', 'Lider', 'Colaborador'],
-  'Botão Excluir Histórico': ['Gerente'],
+  'Acesso Dashboard': ['admin', 'gerente', 'vendedor'],
+  'Acesso Consulta': ['admin', 'gerente', 'repositor', 'vendedor'],
+  'Acesso Pedidos': ['clientes'],
+  'Acesso Requisições': ['admin', 'gerente'],
+  'Acesso Pre-Venda': ['admin', 'gerente', 'vendedor'],
+  'Acesso Separacao': ['admin', 'gerente', 'repositor'],
+  'Acesso Relatorios': ['admin', 'gerente'],
+  'Acesso Configuracoes': ['admin', 'gerente', 'repositor', 'vendedor', 'clientes'], // global for 'Minha Conta'
+
+  // Dashboard Cards
+  'Ver Separacoes Abertas': ['admin', 'gerente', 'repositor'],
+  'Ver Requisicoes Pendentes': ['admin', 'gerente'],
+  'Ver Itens ISV': ['admin', 'gerente'],
+  'Ver Itens Idade': ['admin', 'gerente'],
+  'Ver Total Paletes': ['admin', 'gerente', 'repositor'],
+  'Ver Valor Estoque': ['admin', 'gerente'],
+
+  // Consulta Details (Bottom Sheet)
+  'Ver Card Geral': ['admin', 'gerente', 'vendedor', 'repositor'],
+  'Ver Card Extras': ['admin', 'gerente'], // Custo, rentabilidade, ligar comprador
+
+  // Botoes
+  'Botao Enviar WPP': ['admin', 'gerente', 'vendedor'],
+  'Botao Ligar Comprador': ['admin', 'gerente'],
+  'Botao Gerar PDF': ['admin', 'gerente', 'vendedor'],
 };
 
 export const AuthProvider = ({ children }) => {
