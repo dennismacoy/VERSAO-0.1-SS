@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ListChecks, 
-  Play, 
-  CheckCircle2, 
-  Clock, 
-  FileText, 
-  Loader2, 
+import {
+  ListChecks,
+  Play,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Loader2,
   AlertCircle,
   Package,
   MapPin,
@@ -42,14 +42,14 @@ export default function Separacao() {
   const handleUpdateStatus = async (id, currentStatus) => {
     // Treat 'Iniciada' as 'Aberta' just in case old data has it
     if (currentStatus === 'Iniciada') currentStatus = 'Aberta';
-    
+
     const statusSequence = ['Aberta', 'Em Andamento', 'Finalizada'];
     const currentIndex = statusSequence.indexOf(currentStatus);
-    
+
     if (currentIndex === -1 || currentIndex === statusSequence.length - 1) return;
-    
+
     const nextStatus = statusSequence[currentIndex + 1];
-    
+
     setUpdatingId(id);
     try {
       await api.updateStatus(id, nextStatus);
@@ -60,8 +60,6 @@ export default function Separacao() {
       setUpdatingId(null);
     }
   };
-
-
 
   if (!hasPermission('Ver Aba Separação')) {
     return (
@@ -86,11 +84,11 @@ export default function Separacao() {
             Controle de Picking e Expedição em Tempo Real
           </p>
         </div>
-        <button 
+        <button
           onClick={loadItems}
           className="flex items-center gap-2 bg-card border-2 border-border px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-muted transition-all active:scale-95 shadow-sm"
         >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />} 
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <Clock size={16} />}
           Sincronizar Filas
         </button>
       </div>
@@ -103,18 +101,18 @@ export default function Separacao() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {items.map((item) => (
-            <div 
-              key={item.id} 
+            <div
+              key={item.id}
               className={cn(
                 "erp-card p-6 flex flex-col border-t-8 transition-all relative overflow-hidden",
-                item.status === 'Aberta' ? "border-t-muted" : 
-                item.status === 'Finalizada' ? "border-t-success" : "border-t-primary"
+                item.status === 'Aberta' ? "border-t-muted" :
+                  item.status === 'Finalizada' ? "border-t-success" : "border-t-primary"
               )}
             >
               <div className={cn(
                 "absolute -right-8 -top-8 w-24 h-24 rotate-45 flex items-end justify-center pb-2 opacity-10",
-                item.status === 'Aberta' ? "bg-muted-foreground" : 
-                item.status === 'Finalizada' ? "bg-success" : "bg-primary"
+                item.status === 'Aberta' ? "bg-muted-foreground" :
+                  item.status === 'Finalizada' ? "bg-success" : "bg-primary"
               )}>
                 <Package size={32} />
               </div>
@@ -127,8 +125,8 @@ export default function Separacao() {
                 <span className={cn(
                   "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm",
                   item.status === 'Aberta' ? "bg-muted text-muted-foreground border-border" :
-                  item.status === 'Finalizada' ? "bg-success/10 text-success border-success/20" :
-                  "bg-primary/10 text-primary border-primary/20"
+                    item.status === 'Finalizada' ? "bg-success/10 text-success border-success/20" :
+                      "bg-primary/10 text-primary border-primary/20"
                 )}>
                   {item.status}
                 </span>
@@ -153,15 +151,15 @@ export default function Separacao() {
               </div>
 
               <div className="mt-8 pt-6 border-t border-dashed border-border flex gap-3">
-                <button 
+                <button
                   onClick={() => generatePickingPDF(item)}
                   className="min-h-[44px] p-4 bg-card border-2 border-border text-foreground hover:bg-muted rounded-2xl transition-all shadow-sm active:scale-90"
                   title="Imprimir Guia de Picking"
                 >
                   <FileText size={20} />
                 </button>
-                
-                <button 
+
+                <button
                   disabled={item.status === 'Finalizada' || updatingId === item.id}
                   onClick={() => handleUpdateStatus(item.id, item.status)}
                   className={cn(

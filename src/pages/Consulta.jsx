@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Info, MessageSquare, X, Loader2, Phone, Package, Calendar, DollarSign, TrendingUp, History, MapPin, Barcode } from 'lucide-react';
+// CORREÇÃO: Adicionado 'User' e 'Barcode as BarcodeIcon' que faltavam nas importações
+import {
+  Search, Info, MessageSquare, X, Loader2, Phone, Package,
+  Calendar, DollarSign, TrendingUp, History, MapPin,
+  Barcode as BarcodeIcon, User
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
 import { cn } from '../lib/utils';
@@ -18,7 +23,7 @@ export default function Consulta() {
   const filteredProducts = React.useMemo(() => {
     if (!query) return cacheProducts;
     const lowerQuery = query.toLowerCase();
-    return cacheProducts.filter(p => 
+    return cacheProducts.filter(p =>
       (p.descricao?.toLowerCase().includes(lowerQuery)) ||
       (p.codigo?.toString().includes(lowerQuery)) ||
       (p.razaosocial?.toLowerCase().includes(lowerQuery))
@@ -27,9 +32,14 @@ export default function Consulta() {
 
   const visibleProducts = filteredProducts.slice(0, visibleCount);
 
+  // CORREÇÃO: Função handleSearch criada para evitar erro no onClick
+  const handleSearch = (searchQuery) => {
+    setQuery(searchQuery);
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
-      // Local filter is applied automatically by useMemo
+      handleSearch(query);
     }
   };
 
@@ -63,7 +73,6 @@ export default function Consulta() {
 
   return (
     <div className="flex flex-col h-full space-y-8 pb-10">
-      {/* Header Section */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div className="space-y-1">
           <h1 className="text-4xl font-black tracking-tighter text-foreground uppercase italic">
@@ -73,7 +82,7 @@ export default function Consulta() {
             Acesso em tempo real à base de 40k itens
           </p>
         </div>
-        
+
         <div className="relative w-full lg:w-[500px] group">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-transform group-focus-within:scale-110">
             <Search className="h-5 w-5 text-primary" />
@@ -96,87 +105,86 @@ export default function Consulta() {
           </div>
         </div>
       </div>
-      {/* Results Section */}
+
       <div className="flex-1 min-h-0">
         {(!hasLoaded && globalLoading) ? (
-            <div className="py-24 text-center text-muted-foreground flex flex-col items-center justify-center">
-              <Loader2 className="animate-spin mb-4 text-primary" size={48} />
-              <p className="text-sm font-bold uppercase tracking-widest">Carregando Base de Dados...</p>
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="py-24 text-center text-muted-foreground bg-card rounded-[2rem] border-2 border-dashed border-border flex flex-col items-center">
-              <Package size={64} className="mb-6 text-muted-foreground/30" />
-              <p className="text-xl font-bold">Nenhum produto encontrado.</p>
-              <p className="text-sm">Tente buscar por outro termo.</p>
-            </div>
-          ) : (
-            <>
-              <div 
-                className="hidden md:block bg-card rounded-[2rem] shadow-xl border-2 border-border overflow-hidden custom-scrollbar max-h-[600px] overflow-y-auto"
-                onScroll={handleScroll}
-              >
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead>
-                    <tr className="bg-muted/50 border-b border-border">
-                      <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Código</th>
-                      <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Descrição</th>
-                      <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-center">Emb</th>
-                      <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-right">Preço Unit.</th>
-                      <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-center">Estoque</th>
-                      <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-center">Ação</th>
+          <div className="py-24 text-center text-muted-foreground flex flex-col items-center justify-center">
+            <Loader2 className="animate-spin mb-4 text-primary" size={48} />
+            <p className="text-sm font-bold uppercase tracking-widest">Carregando Base de Dados...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="py-24 text-center text-muted-foreground bg-card rounded-[2rem] border-2 border-dashed border-border flex flex-col items-center">
+            <Package size={64} className="mb-6 text-muted-foreground/30" />
+            <p className="text-xl font-bold">Nenhum produto encontrado.</p>
+            <p className="text-sm">Tente buscar por outro termo.</p>
+          </div>
+        ) : (
+          <>
+            <div
+              className="hidden md:block bg-card rounded-[2rem] shadow-xl border-2 border-border overflow-hidden custom-scrollbar max-h-[600px] overflow-y-auto"
+              onScroll={handleScroll}
+            >
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Código</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Descrição</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-center">Emb</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-right">Preço Unit.</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-center">Estoque</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-center">Ação</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {visibleProducts.map((p, idx) => (
+                    <tr
+                      key={idx}
+                      className="hover:bg-primary/5 transition-all cursor-pointer group"
+                      onClick={() => setSelectedProduct(p)}
+                    >
+                      <td className="px-6 py-4">
+                        <span className="font-black text-primary bg-primary/10 px-2 py-1 rounded-md">{p.codigo}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-foreground group-hover:text-primary transition-colors">{p.descricao}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter mt-0.5">{p.razaosocial}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="font-black text-xs bg-muted border border-border px-2 py-1 rounded-md">{p.embalagem || 'UN'}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="font-black text-foreground">{formatCurrency(p.preco_unitario)}</span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex flex-col items-center">
+                          <span className={cn(
+                            "font-black text-sm",
+                            (p.estoque || 0) > 0 ? "text-success" : "text-destructive"
+                          )}>
+                            {p.estoque || 0}
+                          </span>
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase">{p.corredor || 'S/ LOC'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <button className="p-2 rounded-full hover:bg-primary hover:text-primary-foreground transition-all">
+                          <Info size={18} />
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {visibleProducts.map((p, idx) => (
-                      <tr 
-                        key={idx} 
-                        className="hover:bg-primary/5 transition-all cursor-pointer group"
-                        onClick={() => setSelectedProduct(p)}
-                      >
-                        <td className="px-6 py-4">
-                          <span className="font-black text-primary bg-primary/10 px-2 py-1 rounded-md">{p.codigo}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-foreground group-hover:text-primary transition-colors">{p.descricao}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter mt-0.5">{p.razaosocial}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="font-black text-xs bg-muted border border-border px-2 py-1 rounded-md">{p.embalagem || 'UN'}</span>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className="font-black text-foreground">{formatCurrency(p.preco_unitario)}</span>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex flex-col items-center">
-                            <span className={cn(
-                              "font-black text-sm",
-                              (p.estoque || 0) > 0 ? "text-success" : "text-destructive"
-                            )}>
-                              {p.estoque || 0}
-                            </span>
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">{p.corredor || 'S/ LOC'}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <button className="p-2 rounded-full hover:bg-primary hover:text-primary-foreground transition-all">
-                            <Info size={18} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-            {/* Mobile Card View */}
-            <div 
+            <div
               className="md:hidden flex flex-col gap-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-1"
               onScroll={handleScroll}
             >
               {visibleProducts.map((p, idx) => (
-                <div 
+                <div
                   key={idx}
                   className="erp-card p-5 space-y-4"
                   onClick={() => setSelectedProduct(p)}
@@ -214,7 +222,6 @@ export default function Consulta() {
         )}
       </div>
 
-      {/* Detailed Modal */}
       {selectedProduct && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-background/90 backdrop-blur-md animate-in fade-in duration-300">
           <div className="bg-card w-full h-full md:h-auto md:max-w-4xl md:max-h-[90vh] rounded-none md:rounded-[2.5rem] shadow-2xl md:border-4 border-primary/20 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
@@ -230,17 +237,16 @@ export default function Consulta() {
                   <p className="text-xs md:text-sm text-muted-foreground font-bold tracking-widest uppercase mt-1 md:mt-2">{selectedProduct.razaosocial}</p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedProduct(null)}
                 className="bg-muted hover:bg-destructive hover:text-destructive-foreground p-4 md:p-3 rounded-2xl transition-all flex-shrink-0"
               >
                 <X className="w-8 h-8 md:w-6 md:h-6" />
               </button>
             </div>
-            
+
             <div className="p-4 md:p-8 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Logistics Info */}
                 <div className="erp-card p-6 border-l-4 border-l-primary space-y-4">
                   <h4 className="font-black text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">Informações Logísticas</h4>
                   <div className="space-y-4">
@@ -252,7 +258,6 @@ export default function Consulta() {
                   </div>
                 </div>
 
-                {/* Commercial Info */}
                 <div className="erp-card p-6 border-l-4 border-l-primary space-y-4">
                   <h4 className="font-black text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">Informações Comerciais</h4>
                   <div className="space-y-4">
@@ -268,7 +273,6 @@ export default function Consulta() {
                   </div>
                 </div>
 
-                {/* Stock Info */}
                 <div className="erp-card p-6 border-l-4 border-l-primary space-y-4">
                   <h4 className="font-black text-xs text-muted-foreground uppercase tracking-[0.2em] mb-4">Informações de Estoque</h4>
                   <div className="space-y-4">
@@ -288,7 +292,6 @@ export default function Consulta() {
                 </div>
               </div>
 
-              {/* Contact Area */}
               <div className="mt-8 bg-muted/30 p-8 rounded-[2rem] border-2 border-border flex flex-col lg:flex-row items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
                   <div className="w-16 h-16 bg-card rounded-2xl flex items-center justify-center text-primary border border-border shadow-sm">
@@ -302,9 +305,9 @@ export default function Consulta() {
                     )}
                   </div>
                 </div>
-                
+
                 {canUseWhatsApp && (
-                  <button 
+                  <button
                     onClick={() => handleWhatsApp(selectedProduct)}
                     className="w-full lg:w-auto bg-[#25D366] hover:bg-[#20bd5a] text-white px-10 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-sm flex items-center justify-center gap-3 shadow-xl transform hover:scale-105 transition-all active:scale-95"
                   >

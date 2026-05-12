@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Trash2, 
-  FileText, 
-  ShoppingCart, 
-  Save, 
-  History, 
-  CheckSquare, 
-  Loader2, 
+import {
+  Plus,
+  Trash2,
+  FileText,
+  ShoppingCart,
+  Save,
+  History,
+  CheckSquare,
+  Loader2,
   AlertTriangle,
   Calendar,
   User,
@@ -30,13 +30,16 @@ export default function PreVenda() {
   const [preco, setPreco] = useState(0);
   const [emb, setEmb] = useState('UN');
   const [atribuicao, setAtribuicao] = useState('');
-  
+
   const [saving, setSaving] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [selectedHistory, setSelectedHistory] = useState([]);
   const [estoqueAtual, setEstoqueAtual] = useState(0);
-  
+
+  // CORREÇÃO: Adicionado o estado filterDate
+  const [filterDate, setFilterDate] = useState('');
+
   const { products: cacheProducts } = useProducts();
 
   useEffect(() => {
@@ -56,9 +59,9 @@ export default function PreVenda() {
   const handleCodigoChange = (e) => {
     const val = e.target.value;
     setCodigo(val);
-    
+
     const product = cacheProducts.find(p => String(p.codigo) === val || String(p.codigo_interno) === val);
-    
+
     if (product) {
       setDescricao(product.descricao || '');
       setPreco(product.preco_unitario || 0);
@@ -75,7 +78,7 @@ export default function PreVenda() {
   const addItem = (e) => {
     e.preventDefault();
     if (!codigo || !descricao || qtd <= 0) return;
-    
+
     const newItem = {
       id: Date.now().toString(),
       codigo,
@@ -126,13 +129,13 @@ export default function PreVenda() {
         criadoPor: user?.name,
         status: 'Aberta'
       };
-      
+
       await api.createPreVenda(pedidoData);
       generatePreVendaPDF(cart, atribuicao, total); // Auto-generate PDF
       alert("Pré-Venda enviada para logística e PDF gerado!");
       setCart([]);
       setAtribuicao('');
-      
+
       // Refresh history
       const histRes = await api.getHistory('Prevendas');
       setHistory(Array.isArray(histRes) ? histRes : (histRes?.data || []));
@@ -154,11 +157,10 @@ export default function PreVenda() {
       alert("Sem permissão para excluir.");
       return;
     }
-    
+
     if (window.confirm(`Excluir permanentemente ${selectedHistory.length} registros?`)) {
       setHistoryLoading(true);
       try {
-        // In a real scenario, call API to delete. Here we filter local and could call update.
         setHistory(history.filter(h => !selectedHistory.includes(h.id)));
         setSelectedHistory([]);
         alert("Registros removidos com sucesso.");
@@ -187,7 +189,6 @@ export default function PreVenda() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        
         {/* Adicionar Itens Section */}
         <div className="xl:col-span-4 space-y-6">
           <div className="erp-card p-8 border-t-8 border-t-primary">
@@ -197,7 +198,7 @@ export default function PreVenda() {
               </div>
               <h2 className="text-xl font-black uppercase tracking-tight">Adicionar Item</h2>
             </div>
-            
+
             <form onSubmit={addItem} className="space-y-5">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">Código do Produto</label>
@@ -333,7 +334,7 @@ export default function PreVenda() {
                               <span className="font-black text-primary text-lg">{formatCurrency(item.subtotal)}</span>
                             </td>
                             <td className="px-6 py-4 text-center">
-                              <button 
+                              <button
                                 onClick={() => removeItem(item.id)}
                                 className="p-3 text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-xl transition-all active:scale-90"
                               >
@@ -350,7 +351,7 @@ export default function PreVenda() {
                   <div className="lg:hidden flex flex-col gap-4 p-4">
                     {cart.map((item) => (
                       <div key={item.id} className="bg-card border-2 border-border p-4 rounded-2xl shadow-sm relative">
-                        <button 
+                        <button
                           onClick={() => removeItem(item.id)}
                           className="absolute top-4 right-4 p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive rounded-xl transition-all active:scale-90"
                         >
@@ -378,14 +379,14 @@ export default function PreVenda() {
                 </>
               )}
             </div>
-            
+
             <div className="p-6 md:p-8 border-t-4 border-t-primary bg-background md:bg-primary/5 flex flex-col md:flex-row gap-6 md:gap-8 items-center justify-between sticky bottom-0 z-20 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)] md:shadow-none">
               <div className="text-center md:text-right space-y-1 w-full md:w-auto order-1 md:order-2">
                 <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Total Acumulado</p>
                 <p className="text-4xl md:text-5xl font-black text-primary md:text-foreground tracking-tighter">{formatCurrency(total)}</p>
               </div>
               <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto order-2 md:order-1">
-                <button 
+                <button
                   onClick={generatePDF}
                   disabled={cart.length === 0}
                   className="w-full md:w-auto flex items-center justify-center gap-3 bg-card hover:bg-muted text-foreground border-2 border-border font-black py-4 px-8 rounded-2xl transition-all shadow-lg active:scale-95 disabled:opacity-50"
@@ -393,7 +394,7 @@ export default function PreVenda() {
                   <FileText size={22} className="text-primary" />
                   Gerar PDF
                 </button>
-                <button 
+                <button
                   onClick={handleFinalizarVenda}
                   disabled={cart.length === 0 || saving}
                   className="w-full md:w-auto flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black py-4 px-12 rounded-2xl transition-all shadow-xl hover:shadow-primary/30 active:scale-95 disabled:opacity-50"
@@ -420,11 +421,11 @@ export default function PreVenda() {
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Auditória completa de pré-vendas</p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-4 w-full md:w-auto">
               <div className="relative flex-1 md:w-64">
                 <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
-                <input 
+                <input
                   type="date"
                   className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold transition-all text-sm"
                   value={filterDate}
@@ -432,7 +433,7 @@ export default function PreVenda() {
                 />
               </div>
               {selectedHistory.length > 0 && (
-                <button 
+                <button
                   onClick={handleDeleteHistory}
                   className="flex items-center gap-2 bg-destructive text-destructive-foreground px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:shadow-lg hover:shadow-destructive/20 transition-all active:scale-95"
                 >
@@ -475,8 +476,8 @@ export default function PreVenda() {
                     filteredHistory.map((h) => (
                       <tr key={h.id} className="hover:bg-muted/10 transition-all">
                         <td className="px-8 py-5 text-center">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             className="w-5 h-5 rounded-lg border-2 border-border text-primary focus:ring-primary transition-all cursor-pointer"
                             checked={selectedHistory.includes(h.id)}
                             onChange={(e) => {
@@ -506,8 +507,8 @@ export default function PreVenda() {
                           <span className={cn(
                             "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border",
                             h.status === 'Aberta' ? "bg-muted text-muted-foreground border-border" :
-                            h.status === 'Finalizada' ? "bg-success/10 text-success border-success/20" :
-                            "bg-primary/10 text-primary border-primary/20"
+                              h.status === 'Finalizada' ? "bg-success/10 text-success border-success/20" :
+                                "bg-primary/10 text-primary border-primary/20"
                           )}>
                             {h.status}
                           </span>
@@ -537,8 +538,8 @@ export default function PreVenda() {
                   <div key={h.id} className="bg-card border-2 border-border p-5 rounded-2xl shadow-sm relative">
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           className="w-5 h-5 rounded-lg border-2 border-border text-primary focus:ring-primary transition-all cursor-pointer"
                           checked={selectedHistory.includes(h.id)}
                           onChange={(e) => {
@@ -554,13 +555,13 @@ export default function PreVenda() {
                       <span className={cn(
                         "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
                         h.status === 'Aberta' ? "bg-muted text-muted-foreground border-border" :
-                        h.status === 'Finalizada' ? "bg-success/10 text-success border-success/20" :
-                        "bg-primary/10 text-primary border-primary/20"
+                          h.status === 'Finalizada' ? "bg-success/10 text-success border-success/20" :
+                            "bg-primary/10 text-primary border-primary/20"
                       )}>
                         {h.status}
                       </span>
                     </div>
-                    
+
                     <div className="flex justify-between items-center pt-4 border-t border-dashed border-border">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-[8px]">

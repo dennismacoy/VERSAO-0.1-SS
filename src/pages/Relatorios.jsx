@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  BarChart3, 
-  Search, 
-  FileText, 
-  Download, 
-  TrendingDown, 
-  AlertTriangle, 
-  Calendar, 
+import {
+  BarChart3,
+  Search,
+  FileText,
+  Download,
+  TrendingDown,
+  AlertTriangle,
+  Calendar,
   History as HistoryIcon,
   Filter,
   Loader2,
@@ -25,6 +25,9 @@ export default function Relatorios() {
   const [selectedRazao, setSelectedRazao] = useState('');
   const { products: cacheProducts, loading: globalLoading, hasLoaded } = useProducts();
   const [visibleCount, setVisibleCount] = useState(20);
+
+  // CORREÇÃO: Faltava a declaração do state para reportHistory
+  const [reportHistory, setReportHistory] = useState([]);
 
   const loadData = async () => {
     try {
@@ -47,7 +50,7 @@ export default function Relatorios() {
     return cacheProducts.filter(item => {
       const term = query.toLowerCase();
       const matchTerm = (
-        item.descricao?.toLowerCase().includes(term) || 
+        item.descricao?.toLowerCase().includes(term) ||
         item.razaosocial?.toLowerCase().includes(term) ||
         item.codigo?.toString().includes(term)
       );
@@ -88,7 +91,7 @@ export default function Relatorios() {
   };
 
   const handleSaveToHistory = async () => {
-    if (!hasPermission('Botão Gerar PDF')) return; // Reusing this permission conceptually or create a new one
+    if (!hasPermission('Botão Gerar PDF')) return;
     try {
       const reportData = {
         id: `REL-${Date.now().toString().slice(-6)}`,
@@ -98,9 +101,7 @@ export default function Relatorios() {
         riscoTotal: totalInRisk,
         responsavel: 'Admin'
       };
-      // Mock API call to save history
-      // await api.saveReport(reportData);
-      setReportHistory([{...reportData, nome: reportData.id, geradoPor: reportData.responsavel, valorTotal: reportData.riscoTotal}, ...reportHistory]);
+      setReportHistory([{ ...reportData, nome: reportData.id, geradoPor: reportData.responsavel, valorTotal: reportData.riscoTotal }, ...reportHistory]);
       alert("Relatório salvo no histórico com sucesso!");
     } catch (e) {
       console.error(e);
@@ -120,7 +121,7 @@ export default function Relatorios() {
           </p>
         </div>
         <div className="flex gap-3">
-          <button 
+          <button
             onClick={() => setActiveTab('geral')}
             className={cn(
               "px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border-2",
@@ -129,7 +130,7 @@ export default function Relatorios() {
           >
             Relatório Atual
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('historico')}
             className={cn(
               "px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border-2",
@@ -179,7 +180,7 @@ export default function Relatorios() {
             <div className="flex-1 flex gap-2 w-full">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-primary w-5 h-5" />
-                <input 
+                <input
                   type="text"
                   placeholder="Filtrar por Descrição ou Razão Social..."
                   className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold transition-all"
@@ -188,7 +189,7 @@ export default function Relatorios() {
                 />
               </div>
               {selectedRazao && (
-                <button 
+                <button
                   onClick={() => setSelectedRazao('')}
                   className="px-6 py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all min-h-[44px]"
                 >
@@ -196,16 +197,16 @@ export default function Relatorios() {
                 </button>
               )}
             </div>
-            
+
             <div className="flex gap-2 w-full md:w-auto">
-              <button 
+              <button
                 onClick={handleSaveToHistory}
                 className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-muted text-foreground font-black px-6 py-4 rounded-2xl transition-all shadow-sm hover:bg-muted/80 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
               >
                 <HistoryIcon size={18} />
                 Guardar Relatório
               </button>
-              <button 
+              <button
                 onClick={generateReportPDF}
                 className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black px-8 py-4 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
               >
@@ -216,7 +217,7 @@ export default function Relatorios() {
           </div>
 
           <div className="hidden md:block erp-card overflow-hidden">
-            <div 
+            <div
               className="overflow-x-auto custom-scrollbar max-h-[600px] overflow-y-auto"
               onScroll={handleScroll}
             >
@@ -241,8 +242,8 @@ export default function Relatorios() {
                     const dias = Number(item.dias_sem_venda || 0);
                     const risco = dias * (Number(item.valor_estoque) || 0);
                     return (
-                        <tr 
-                        key={idx} 
+                      <tr
+                        key={idx}
                         onClick={() => handleRowClick(item)}
                         className={cn(
                           "hover:bg-primary/5 transition-all cursor-pointer",
@@ -283,8 +284,7 @@ export default function Relatorios() {
             </div>
           </div>
 
-          {/* Mobile Cards for Relatórios */}
-          <div 
+          <div
             className="md:hidden flex flex-col gap-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-1"
             onScroll={handleScroll}
           >
@@ -292,7 +292,7 @@ export default function Relatorios() {
               const dias = Number(item.dias_sem_venda || 0);
               const risco = dias * (Number(item.valor_estoque) || 0);
               return (
-                <div 
+                <div
                   key={idx}
                   onClick={() => handleRowClick(item)}
                   className={cn(
