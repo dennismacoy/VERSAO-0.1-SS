@@ -20,31 +20,47 @@ export const ProductsProvider = ({ children }) => {
       setLoading(true);
       setHasLoaded(true);
 
-      // 1. Carregar cache do IndexedDB para exibição instantânea
-      idbGet(CACHE_KEY).then(cached => {
-        if (cached && cached.length > 0) {
-          setProducts(cached);
-          setLoading(false); // Remove loading visual, Firebase sincroniza em background
-        }
-      }).catch(err => console.error('[IDB] Erro ao ler cache:', err));
+      console.log("📡 1. Verificando Memória Local (Cache)...");
 
-      // 2. Listener em tempo real do Firebase Realtime Database
-      // Substitui completamente o antigo api.getAllProducts() via Google Apps Script
+      // Envolvemos o IDB em uma função segura para não travar Abas Anônimas
+      const checkCache = async () => {
+        try {
+          const cached = await idbGet(CACHE_KEY);
+          if (cached && cached.length > 0) {
+            console.log(`✅ 2. Cache encontrado! Carregando ${cached.length} itens instantaneamente.`);
+            setProducts(cached);
+            setLoading(false); // Já tem dados, libera a tela!
+          } else {
+            console.log("⚠️ 2. Cache VAZIO (ou Aba Anônima). O sistema vai baixar os dados do servidor.");
+          }
+        } catch (err) {
+          console.warn("🚫 Aviso: O navegador bloqueou o Cache Local. O download será feito direto da nuvem.", err);
+        }
+      };
+
+      checkCache();
+
+      console.log("☁️ 3. Conectando ao Firebase para Sincronização. Aguarde o download (pode demorar no celular)...");
+
       unsubscribeRef.current = listenToProducts(async (items) => {
+        console.log(`🚀 4. Download Concluído! O Firebase entregou ${items ? items.length : 0} produtos.`);
+
         if (items && items.length > 0) {
           setProducts(items);
-          // Atualiza o cache do IndexedDB com os dados frescos do Firebase
+
           try {
             await idbSet(CACHE_KEY, items);
+            console.log("💾 5. Dados salvos no Cache Local com sucesso para o próximo acesso rápido.");
           } catch (err) {
-            console.error('[IDB] Erro ao salvar cache:', err);
+            console.warn("🚫 Aviso: Impossível salvar no Cache. O usuário provavelmente está em Modo Anônimo ou sem espaço.", err);
           }
         }
+
+        // Remove a tela de carregamento independentemente do que aconteça
         setLoading(false);
       });
     }
 
-    // Cleanup: desconecta o listener ao desmontar ou logout
     return () => {
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
@@ -53,7 +69,6 @@ export const ProductsProvider = ({ children }) => {
     };
   }, [user, hasLoaded]);
 
-  // Refresh manual: busca uma vez do Firebase (sem listener)
   const refreshProducts = async () => {
     setLoading(true);
     try {
@@ -74,12 +89,10 @@ export const ProductsProvider = ({ children }) => {
     const lowerQ = query.toLowerCase();
 
     return products.filter(p => {
-      // Puxa o dado independente se a chave do banco veio em Maiúsculo ou Minúsculo
       const cod = p.CODIGO || p.codigo || '';
       const desc = p.DESCRICAO || p.descricao || '';
       const rz = p.RAZAOSOCIAL || p.razaosocial || p.fornecedor || '';
 
-      // Verifica se o texto digitado bate com o código, descrição ou fornecedor
       return (
         cod.toString().toLowerCase().includes(lowerQ) ||
         desc.toString().toLowerCase().includes(lowerQ) ||
