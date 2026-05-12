@@ -144,7 +144,7 @@ export default function Relatorios() {
 
       {activeTab === 'geral' ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <div className="erp-card p-4 md:p-6 bg-destructive/5 border-l-8 border-l-destructive flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-black text-destructive uppercase tracking-widest mb-1">Total em Risco (IDW)</p>
@@ -162,16 +162,6 @@ export default function Relatorios() {
               </div>
               <div className="p-4 bg-primary/10 rounded-2xl text-primary">
                 <AlertTriangle size={32} />
-              </div>
-            </div>
-
-            <div className="erp-card p-4 md:p-6 border-l-8 border-l-success flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black text-success uppercase tracking-widest mb-1">Base Analisada</p>
-                <h3 className="text-3xl font-black tracking-tighter text-foreground">{filteredData.length}</h3>
-              </div>
-              <div className="p-4 bg-success/10 rounded-2xl text-success">
-                <BarChart3 size={32} />
               </div>
             </div>
           </div>
@@ -224,57 +214,45 @@ export default function Relatorios() {
               <table className="w-full text-sm text-left border-collapse">
                 <thead className="bg-muted/50 border-b border-border sticky top-0 z-10">
                   <tr>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Produto</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Descrição</th>
                     <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Razão Social</th>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-center">Dias S/ Venda</th>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-right">Valor Est.</th>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-right">Risco Calc.</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-center">PDF</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {(!hasLoaded && globalLoading) ? (
                     <tr>
-                      <td colSpan="5" className="px-6 py-20 text-center">
+                      <td colSpan="3" className="px-6 py-20 text-center">
                         <Loader2 className="animate-spin mx-auto text-primary w-12 h-12" />
                       </td>
                     </tr>
                   ) : visibleData.map((item, idx) => {
-                    const dias = Number(item.dias_sem_venda || 0);
-                    const risco = dias * (Number(item.valor_estoque) || 0);
                     return (
                       <tr
                         key={idx}
                         onClick={() => handleRowClick(item)}
                         className={cn(
                           "hover:bg-primary/5 transition-all cursor-pointer",
-                          dias > 6 ? "bg-destructive/5" : "",
                           selectedRazao === item.razaosocial ? "border-l-4 border-l-primary bg-primary/5" : ""
                         )}
                       >
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
-                            <span className="font-bold text-foreground">{item.descricao}</span>
-                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">{item.codigo}</span>
+                            <span className="font-bold text-foreground">{item.descricao || item.DESCRICAO}</span>
+                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">{item.codigo || item.CODIGO}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs font-bold text-muted-foreground">{item.razaosocial}</span>
+                          <span className="text-xs font-bold text-muted-foreground">{item.razaosocial || item.RAZAOSOCIAL}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className={cn(
-                            "px-3 py-1 rounded-full font-black text-xs",
-                            dias > 6 ? "bg-destructive text-destructive-foreground" : "bg-muted text-muted-foreground"
-                          )}>
-                            {dias} Dias
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right font-bold">
-                          {formatCurrency(item.valor_estoque)}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <span className={cn("font-black text-lg", dias > 0 ? "text-destructive" : "text-success")}>
-                            {formatCurrency(risco)}
-                          </span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); generateReportPDF(); }}
+                            className="text-primary hover:bg-primary/10 p-2 rounded"
+                            title="Gerar PDF"
+                          >
+                            <FileText size={18} />
+                          </button>
                         </td>
                       </tr>
                     );

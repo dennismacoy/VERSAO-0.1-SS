@@ -24,9 +24,26 @@ export default function Consulta() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
   };
 
+  const buildWppMessage = (p) => {
+    const cod = p.CODIGO || p.codigo || '';
+    const desc = p.DESCRICAO || p.descricao || '';
+    const emb = p.EMBALAGEM || p.embalagem || p.emb || 'UN';
+    const estoque = p.ESTOQUE || p.QTE || 0;
+    const idade = p.IDADE || 0;
+    const isv = p.DIAS_SEM_VENDA || p.ISV || 0;
+    const entrada = p.ENTRADA || '-';
+    return [
+      `📦 *PRODUTO:* ${cod} - ${desc}`,
+      `📏 *EMBALAGEM:* ${emb}`,
+      `--------------------------`,
+      `✅ *ESTOQUE:* ${estoque}`,
+      `📅 *IDADE:* ${idade} dias`,
+      `🚫 *DIAS SEM VENDA:* ${isv}`,
+      `🚚 *ÚLT. ENTRADA:* ${entrada}`,
+    ].join('\n');
+  };
+
   const handleWppContact = (msg) => {
-    // Abre um link genérico ou modal (aqui usaremos um alerta p/ simplificar a escolha do contato, 
-    // ou abre a api do wpp para enviar para quem ele escolher no celular)
     const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
     window.open(url, '_blank');
   };
@@ -88,7 +105,7 @@ export default function Consulta() {
                         {p.DESCRICAO || p.descricao}
                       </td>
                       <td className="px-4 py-3 text-center text-xs font-bold bg-muted/30">
-                        {p.EMBALAGEM || p.emb || 'UN'}
+                        {p.EMBALAGEM || p.embalagem || p.emb || 'UN'}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex flex-col text-xs font-bold">
@@ -128,7 +145,7 @@ export default function Consulta() {
                   {selectedProduct.DESCRICAO || selectedProduct.descricao}
                 </h2>
                 <p className="text-sm font-bold text-muted-foreground mt-1 bg-muted inline-block px-2 rounded">
-                  Emb: {selectedProduct.EMBALAGEM || selectedProduct.emb || 'UN'}
+                  Emb: {selectedProduct.EMBALAGEM || selectedProduct.embalagem || selectedProduct.emb || 'UN'}
                 </p>
               </div>
               <button 
@@ -175,7 +192,7 @@ export default function Consulta() {
                   
                   {hasPermission('Botao Enviar WPP') && (
                     <button 
-                      onClick={() => handleWppContact(`Olá, verifiquei o produto ${selectedProduct.CODIGO || selectedProduct.codigo} - ${selectedProduct.DESCRICAO || selectedProduct.descricao}.`)}
+                      onClick={() => handleWppContact(buildWppMessage(selectedProduct))}
                       className="mt-4 w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white py-2 rounded-lg font-bold transition-colors"
                     >
                       <MessageSquare size={18} />

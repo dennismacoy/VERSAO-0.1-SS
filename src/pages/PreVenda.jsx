@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, FileText, ShoppingCart, Save, History, Loader2, Calendar, User, Search, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
 import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 import { generatePreVendaPDF } from '../lib/pdfGenerator';
+import { listenToNode, fetchUsersFromFirebase, updateRecordFirebase } from '../lib/firebase';
 import { cn } from '../lib/utils';
 
 export default function PreVenda() {
@@ -13,29 +14,31 @@ export default function PreVenda() {
   const location = useLocation();
 
   const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
   const [filterDate, setFilterDate] = useState('');
   const [filterText, setFilterText] = useState('');
+  const [repositores, setRepositores] = useState([]); // Lista dinâmica de separadores
 
   const [isNova, setIsNova] = useState(false);
   const [cart, setCart] = useState([]);
   const [query, setQuery] = useState('');
   const [saving, setSaving] = useState(false);
+  const unsubRef = useRef(null);
 
   // Pre-fill if coming from Requisicoes
   useEffect(() => {
     if (location.state?.requisicao) {
       const req = location.state.requisicao;
       const initialCart = req.itens.map(i => {
-        const prod = searchLocal(i.codigo)[0]; // get more info from cache if available
+        const prod = searchLocal(i.codigo)[0];
         return {
           id: i.codigo,
           codigo: i.codigo,
           descricao: i.descricao,
           qtd: i.qtd,
-          preco: prod ? (prod.PRECO_ATACADO || prod.preco_atacado || 0) : 0,
-          emb: prod ? (prod.EMBALAGEM || prod.emb || 'UN') : 'UN',
+          preco: prod ? Number(prod.PRECO_ATACADO || prod.preco_atacado || 0) : 0,
+          emb: prod ? (prod.EMBALAGEM || prod.embalagem || prod.emb || 'UN') : 'UN',
         };
       });
       setCart(initialCart);
@@ -43,41 +46,64 @@ export default function PreVenda() {
     }
   }, [location]);
 
-  // Mock History Loading
+  // Listener em tempo real para pré-vendas do Firebase
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => {
-      setHistory([
-        { id: 'PV-001', data: new Date().toISOString(), cliente: 'Empresa A', total: 1500.50, status: 'Aberta', separador: '' },
-        { id: 'PV-002', data: new Date().toISOString(), cliente: 'Empresa B', total: 3200.00, status: 'Em Separação', separador: 'João' }
-      ]);
+    unsubRef.current = listenToNode('prevendas', (items) => {
+      setHistory(items);
       setLoading(false);
-    }, 500);
+    });
+
+    return () => {
+      if (unsubRef.current) unsubRef.current();
+    };
+  }, []);
+
+  // Buscar lista de repositores/líderes do Firebase para o dropdown dinâmico
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const users = await fetchUsersFromFirebase();
+        const filteredUsers = users.filter(u => {
+          const role = (u.role || u.perfil || u.cargo || '').toLowerCase();
+          return role === 'repositor' || role === 'lider' || role === 'líder';
+        });
+        setRepositores(filteredUsers);
+      } catch (e) {
+        console.error('Erro ao carregar repositores:', e);
+      }
+    };
+    loadUsers();
   }, []);
 
   const filteredHistory = history.filter(h => {
     let match = true;
-    if (filterDate && !h.data.includes(filterDate)) match = false;
-    if (filterText && !h.cliente.toLowerCase().includes(filterText.toLowerCase()) && !h.id.toLowerCase().includes(filterText.toLowerCase())) match = false;
+    if (filterDate && !(h.data || h.createdAt || '').includes(filterDate)) match = false;
+    if (filterText) {
+      const lt = filterText.toLowerCase();
+      const matchText = (h.cliente || '').toLowerCase().includes(lt) ||
+        (h.firebaseId || h.id || '').toLowerCase().includes(lt);
+      if (!matchText) match = false;
+    }
     return match;
   });
 
   const searchResults = searchLocal(query).slice(0, 5);
 
-  const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
   const handleAddItem = (p) => {
-    const exists = cart.find(i => i.codigo === (p.CODIGO || p.codigo));
+    const codigo = p.CODIGO || p.codigo;
+    const exists = cart.find(i => i.codigo === codigo);
     if (exists) {
       setCart(cart.map(i => i.codigo === exists.codigo ? { ...i, qtd: i.qtd + 1 } : i));
     } else {
       setCart([...cart, {
-        id: p.CODIGO || p.codigo,
-        codigo: p.CODIGO || p.codigo,
+        id: codigo,
+        codigo,
         descricao: p.DESCRICAO || p.descricao,
         qtd: 1,
         preco: Number(p.PRECO_ATACADO || p.preco_atacado || 0),
-        emb: p.EMBALAGEM || p.emb || 'UN'
+        emb: p.EMBALAGEM || p.embalagem || p.emb || 'UN'
       }]);
     }
   };
@@ -96,35 +122,52 @@ export default function PreVenda() {
     if (cart.length === 0) return alert('Adicione itens.');
     setSaving(true);
     try {
-      // Simulate API Call
-      const newPv = {
-        id: `PV-${Date.now().toString().slice(-4)}`,
+      const preVendaData = {
+        cliente: user?.name || user?.usuario || 'Vendedor',
         data: new Date().toISOString(),
-        cliente: user?.name || 'Vendedor',
+        itens: cart.map(i => ({
+          ...i,
+          subtotal: i.qtd * i.preco
+        })),
         total: totalCart,
         status: 'Aberta',
-        separador: ''
+        separador: '',
+        criadoPor: user?.name || user?.usuario || 'Vendedor',
       };
-      setHistory([newPv, ...history]);
+
+      await api.createPreVenda(preVendaData);
       setIsNova(false);
       setCart([]);
+      setQuery('');
       alert('Pré-Venda criada com sucesso!');
     } catch (e) {
+      console.error(e);
       alert('Erro ao salvar');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteHistory = () => {
+  const handleDeleteHistory = async () => {
     if (window.confirm('Excluir registros selecionados?')) {
-      setHistory(history.filter(h => !selectedIds.includes(h.id)));
-      setSelectedIds([]);
+      try {
+        await api.deleteMultiple('prevendas', selectedIds);
+        setSelectedIds([]);
+      } catch (e) {
+        alert('Erro ao excluir.');
+      }
     }
   };
 
-  const assignSeparador = (id, separador) => {
-    setHistory(history.map(h => h.id === id ? { ...h, separador, status: 'Em Separação' } : h));
+  const assignSeparador = async (firebaseId, separador) => {
+    try {
+      await updateRecordFirebase('prevendas', firebaseId, {
+        separador,
+        status: separador ? 'Em Separação' : 'Aberta'
+      });
+    } catch (e) {
+      alert('Erro ao atribuir separador.');
+    }
   };
 
   return (
@@ -138,11 +181,9 @@ export default function PreVenda() {
         </div>
         <div className="flex gap-2">
           {selectedIds.length > 0 && (
-            <>
-              <button onClick={handleDeleteHistory} className="btn-primary bg-destructive text-destructive-foreground flex items-center gap-2">
-                <Trash2 size={18} /> Excluir ({selectedIds.length})
-              </button>
-            </>
+            <button onClick={handleDeleteHistory} className="btn-primary bg-destructive text-destructive-foreground flex items-center gap-2">
+              <Trash2 size={18} /> Excluir ({selectedIds.length})
+            </button>
           )}
           <button onClick={() => setIsNova(true)} className="btn-primary flex items-center gap-2">
             <Plus size={18} /> Nova Pré-Venda
@@ -181,29 +222,35 @@ export default function PreVenda() {
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-3"><input type="checkbox" onChange={(e) => setSelectedIds(e.target.checked ? filteredHistory.map(h => h.id) : [])} checked={selectedIds.length === filteredHistory.length && filteredHistory.length > 0} /></th>
+                <th className="px-4 py-3"><input type="checkbox" onChange={(e) => setSelectedIds(e.target.checked ? filteredHistory.map(h => h.firebaseId) : [])} checked={selectedIds.length === filteredHistory.length && filteredHistory.length > 0} /></th>
                 <th className="px-4 py-3 font-bold">ID / Cliente</th>
                 <th className="px-4 py-3 font-bold">Data</th>
                 <th className="px-4 py-3 font-bold text-center">Status</th>
                 <th className="px-4 py-3 font-bold text-right">Total</th>
-                <th className="px-4 py-3 font-bold text-center">Separador (Apenas Gerentes)</th>
+                <th className="px-4 py-3 font-bold text-center">Separador</th>
                 <th className="px-4 py-3 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filteredHistory.map(h => (
-                <tr key={h.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.includes(h.id)} onChange={() => {
-                    if (selectedIds.includes(h.id)) setSelectedIds(selectedIds.filter(i => i !== h.id));
-                    else setSelectedIds([...selectedIds, h.id]);
+                <tr key={h.firebaseId} className="hover:bg-muted/30">
+                  <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.includes(h.firebaseId)} onChange={() => {
+                    if (selectedIds.includes(h.firebaseId)) setSelectedIds(selectedIds.filter(i => i !== h.firebaseId));
+                    else setSelectedIds([...selectedIds, h.firebaseId]);
                   }} /></td>
                   <td className="px-4 py-3">
-                    <span className="font-bold text-primary block">{h.id}</span>
+                    <span className="font-bold text-primary block">{h.firebaseId?.slice(-6) || h.id}</span>
                     <span className="text-xs text-muted-foreground font-semibold">{h.cliente}</span>
                   </td>
-                  <td className="px-4 py-3">{new Date(h.data).toLocaleDateString()}</td>
+                  <td className="px-4 py-3">{new Date(h.data || h.createdAt).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-center">
-                    <span className={cn("px-2 py-1 rounded text-xs font-bold uppercase", h.status === 'Aberta' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700')}>
+                    <span className={cn(
+                      "px-2 py-1 rounded text-xs font-bold uppercase",
+                      h.status === 'Aberta' ? 'bg-orange-100 text-orange-700' :
+                      h.status === 'Em Separação' ? 'bg-blue-100 text-blue-700' :
+                      h.status === 'Finalizada' ? 'bg-green-100 text-green-700' :
+                      'bg-muted text-muted-foreground'
+                    )}>
                       {h.status}
                     </span>
                   </td>
@@ -211,13 +258,16 @@ export default function PreVenda() {
                   <td className="px-4 py-3 text-center">
                     {hasPermission('Acesso Requisições') ? (
                       <select
-                        value={h.separador}
-                        onChange={(e) => assignSeparador(h.id, e.target.value)}
+                        value={h.separador || ''}
+                        onChange={(e) => assignSeparador(h.firebaseId, e.target.value)}
                         className="bg-background border border-border rounded px-2 py-1 text-xs"
                       >
                         <option value="">Não atribuído</option>
-                        <option value="João">João (Repositor)</option>
-                        <option value="Marcos">Marcos (Repositor)</option>
+                        {repositores.map(u => (
+                          <option key={u.usuario || u.nome} value={u.nome || u.usuario}>
+                            {u.nome || u.usuario} ({u.role || u.perfil || u.cargo})
+                          </option>
+                        ))}
                       </select>
                     ) : (
                       <span className="text-xs">{h.separador || 'N/A'}</span>
@@ -265,7 +315,7 @@ export default function PreVenda() {
                       <div>
                         <p className="font-bold text-sm text-primary">{p.CODIGO || p.codigo}</p>
                         <p className="text-xs font-semibold line-clamp-1">{p.DESCRICAO || p.descricao}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">Atacado: {formatCurrency(p.PRECO_ATACADO || p.preco_atacado)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Emb: {p.EMBALAGEM || p.embalagem || p.emb || 'UN'} | Atacado: {formatCurrency(p.PRECO_ATACADO || p.preco_atacado)}</p>
                       </div>
                       <button onClick={() => handleAddItem(p)} className="p-2 bg-primary text-primary-foreground rounded-lg shadow-sm">
                         <Plus size={16} />

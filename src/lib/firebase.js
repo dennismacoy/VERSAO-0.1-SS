@@ -220,3 +220,22 @@ export const listenToNode = (nodeName, callback) => {
 
 // Exporta o db para uso direto se necessário
 export { db, ref, get, set, push, update, remove, onValue };
+
+/**
+ * Busca todos os usuários do nó /usuarios.
+ * Retorna array de objetos com nome, role, etc.
+ */
+export const fetchUsersFromFirebase = async () => {
+  try {
+    const snapshot = await get(ref(db, 'usuarios'));
+    if (!snapshot.exists()) return [];
+    const data = snapshot.val();
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      return Object.values(data);
+    }
+    return Array.isArray(data) ? data.filter(Boolean) : [];
+  } catch (error) {
+    console.error('[Firebase] Erro ao buscar usuários:', error);
+    return [];
+  }
+};
