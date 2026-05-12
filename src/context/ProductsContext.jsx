@@ -4,7 +4,6 @@ import { useAuth } from './AuthContext';
 import { get, set } from 'idb-keyval';
 
 const CACHE_KEY = 'erp_products_cache';
-
 const ProductsContext = createContext({});
 
 export const useProducts = () => useContext(ProductsContext);
@@ -16,37 +15,41 @@ export const ProductsProvider = ({ children }) => {
   const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
-    if (user && !hasLoaded && !loading) {
+    // Retiramos o !loading do if para evitar o trigger repetitivo
+    if (user && !hasLoaded) {
       const fetchAllProducts = async () => {
         setLoading(true);
+        // Definimos hasLoaded como true no início para travar o useEffect e evitar loops
+        setHasLoaded(true);
+
         try {
-          // 1. Try to load from IndexedDB Cache first for instant display
+          // 1. Tentar puxar do IndexedDB primeiro
           const cached = await get(CACHE_KEY);
           if (cached && cached.length > 0) {
             setProducts(cached);
-            setHasLoaded(true);
-            setLoading(false); // Stop loading visually, fetch in background if needed
+            setLoading(false); // Remove o loading da tela, mas continua a busca em background
           }
 
-          // 2. Fetch from backend
+          // 2. Buscar do backend no Google Apps Script
           const res = await api.getAllProducts();
           const items = Array.isArray(res) ? res : (res?.data || []);
-          
+
           if (items.length > 0) {
             setProducts(items);
             await set(CACHE_KEY, items);
-            setHasLoaded(true);
           }
         } catch (error) {
           console.error("Failed to load products cache:", error);
+          // Se falhar e não tinha cache, você pode querer reverter o hasLoaded
+          // para permitir tentar de novo se o usuário atualizar a página
         } finally {
           setLoading(false);
         }
       };
-      
+
       fetchAllProducts();
     }
-  }, [user, hasLoaded, loading]);
+  }, [user, hasLoaded]); // <-- Dependência "loading" removida
 
   const refreshProducts = async () => {
     setLoading(true);
@@ -56,7 +59,6 @@ export const ProductsProvider = ({ children }) => {
       if (items.length > 0) {
         setProducts(items);
         await set(CACHE_KEY, items);
-        setHasLoaded(true);
       }
     } catch (error) {
       console.error("Failed to refresh products cache:", error);
@@ -68,7 +70,7 @@ export const ProductsProvider = ({ children }) => {
   const searchLocal = (query) => {
     if (!query) return products;
     const lowerQ = query.toLowerCase();
-    return products.filter(p => 
+    return products.filter(p =>
       (p.CODIGO && p.CODIGO.toString().includes(lowerQ)) ||
       (p.DESCRICAO && p.DESCRICAO.toLowerCase().includes(lowerQ))
     );

@@ -6,6 +6,7 @@ const fetchGAS = async (payload) => {
   try {
     const response = await fetch(API_URL, {
       method: "POST",
+      redirect: "follow",
       headers: {
         "Content-Type": "text/plain;charset=utf-8",
       },
