@@ -15,6 +15,7 @@ import {
 import { api } from '../lib/api';
 import { generateRelatorioPDF } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
+import { useProducts } from '../context/ProductsContext';
 import { cn } from '../lib/utils';
 
 export default function Relatorios() {
@@ -22,23 +23,15 @@ export default function Relatorios() {
   const [activeTab, setActiveTab] = useState('geral');
   const [query, setQuery] = useState('');
   const [selectedRazao, setSelectedRazao] = useState('');
-  const [data, setData] = useState([]);
-  const [reportHistory, setReportHistory] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const { products: cacheProducts, loading: globalLoading, hasLoaded } = useProducts();
+  const [visibleCount, setVisibleCount] = useState(20);
 
   const loadData = async () => {
-    setLoading(true);
     try {
-      const [res, hist] = await Promise.all([
-        api.searchProducts(''),
-        api.getHistory('Relatorios_Hist')
-      ]);
-      setData(Array.isArray(res) ? res : (res?.data || []));
+      const hist = await api.getHistory('Relatorios_Hist');
       setReportHistory(Array.isArray(hist) ? hist : (hist?.data || []));
     } catch (e) {
       console.error(e);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -50,18 +43,29 @@ export default function Relatorios() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
   };
 
-  const filteredData = data.filter(item => {
-    const term = query.toLowerCase();
-    const matchTerm = (
-      item.descricao?.toLowerCase().includes(term) || 
-      item.razaosocial?.toLowerCase().includes(term) ||
-      item.codigo?.toString().includes(term)
-    );
-    if (selectedRazao) {
-      return matchTerm && item.razaosocial === selectedRazao;
+  const filteredData = React.useMemo(() => {
+    return cacheProducts.filter(item => {
+      const term = query.toLowerCase();
+      const matchTerm = (
+        item.descricao?.toLowerCase().includes(term) || 
+        item.razaosocial?.toLowerCase().includes(term) ||
+        item.codigo?.toString().includes(term)
+      );
+      if (selectedRazao) {
+        return matchTerm && item.razaosocial === selectedRazao;
+      }
+      return matchTerm;
+    });
+  }, [cacheProducts, query, selectedRazao]);
+
+  const visibleData = filteredData.slice(0, visibleCount);
+
+  const handleScroll = (e) => {
+    const bottom = e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 100;
+    if (bottom && visibleCount < filteredData.length) {
+      setVisibleCount(prev => prev + 20);
     }
-    return matchTerm;
-  });
+  };
 
   const handleRowClick = (item) => {
     if (item.razaosocial) {
@@ -211,10 +215,13 @@ export default function Relatorios() {
             </div>
           </div>
 
-          <div className="erp-card overflow-hidden">
-            <div className="overflow-x-auto custom-scrollbar">
+          <div className="hidden md:block erp-card overflow-hidden">
+            <div 
+              className="overflow-x-auto custom-scrollbar max-h-[600px] overflow-y-auto"
+              onScroll={handleScroll}
+            >
               <table className="w-full text-sm text-left border-collapse">
-                <thead className="bg-muted/50 border-b border-border">
+                <thead className="bg-muted/50 border-b border-border sticky top-0 z-10">
                   <tr>
                     <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Produto</th>
                     <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Razão Social</th>
@@ -224,13 +231,13 @@ export default function Relatorios() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {loading ? (
+                  {(!hasLoaded && globalLoading) ? (
                     <tr>
                       <td colSpan="5" className="px-6 py-20 text-center">
                         <Loader2 className="animate-spin mx-auto text-primary w-12 h-12" />
                       </td>
                     </tr>
-                  ) : filteredData.map((item, idx) => {
+                  ) : visibleData.map((item, idx) => {
                     const dias = Number(item.dias_sem_venda || 0);
                     const risco = dias * (Number(item.valor_estoque) || 0);
                     return (
@@ -274,6 +281,50 @@ export default function Relatorios() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Mobile Cards for Relatórios */}
+          <div 
+            className="md:hidden flex flex-col gap-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-1"
+            onScroll={handleScroll}
+          >
+            {visibleData.map((item, idx) => {
+              const dias = Number(item.dias_sem_venda || 0);
+              const risco = dias * (Number(item.valor_estoque) || 0);
+              return (
+                <div 
+                  key={idx}
+                  onClick={() => handleRowClick(item)}
+                  className={cn(
+                    "erp-card p-5 space-y-4 relative border-l-4 cursor-pointer",
+                    dias > 6 ? "border-l-destructive" : "border-l-success",
+                    selectedRazao === item.razaosocial ? "ring-2 ring-primary bg-primary/5" : ""
+                  )}
+                >
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="space-y-1 flex-1">
+                      <span className="font-black text-xs text-primary bg-primary/10 px-2 py-1 rounded-md uppercase tracking-widest inline-block">{item.codigo}</span>
+                      <h3 className="font-bold text-base leading-tight mt-2">{item.descricao}</h3>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{item.razaosocial}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-dashed border-border">
+                    <div>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Dias S/ Venda</p>
+                      <p className={cn("font-black", dias > 6 ? "text-destructive" : "text-foreground")}>{dias}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Valor Est.</p>
+                      <p className="font-bold text-foreground">{formatCurrency(item.valor_estoque)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Risco Calc.</p>
+                      <p className={cn("font-black text-lg", risco > 0 ? "text-destructive" : "text-foreground")}>{formatCurrency(risco)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </>
       ) : (

@@ -71,13 +71,17 @@ function AppRoutes() {
   );
 }
 
+import { ProductsProvider } from './context/ProductsContext';
+
 export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <Router>
-          <AppRoutes />
-        </Router>
+        <ProductsProvider>
+          <Router>
+            <AppRoutes />
+          </Router>
+        </ProductsProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

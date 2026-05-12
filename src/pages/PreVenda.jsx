@@ -18,6 +18,7 @@ import {
 import { api } from '../lib/api';
 import { generatePreVendaPDF } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
+import { useProducts } from '../context/ProductsContext';
 import { cn } from '../lib/utils';
 
 export default function PreVenda() {
@@ -34,40 +35,40 @@ export default function PreVenda() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [selectedHistory, setSelectedHistory] = useState([]);
-  const [produtos, setProdutos] = useState([]);
-  const [filterDate, setFilterDate] = useState('');
+  const [estoqueAtual, setEstoqueAtual] = useState(0);
+  
+  const { products: cacheProducts } = useProducts();
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadHistory = async () => {
       try {
-        const [prodRes, histRes] = await Promise.all([
-          api.searchProducts(''),
-          hasPermission('Ver Histórico de Vendas') ? api.getHistory('Prevendas') : Promise.resolve([])
-        ]);
-        
-        setProdutos(Array.isArray(prodRes) ? prodRes : (prodRes?.data || []));
-        setHistory(Array.isArray(histRes) ? histRes : (histRes?.data || []));
+        if (hasPermission('Ver Histórico de Vendas')) {
+          const histRes = await api.getHistory('Prevendas');
+          setHistory(Array.isArray(histRes) ? histRes : (histRes?.data || []));
+        }
       } catch (e) {
-        console.error("Erro ao carregar dados:", e);
+        console.error("Erro ao carregar histórico:", e);
       }
     };
-    loadData();
+    loadHistory();
   }, [hasPermission]);
 
   const handleCodigoChange = (e) => {
     const val = e.target.value;
     setCodigo(val);
     
-    const product = produtos.find(p => String(p.codigo) === val || String(p.codigo_interno) === val);
+    const product = cacheProducts.find(p => String(p.codigo) === val || String(p.codigo_interno) === val);
     
     if (product) {
       setDescricao(product.descricao || '');
       setPreco(product.preco_unitario || 0);
       setEmb(product.embalagem || 'UN');
+      setEstoqueAtual(product.estoque || 0);
     } else {
       setDescricao('');
       setPreco(0);
       setEmb('UN');
+      setEstoqueAtual(0);
     }
   };
 
@@ -91,6 +92,7 @@ export default function PreVenda() {
     setQtd(1);
     setPreco(0);
     setEmb('UN');
+    setEstoqueAtual(0);
   };
 
   const removeItem = (id) => {
@@ -377,12 +379,16 @@ export default function PreVenda() {
               )}
             </div>
             
-            <div className="p-8 border-t-4 border-t-primary bg-primary/5 flex flex-col lg:flex-row gap-8 items-center justify-between">
-              <div className="flex gap-4 w-full lg:w-auto">
+            <div className="p-6 md:p-8 border-t-4 border-t-primary bg-background md:bg-primary/5 flex flex-col md:flex-row gap-6 md:gap-8 items-center justify-between sticky bottom-0 z-20 shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.3)] md:shadow-none">
+              <div className="text-center md:text-right space-y-1 w-full md:w-auto order-1 md:order-2">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Total Acumulado</p>
+                <p className="text-4xl md:text-5xl font-black text-primary md:text-foreground tracking-tighter">{formatCurrency(total)}</p>
+              </div>
+              <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto order-2 md:order-1">
                 <button 
                   onClick={generatePDF}
                   disabled={cart.length === 0}
-                  className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-card hover:bg-muted text-foreground border-2 border-border font-black py-4 px-8 rounded-2xl transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                  className="w-full md:w-auto flex items-center justify-center gap-3 bg-card hover:bg-muted text-foreground border-2 border-border font-black py-4 px-8 rounded-2xl transition-all shadow-lg active:scale-95 disabled:opacity-50"
                 >
                   <FileText size={22} className="text-primary" />
                   Gerar PDF
@@ -390,15 +396,11 @@ export default function PreVenda() {
                 <button 
                   onClick={handleFinalizarVenda}
                   disabled={cart.length === 0 || saving}
-                  className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black py-4 px-12 rounded-2xl transition-all shadow-xl hover:shadow-primary/30 active:scale-95 disabled:opacity-50"
+                  className="w-full md:w-auto flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black py-4 px-12 rounded-2xl transition-all shadow-xl hover:shadow-primary/30 active:scale-95 disabled:opacity-50"
                 >
                   {saving ? <Loader2 className="animate-spin" size={22} /> : <Save size={22} />}
                   Finalizar Venda
                 </button>
-              </div>
-              <div className="text-right space-y-1">
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Total Acumulado</p>
-                <p className="text-5xl font-black text-foreground tracking-tighter">{formatCurrency(total)}</p>
               </div>
             </div>
           </div>

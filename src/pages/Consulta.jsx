@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Info, MessageSquare, X, Loader2, Phone, Package, Calendar, DollarSign, TrendingUp, History, MapPin } from 'lucide-react';
-import { api } from '../lib/api';
+import { Search, Info, MessageSquare, X, Loader2, Phone, Package, Calendar, DollarSign, TrendingUp, History, MapPin, Barcode } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useProducts } from '../context/ProductsContext';
 import { cn } from '../lib/utils';
 
 export default function Consulta() {
@@ -11,32 +11,32 @@ export default function Consulta() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const { hasPermission } = useAuth();
 
-  // Load initial products (empty query)
-  useEffect(() => {
-    handleSearch('');
-  }, []);
+  const { products: cacheProducts, loading: globalLoading, hasLoaded } = useProducts();
+  const [visibleCount, setVisibleCount] = useState(20);
 
-  const handleSearch = async (searchQuery) => {
-    setLoading(true);
-    try {
-      const response = await api.searchProducts(searchQuery || '');
-      if (Array.isArray(response)) {
-        setProducts(response);
-      } else if (response && response.data) {
-        setProducts(response.data);
-      } else {
-        setProducts([]);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Local filtering based on cache
+  const filteredProducts = React.useMemo(() => {
+    if (!query) return cacheProducts;
+    const lowerQuery = query.toLowerCase();
+    return cacheProducts.filter(p => 
+      (p.descricao?.toLowerCase().includes(lowerQuery)) ||
+      (p.codigo?.toString().includes(lowerQuery)) ||
+      (p.razaosocial?.toLowerCase().includes(lowerQuery))
+    );
+  }, [query, cacheProducts]);
+
+  const visibleProducts = filteredProducts.slice(0, visibleCount);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
-      handleSearch(query);
+      // Local filter is applied automatically by useMemo
+    }
+  };
+
+  const handleScroll = (e) => {
+    const bottom = e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 100;
+    if (bottom && visibleCount < filteredProducts.length) {
+      setVisibleCount(prev => prev + 20);
     }
   };
 
@@ -96,27 +96,25 @@ export default function Consulta() {
           </div>
         </div>
       </div>
-
       {/* Results Section */}
       <div className="flex-1 min-h-0">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 space-y-4">
-            <div className="relative">
-              <Loader2 className="animate-spin text-primary w-16 h-16" />
-              <Search className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary w-6 h-6" />
+        {(!hasLoaded && globalLoading) ? (
+            <div className="py-24 text-center text-muted-foreground flex flex-col items-center justify-center">
+              <Loader2 className="animate-spin mb-4 text-primary" size={48} />
+              <p className="text-sm font-bold uppercase tracking-widest">Carregando Base de Dados...</p>
             </div>
-            <p className="text-muted-foreground font-black uppercase tracking-[0.3em] text-xs animate-pulse">Sincronizando com a base...</p>
-          </div>
-        ) : products.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 bg-card rounded-3xl border-2 border-dashed border-border">
-            <Package className="w-20 h-20 text-muted-foreground/20 mb-4" />
-            <p className="text-muted-foreground font-bold text-lg">Nenhum produto encontrado para sua busca.</p>
-          </div>
-        ) : (
-          <>
-            {/* Desktop Table View */}
-            <div className="hidden lg:block erp-card overflow-hidden">
-              <div className="overflow-x-auto custom-scrollbar">
+          ) : filteredProducts.length === 0 ? (
+            <div className="py-24 text-center text-muted-foreground bg-card rounded-[2rem] border-2 border-dashed border-border flex flex-col items-center">
+              <Package size={64} className="mb-6 text-muted-foreground/30" />
+              <p className="text-xl font-bold">Nenhum produto encontrado.</p>
+              <p className="text-sm">Tente buscar por outro termo.</p>
+            </div>
+          ) : (
+            <>
+              <div 
+                className="hidden md:block bg-card rounded-[2rem] shadow-xl border-2 border-border overflow-hidden custom-scrollbar max-h-[600px] overflow-y-auto"
+                onScroll={handleScroll}
+              >
                 <table className="w-full text-sm text-left border-collapse">
                   <thead>
                     <tr className="bg-muted/50 border-b border-border">
@@ -129,7 +127,7 @@ export default function Consulta() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {products.map((p, idx) => (
+                    {visibleProducts.map((p, idx) => (
                       <tr 
                         key={idx} 
                         className="hover:bg-primary/5 transition-all cursor-pointer group"
@@ -171,11 +169,13 @@ export default function Consulta() {
                   </tbody>
                 </table>
               </div>
-            </div>
 
             {/* Mobile Card View */}
-            <div className="lg:hidden grid grid-cols-1 gap-4">
-              {products.map((p, idx) => (
+            <div 
+              className="md:hidden flex flex-col gap-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-1"
+              onScroll={handleScroll}
+            >
+              {visibleProducts.map((p, idx) => (
                 <div 
                   key={idx}
                   className="erp-card p-5 space-y-4"
@@ -216,29 +216,29 @@ export default function Consulta() {
 
       {/* Detailed Modal */}
       {selectedProduct && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/90 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-card w-full max-w-4xl max-h-[90vh] rounded-[2.5rem] shadow-2xl border-4 border-primary/20 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-border bg-primary/5 flex justify-between items-center relative">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-background/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-card w-full h-full md:h-auto md:max-w-4xl md:max-h-[90vh] rounded-none md:rounded-[2.5rem] shadow-2xl md:border-4 border-primary/20 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-4 md:p-8 border-b border-border bg-primary/5 flex justify-between items-start md:items-center relative gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-primary rounded-3xl flex items-center justify-center shadow-lg transform -rotate-3">
+                <div className="hidden md:flex w-16 h-16 bg-primary rounded-3xl items-center justify-center shadow-lg transform -rotate-3">
                   <Package className="text-primary-foreground w-8 h-8" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black text-foreground tracking-tighter uppercase leading-none">
+                  <h3 className="text-xl md:text-2xl font-black text-foreground tracking-tighter uppercase leading-tight md:leading-none">
                     {selectedProduct.codigo} <span className="text-primary">—</span> {selectedProduct.descricao}
                   </h3>
-                  <p className="text-sm text-muted-foreground font-bold tracking-widest uppercase mt-2">{selectedProduct.razaosocial}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground font-bold tracking-widest uppercase mt-1 md:mt-2">{selectedProduct.razaosocial}</p>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedProduct(null)}
-                className="bg-muted hover:bg-destructive hover:text-destructive-foreground p-3 rounded-2xl transition-all"
+                className="bg-muted hover:bg-destructive hover:text-destructive-foreground p-4 md:p-3 rounded-2xl transition-all flex-shrink-0"
               >
-                <X size={24} />
+                <X className="w-8 h-8 md:w-6 md:h-6" />
               </button>
             </div>
             
-            <div className="p-8 overflow-y-auto custom-scrollbar">
+            <div className="p-4 md:p-8 overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {/* Logistics Info */}
                 <div className="erp-card p-6 border-l-4 border-l-primary space-y-4">
