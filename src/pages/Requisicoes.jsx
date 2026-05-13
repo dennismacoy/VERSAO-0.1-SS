@@ -1,251 +1,231 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Inbox, Trash2, ArrowRightCircle, FileText, DollarSign, X, Save, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { Inbox, CheckCircle2, AlertCircle, X, Search, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useProducts } from '../context/ProductsContext';
 import { api } from '../lib/api';
 import { listenToNode } from '../lib/firebase';
 import { generatePreVendaPDF } from '../lib/pdfGenerator';
-import { cn, formatCurrency } from '../lib/utils';
+import { formatCurrency, cn } from '../lib/utils';
 
 export default function Requisicoes() {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const { searchLocal } = useProducts();
   const [requisicoes, setRequisicoes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [convertingReq, setConvertingReq] = useState(null);
-  const [precoMap, setPrecoMap] = useState({});
-  const [saving, setSaving] = useState(false);
   const unsubRef = useRef(null);
 
-  // Listener em tempo real: lê todos os pedidos com status "Pendente"
+  const [reqToConvert, setReqToConvert] = useState(null);
+  const [precosManuais, setPrecosManuais] = useState({});
+
+  useEffect(() => {
+    if (reqToConvert) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
+    return () => { document.body.style.overflow = ''; };
+  }, [reqToConvert]);
+
   useEffect(() => {
     unsubRef.current = listenToNode('pedidos', (items) => {
-      const pendentes = items.filter(p => p.status === 'Pendente');
-      setRequisicoes(pendentes);
+      setRequisicoes(items);
       setLoading(false);
     });
-
     return () => {
       if (unsubRef.current) unsubRef.current();
     };
   }, []);
 
-  // Scroll Lock: trava o body quando o modal de conversão está aberto
-  useEffect(() => {
-    if (convertingReq) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [convertingReq]);
-
-  const handleExcluir = async (firebaseId) => {
-    if (window.confirm('Tem certeza que deseja excluir esta requisição?')) {
-      try {
-        await api.deleteRecord('pedidos', firebaseId);
-      } catch (e) {
-        alert('Erro ao excluir requisição.');
-      }
-    }
-  };
-
-  // Abre o painel de conversão com preços pré-preenchidos do cache
   const handleAbrirConversao = (req) => {
-    const initialPrecos = {};
-    (req.itens || []).forEach(item => {
-      const cached = searchLocal(item.codigo)[0];
-      const preco = cached
-        ? Number(cached.PRECO_ATACADO || cached.preco_atacado || 0)
-        : 0;
-      initialPrecos[item.codigo] = preco;
+    setReqToConvert(req);
+    const initialPrices = {};
+    req.itens.forEach(i => {
+      initialPrices[i.codigo] = 0;
     });
-    setPrecoMap(initialPrecos);
-    setConvertingReq(req);
+    setPrecosManuais(initialPrices);
   };
 
-  // Finaliza a conversão: salva como pré-venda no Firebase
-  const handleFinalizarConversao = async () => {
-    if (!convertingReq) return;
-    setSaving(true);
+  const confirmarConversao = async () => {
+    const itensComPreco = reqToConvert.itens.map(it => ({
+      ...it,
+      preco: precosManuais[it.codigo] || 0,
+      subtotal: (precosManuais[it.codigo] || 0) * (Number(it.qtd) || 0)
+    }));
+
+    const total = itensComPreco.reduce((acc, curr) => acc + curr.subtotal, 0);
+
+    const payload = {
+      usuario: user.usuario || user.name,
+      cliente: reqToConvert.cliente,
+      itens: itensComPreco,
+      total: total,
+      status: 'Aberta',
+      atribuido: ""
+    };
 
     try {
-      const itensComPreco = (convertingReq.itens || []).map(item => ({
-        ...item,
-        preco: Number(precoMap[item.codigo] || 0),
-        subtotal: Number(precoMap[item.codigo] || 0) * (Number(item.qtd) || 0),
-      }));
-
-      const total = itensComPreco.reduce((acc, i) => acc + (i.subtotal || 0), 0);
-
-      const preVendaData = {
-        cliente: convertingReq.cliente || 'Cliente',
-        data: new Date().toISOString(),
-        itens: itensComPreco,
-        total,
-        status: 'Aberta',
-        separador: '',
-        criadoPor: user?.name || user?.usuario || 'Gerente',
-        origemPedido: convertingReq.firebaseId,
-      };
-
-      // 1. Salva a pré-venda no Firebase
-      await api.createPreVenda(preVendaData);
-
-      // 2. Atualiza o status do pedido original para "Convertido"
-      await api.updateStatus(convertingReq.firebaseId, 'Convertido', 'pedidos');
-
-      setConvertingReq(null);
-      setPrecoMap({});
-      alert('Pré-Venda criada com sucesso!');
+      await api.createPreVenda(payload);
+      await api.updatePedidoStatus(reqToConvert.firebaseId, 'Convertido');
+      alert("Pré-venda gerada com sucesso!");
+      setReqToConvert(null);
     } catch (e) {
-      console.error('Erro na conversão:', e);
-      alert('Erro ao converter requisição. Verifique o console.');
-    } finally {
-      setSaving(false);
+      alert("Erro ao converter: " + e.message);
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-accent flex items-center gap-2">
-            <Inbox size={32} /> Requisições
-          </h1>
-          <p className="text-muted-foreground font-medium text-sm">Caixa de entrada de pedidos de clientes B2B</p>
-        </div>
+      <div>
+        <h1 className="text-2xl md:text-3xl font-black text-primary">Requisições</h1>
+        <p className="text-muted-foreground font-medium text-sm">Aprovação e conversão de pedidos em pré-vendas</p>
       </div>
 
-      {loading ? (
-        <div className="erp-card p-12 text-center text-primary"><Loader2 className="animate-spin mx-auto w-8 h-8" /></div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {requisicoes.length === 0 ? (
-            <div className="lg:col-span-2 erp-card p-12 text-center text-muted-foreground flex flex-col items-center">
-              <Inbox size={48} className="mb-4 opacity-30" />
-              <p className="text-xl font-bold">Nenhuma requisição pendente.</p>
-            </div>
-          ) : (
-            requisicoes.map(req => (
-              <div key={req.firebaseId} className="erp-card p-6 flex flex-col border-l-4 border-l-accent hover:shadow-lg transition-all">
-                <div className="flex justify-between items-start border-b border-border pb-4 mb-4">
-                  <div>
-                    <span className="text-xs font-bold bg-accent/10 text-accent px-2 py-1 rounded uppercase">{req.firebaseId?.slice(-8)}</span>
-                    <h3 className="font-black text-lg mt-2">{req.cliente || 'Cliente'}</h3>
-                    <p className="text-xs text-muted-foreground">{new Date(req.data || req.createdAt).toLocaleString()}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => generatePreVendaPDF(req)}
-                      className="p-2 text-primary hover:bg-primary/10 rounded-xl transition-all"
-                      title="Gerar PDF"
-                    >
-                      <FileText size={20} />
-                    </button>
-                    <button
-                      onClick={() => handleExcluir(req.firebaseId)}
-                      className="p-2 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground rounded-xl transition-all"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  </div>
+      <div className="grid grid-cols-1 gap-4">
+        {loading ? (
+          <div className="p-12 text-center text-primary">Carregando requisições...</div>
+        ) : requisicoes.length === 0 ? (
+          <div className="erp-card p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
+            <Inbox size={48} className="opacity-20 mb-4" />
+            <p>Não há requisições no momento.</p>
+          </div>
+        ) : (
+          requisicoes.map((req) => (
+            <div key={req.firebaseId} className="erp-card p-5 border-l-4 flex flex-col md:flex-row gap-4 md:items-center justify-between hover:-translate-y-1 transition-all"
+              style={{ borderLeftColor: req.status === 'Pendente' ? '#f97316' : '#22c55e' }}>
+
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 bg-muted rounded text-xs font-bold text-muted-foreground uppercase">
+                    #{req.firebaseId?.slice(-6) || req.id}
+                  </span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-[10px] font-bold uppercase flex items-center gap-1",
+                    req.status === 'Pendente' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                  )}>
+                    {req.status === 'Pendente' ? <AlertCircle size={12} /> : <CheckCircle2 size={12} />}
+                    {req.status}
+                  </span>
                 </div>
 
-                <div className="flex-1 space-y-2 mb-6">
-                  <h4 className="text-xs font-bold text-muted-foreground uppercase">Itens Solicitados ({(req.itens || []).length})</h4>
-                  <div className="bg-muted/30 rounded-lg p-3 max-h-32 overflow-y-auto custom-scrollbar text-sm">
-                    {(req.itens || []).map(item => (
-                      <div key={item.codigo} className="flex justify-between border-b border-border/50 last:border-0 py-1">
-                        <span className="truncate pr-4"><span className="font-bold text-primary">{item.codigo}</span> - {item.descricao}</span>
-                        <span className="font-black whitespace-nowrap">{item.qtd} {item.embalagem || 'un'}</span>
-                      </div>
+                <div>
+                  <h3 className="font-bold text-lg leading-tight">{req.cliente}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enviado por: <span className="font-bold">{req.usuario}</span> em {new Date(req.data || req.createdAt).toLocaleString()}
+                  </p>
+                </div>
+
+                <div className="bg-muted/30 rounded-lg p-3 mt-2">
+                  <p className="text-xs font-bold text-muted-foreground mb-2 uppercase">Itens Solicitados ({req.itens?.length || 0})</p>
+                  <ul className="space-y-1 text-sm">
+                    {req.itens?.map((item, idx) => (
+                      <li key={idx} className="flex justify-between items-start border-b border-border/50 pb-1 last:border-0 last:pb-0">
+                        <span className="truncate pr-2 flex-1"><span className="text-muted-foreground text-xs">{item.codigo}</span> - {item.descricao}</span>
+                        <span className="font-black bg-background px-2 rounded text-xs">{item.qtd} {item.embalagem}</span>
+                      </li>
                     ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex flex-row md:flex-col gap-2 shrink-0 border-t md:border-t-0 pt-4 md:pt-0">
+                <button
+                  onClick={() => generatePreVendaPDF(req)}
+                  className="flex-1 md:w-full flex items-center justify-center gap-2 bg-accent/10 hover:bg-accent hover:text-accent-foreground text-accent font-bold py-2 px-4 rounded-xl transition-colors text-sm"
+                >
+                  <FileText size={16} /> Ver PDF
+                </button>
+                {req.status === 'Pendente' && (
+                  <button
+                    onClick={() => handleAbrirConversao(req)}
+                    className="flex-1 md:w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-xl transition-colors text-sm shadow-md"
+                  >
+                    Converter em PV
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* MODAL DE CONVERSÃO */}
+      {reqToConvert && createPortal(
+        <div className="fixed inset-0 z-[100] bg-background md:bg-black/80 md:backdrop-blur-sm flex flex-col md:items-center md:justify-center animate-in fade-in duration-200">
+          <div className="bg-surface w-full h-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+
+            <div className="pt-8 md:pt-4 p-4 border-b bg-primary/5 flex justify-between items-center shrink-0">
+              <div>
+                <h2 className="text-xl font-black text-primary">Definir Preços</h2>
+                <p className="text-xs text-muted-foreground">Pedido de: {reqToConvert.cliente}</p>
+              </div>
+              <button onClick={() => setReqToConvert(null)} className="p-3 bg-muted hover:bg-destructive rounded-full hover:text-destructive-foreground">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 p-4 overflow-y-auto space-y-4 custom-scrollbar">
+              {reqToConvert.itens.map((item, index) => (
+                <div key={index} className="flex flex-col gap-1 border-b pb-4">
+                  <span className="font-bold text-sm leading-tight">{item.codigo} - {item.descricao}</span>
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-xs font-bold text-muted-foreground bg-muted px-2 py-1 rounded">Qtd: {item.qtd} {item.embalagem}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-muted-foreground">R$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={precosManuais[item.codigo] || ''}
+                        onChange={(e) => setPrecosManuais({
+                          ...precosManuais,
+                          [item.codigo]: parseFloat(e.target.value) || 0
+                        })}
+                        className="border-2 border-muted focus:border-primary p-2 rounded-lg w-28 text-right font-black text-base bg-background"
+                      />
+                    </div>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => handleAbrirConversao(req)}
-                  className="w-full btn-primary bg-accent hover:bg-accent/90 text-accent-foreground py-3 flex items-center justify-center gap-2"
-                >
-                  <ArrowRightCircle size={20} />
-                  Converter em Pré-Venda
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Modal de Conversão com Preços */}
-      {convertingReq && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/90 backdrop-blur-sm">
-          <div className="bg-card w-full max-w-2xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-border bg-accent/5 flex justify-between items-center">
-              <h2 className="text-xl font-black flex items-center gap-2">
-                <DollarSign size={24} className="text-accent" /> Definir Preços para Pré-Venda
-              </h2>
-              <button onClick={() => setConvertingReq(null)} className="p-2 hover:bg-destructive rounded-full hover:text-destructive-foreground"><X size={20} /></button>
+              ))}
             </div>
 
-            <div className="p-4 border-b border-border bg-muted/20">
-              <p className="text-sm"><span className="font-bold">Cliente:</span> {convertingReq.cliente}</p>
-              <p className="text-xs text-muted-foreground">Pedido: {convertingReq.firebaseId?.slice(-8)} | {new Date(convertingReq.data || convertingReq.createdAt).toLocaleString()}</p>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-              {(convertingReq.itens || []).map(item => {
-                const subtotal = (Number(precoMap[item.codigo]) || 0) * (Number(item.qtd) || 0);
-                return (
-                  <div key={item.codigo} className="p-4 border bg-card rounded-xl flex flex-col md:flex-row md:items-center gap-4 shadow-sm">
-                    <div className="flex-1">
-                      <p className="font-bold text-sm text-primary">{item.codigo}</p>
-                      <p className="text-xs">{item.descricao}</p>
-                      <p className="text-[10px] text-muted-foreground">Emb: {item.embalagem || 'UN'} | Qtd: <span className="font-black">{item.qtd}</span></p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div>
-                        <label className="text-[10px] font-bold uppercase text-muted-foreground block mb-1">Preço Unit.</label>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.01"
-                          value={precoMap[item.codigo] ?? ''}
-                          onChange={(e) => setPrecoMap({ ...precoMap, [item.codigo]: e.target.value === '' ? '' : Number(e.target.value) })}
-                          className="w-28 text-center border-2 border-accent/30 rounded-lg p-2 font-bold text-base bg-background focus:border-accent"
-                          placeholder="R$ 0,00"
-                        />
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] font-bold uppercase text-muted-foreground block">Subtotal</span>
-                        <span className="font-black text-sm">{formatCurrency(subtotal)}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="p-4 border-t-2 border-accent bg-card">
+            <div className="p-4 border-t shrink-0 bg-muted/10">
               <div className="flex justify-between items-center mb-4">
-                <span className="text-xs font-black uppercase text-muted-foreground tracking-widest">Total da Pré-Venda</span>
-                <span className="text-2xl font-black text-accent">
-                  {formatCurrency((convertingReq.itens || []).reduce((acc, i) => acc + (Number(precoMap[i.codigo]) || 0) * (Number(i.qtd) || 0), 0))}
+                <span className="font-bold text-muted-foreground">Total Calculado:</span>
+                <span className="text-2xl font-black text-primary">
+                  {formatCurrency(reqToConvert.itens.reduce((acc, it) => acc + ((precosManuais[it.codigo] || 0) * (Number(it.qtd) || 0)), 0))}
                 </span>
               </div>
               <button
-                onClick={handleFinalizarConversao}
-                disabled={saving}
-                className="w-full btn-primary bg-accent hover:bg-accent/90 text-accent-foreground py-4 flex items-center justify-center gap-2 text-lg shadow-xl"
+                onClick={async () => {
+                  try {
+                    const itensComPreco = reqToConvert.itens.map(it => ({
+                      ...it,
+                      preco: precosManuais[it.codigo] || 0,
+                      subtotal: (precosManuais[it.codigo] || 0) * (Number(it.qtd) || 0)
+                    }));
+                    const total = itensComPreco.reduce((acc, curr) => acc + curr.subtotal, 0);
+                    const payload = {
+                      usuario: user.usuario || user.name,
+                      cliente: reqToConvert.cliente,
+                      itens: itensComPreco,
+                      total: total,
+                      status: 'Aberta',
+                      atribuido: ""
+                    };
+                    await api.createPreVenda(payload);
+                    await api.updatePedidoStatus(reqToConvert.firebaseId, 'Convertido');
+                    alert("Pré-venda gerada com sucesso!");
+                    setReqToConvert(null);
+                  } catch (e) {
+                    alert("Erro ao converter: " + e.message);
+                  }
+                }}
+                className="w-full bg-green-500 hover:bg-green-600 text-white font-black py-4 rounded-xl text-lg flex items-center justify-center gap-2 shadow-lg"
               >
-                {saving ? <Loader2 className="animate-spin" /> : <Save size={20} />} Finalizar Conversão
+                Confirmar Conversão
               </button>
             </div>
+
           </div>
-        </div>
+        </div>,
+        document.getElementById('root') || document.body
       )}
     </div>
   );

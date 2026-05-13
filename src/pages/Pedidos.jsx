@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Search, Trash2, FileText, X, Package, Check, Loader2, Clock, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
@@ -6,7 +7,6 @@ import { api } from '../lib/api';
 import { generatePreVendaPDF } from '../lib/pdfGenerator';
 import { listenToNode } from '../lib/firebase';
 import { cn, parseEstoque, getEstoqueNumerico, formatCurrency } from '../lib/utils';
-import { createPortal } from 'react-dom';
 
 export default function Pedidos() {
   const { user } = useAuth();
@@ -20,17 +20,12 @@ export default function Pedidos() {
   const [saving, setSaving] = useState(false);
   const unsubRef = useRef(null);
 
-  // Scroll Lock: trava o body quando o modal está aberto
   useEffect(() => {
-    if (isNovoPedido) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
+    if (isNovoPedido) document.body.style.overflow = 'hidden';
+    else document.body.style.overflow = '';
     return () => { document.body.style.overflow = ''; };
   }, [isNovoPedido]);
 
-  // Listener em tempo real do Firebase, filtrado pelo usuário logado
   useEffect(() => {
     unsubRef.current = listenToNode('pedidos', (items) => {
       const userName = user?.name || user?.usuario || '';
@@ -47,7 +42,6 @@ export default function Pedidos() {
     };
   }, [user]);
 
-  // Pesquisa: filtrar SOMENTE itens com estoque > 10 — AUMENTADO para 30 resultados
   const searchResults = searchLocal(query)
     .filter(p => {
       const estoqueStr = p.ESTOQUE || p.QTE || p.estoque || 0;
@@ -170,7 +164,6 @@ export default function Pedidos() {
           </div>
         ) : (
           <>
-            {/* DESKTOP TABLE */}
             <table className="hidden md:table w-full text-left text-sm">
               <thead className="bg-muted">
                 <tr>
@@ -207,7 +200,6 @@ export default function Pedidos() {
               </tbody>
             </table>
 
-            {/* MOBILE CARDS — Sem overflow-x, cada pedido é um card vertical */}
             <div className="md:hidden divide-y divide-border">
               {pedidos.map(p => (
                 <div key={p.firebaseId} className="p-4 space-y-3">
@@ -243,12 +235,13 @@ export default function Pedidos() {
       </div>
 
       {/* MODAL: Novo Pedido — fullscreen no mobile */}
-      {isNovoPedido && (
-        <div className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center bg-background/95 backdrop-blur-sm">
-          <div className="bg-card w-full md:max-w-4xl h-full md:h-auto md:max-h-[90vh] md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-border bg-primary/5 flex justify-between items-center shrink-0">
+      {isNovoPedido && createPortal(
+        <div className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center bg-background md:bg-background/95 md:backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-card w-full h-full md:max-w-5xl md:h-auto md:max-h-[90vh] md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+
+            <div className="pt-8 md:pt-4 p-4 border-b border-border bg-primary/5 flex justify-between items-center shrink-0">
               <h2 className="text-lg font-black">Novo Pedido (B2B)</h2>
-              <button onClick={() => setIsNovoPedido(false)} className="p-2 hover:bg-destructive rounded-full hover:text-destructive-foreground"><X size={20} /></button>
+              <button onClick={() => setIsNovoPedido(false)} className="p-3 bg-muted hover:bg-destructive rounded-full hover:text-destructive-foreground"><X size={24} /></button>
             </div>
 
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
@@ -332,7 +325,7 @@ export default function Pedidos() {
             </div>
           </div>
         </div>,
-        document.body
+        document.getElementById('root') || document.body
       )}
     </div>
   );

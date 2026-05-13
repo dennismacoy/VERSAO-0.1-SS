@@ -240,13 +240,13 @@ export default function Consulta() {
         )}
       </div>
 
-      {/* BOTTOM SHEET / MODAL — Detail Panel envolto no createPortal */}
+      {/* PAINEL DETALHE — FULLSCREEN NO CELULAR / MODAL NO PC */}
       {selectedProduct && createPortal(
-        <div className="fixed inset-0 z-[100] flex flex-col justify-end md:justify-center md:items-center bg-background/80 backdrop-blur-sm animate-in fade-in">
-          <div
-            className="bg-card w-full md:w-[600px] md:rounded-2xl rounded-t-3xl shadow-2xl border border-border flex flex-col overflow-hidden max-h-[90vh] slide-in-from-bottom-full md:slide-in-from-bottom-0 md:zoom-in-95 duration-300"
-          >
-            <div className="p-4 border-b border-border flex items-start justify-between bg-primary/5">
+        <div className="fixed inset-0 z-[100] flex flex-col md:justify-center md:items-center bg-background md:bg-background/80 md:backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-card w-full h-full md:h-auto md:max-h-[90vh] md:w-[600px] md:rounded-2xl shadow-2xl md:border border-border flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-200">
+
+            {/* Cabeçalho do Painel Fixo no Topo */}
+            <div className="pt-8 md:pt-4 p-4 border-b border-border flex items-start justify-between bg-primary/5 shrink-0">
               <div className="flex-1 min-w-0 pr-3">
                 <span className="text-xs font-bold text-primary uppercase bg-primary/10 px-2 py-1 rounded">
                   {getVal(selectedProduct, 'CODIGO', 'codigo') || '-'}
@@ -260,13 +260,15 @@ export default function Consulta() {
               </div>
               <button
                 onClick={() => setSelectedProduct(null)}
-                className="p-2 bg-muted hover:bg-destructive hover:text-destructive-foreground rounded-full transition-colors shrink-0"
+                className="p-3 bg-muted hover:bg-destructive hover:text-destructive-foreground rounded-full transition-colors shrink-0"
               >
-                <X size={20} />
+                <X size={24} />
               </button>
             </div>
 
-            <div className="p-4 overflow-y-auto custom-scrollbar space-y-4">
+            {/* Conteúdo Rolável do Painel */}
+            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4">
+
               {/* Card Geral */}
               {hasPermission('Ver Card Geral') && (
                 <div className="border border-border rounded-xl p-4 space-y-3 bg-muted/20">
@@ -274,14 +276,14 @@ export default function Consulta() {
                   <div className="grid grid-cols-2 gap-y-3 text-sm">
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Estoque</p>
-                      <p className={cn("font-black", parseEstoque(getVal(selectedProduct, 'ESTOQUE', 'QTE', 'estoque') || 0) ? "text-green-600" : "text-red-500")}>
+                      <p className={cn("font-black text-lg", parseEstoque(getVal(selectedProduct, 'ESTOQUE', 'QTE', 'estoque') || 0) ? "text-green-600" : "text-red-500")}>
                         {getVal(selectedProduct, 'ESTOQUE', 'QTE', 'estoque') || '0'}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Preços (At/Var)</p>
-                      <p className="font-bold text-xs md:text-sm">
-                        {formatCurrency(getVal(selectedProduct, 'PRECO_ATACADO', 'preco_atacado'))} / {formatCurrency(getVal(selectedProduct, 'PRECO_VAREJO', 'preco_unitario'))}
+                      <p className="font-bold text-sm">
+                        {formatCurrency(getVal(selectedProduct, 'PRECO_ATACADO', 'preco_atacado'))} <br /> <span className="text-xs text-muted-foreground">{formatCurrency(getVal(selectedProduct, 'PRECO_VAREJO', 'preco_unitario'))}</span>
                       </p>
                     </div>
                     <div>
@@ -307,7 +309,7 @@ export default function Consulta() {
                   {hasPermission('Botao Enviar WPP') && (
                     <button
                       onClick={() => handleWppContact(buildWppMessage(selectedProduct))}
-                      className="mt-4 w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white py-2 rounded-lg font-bold transition-colors"
+                      className="mt-4 w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white py-3 rounded-lg font-bold transition-colors"
                     >
                       <MessageSquare size={18} />
                       Enviar Info WPP
@@ -316,7 +318,7 @@ export default function Consulta() {
                 </div>
               )}
 
-              {/* Card Extras — Controlado por permissão */}
+              {/* Card Extras */}
               {hasPermission('Ver Card Extras') && (
                 <div className="border border-border rounded-xl p-4 space-y-3 bg-muted/20">
                   <h3 className="font-bold text-sm uppercase text-accent border-b border-border/50 pb-2">Informações Extras</h3>
@@ -351,7 +353,7 @@ export default function Consulta() {
                   {hasPermission('Botao Ligar Comprador') && (
                     <button
                       onClick={() => handleWppContact(`Atenção comprador, sobre o item ${getVal(selectedProduct, 'CODIGO', 'codigo')}.`)}
-                      className="mt-4 w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent/90 text-accent-foreground py-2 rounded-lg font-bold transition-colors"
+                      className="mt-4 w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent/90 text-accent-foreground py-3 rounded-lg font-bold transition-colors"
                     >
                       <Phone size={18} />
                       Falar com Comprador
@@ -359,11 +361,10 @@ export default function Consulta() {
                   )}
                 </div>
               )}
-
             </div>
           </div>
         </div>,
-        document.body // <-- AQUI A FUNÇÃO DE PORTAL TERMINA!
+        document.getElementById('root') || document.body
       )}
     </div>
   );
