@@ -97,3 +97,17 @@
     @apply bg-primary text-primary-foreground hover:opacity-90 px-4 py-2 rounded-lg font-bold transition-all transform active:scale-95 shadow-sm;
   }
 }
+
+/* Bottom Sheet & Mobile Navigation Utilities */
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Prevent pull-to-refresh and other browser gestures from interfering with the sheet */
+@media (max-width: 767px) {
+  body {
+    overscroll-behavior-y: contain;
+  }
+}
