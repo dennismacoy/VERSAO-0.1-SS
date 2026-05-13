@@ -110,4 +110,19 @@
   body {
     overscroll-behavior-y: contain;
   }
+
+  /* Previne zoom automático do iOS ao focar em inputs com font < 16px */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* Garante que modais/painéis empurrem conteúdo acima do teclado virtual */
+  .fixed {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Touch targets mínimos de 44px (WCAG) */
+  button, a, [role="button"] {
+    min-height: 44px;
+  }
 }

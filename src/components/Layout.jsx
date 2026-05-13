@@ -196,9 +196,9 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        {/* Page Container */}
-        <div className="flex-1 overflow-auto custom-scrollbar bg-muted/30 p-4 pb-24 md:p-8 md:pb-8 relative z-0">
-          <div className="max-w-[1600px] mx-auto h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Page Container — pb-28 garante espaço suficiente acima do bottom nav mobile */}
+        <div className="flex-1 overflow-auto custom-scrollbar bg-muted/30 p-4 pb-28 md:p-8 md:pb-8 relative z-0">
+          <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
             {children}
           </div>
         </div>

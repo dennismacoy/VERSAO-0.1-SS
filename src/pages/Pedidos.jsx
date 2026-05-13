@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Trash2, FileText, X, Package, Check, Loader2 } from 'lucide-react';
+import { Plus, Search, Trash2, FileText, X, Package, Check, Loader2, Clock, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
 import { api } from '../lib/api';
@@ -19,6 +19,16 @@ export default function Pedidos() {
   const [saving, setSaving] = useState(false);
   const unsubRef = useRef(null);
 
+  // Scroll Lock: trava o body quando o modal está aberto
+  useEffect(() => {
+    if (isNovoPedido) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isNovoPedido]);
+
   // Listener em tempo real do Firebase, filtrado pelo usuário logado
   useEffect(() => {
     unsubRef.current = listenToNode('pedidos', (items) => {
@@ -36,13 +46,13 @@ export default function Pedidos() {
     };
   }, [user]);
 
-  // Pesquisa: filtrar SOMENTE itens com estoque > 10
+  // Pesquisa: filtrar SOMENTE itens com estoque > 10 — AUMENTADO para 30 resultados
   const searchResults = searchLocal(query)
     .filter(p => {
       const estoqueStr = p.ESTOQUE || p.QTE || p.estoque || 0;
       return getEstoqueNumerico(estoqueStr) > 10;
     })
-    .slice(0, 10);
+    .slice(0, 30);
 
   const handleAddItem = (p) => {
     const codigo = p.CODIGO || p.codigo;
@@ -59,9 +69,7 @@ export default function Pedidos() {
     }
   };
 
-  // Permite apagar o valor sem deletar o item
   const updateQtd = (codigo, value) => {
-    // Se o valor for vazio ou inválido, permite ficar sem número (não deleta)
     if (value === '' || value === null || value === undefined) {
       setItensPedido(itensPedido.map(i => i.codigo === codigo ? { ...i, qtd: '' } : i));
       return;
@@ -121,7 +129,6 @@ export default function Pedidos() {
     }
   };
 
-  // PDF de Pedido Convertido usa o mesmo layout de Pré-Venda
   const handleGerarPDF = () => {
     const selectedPedidos = pedidos.filter(p => selectedIds.includes(p.firebaseId));
     if (selectedPedidos.length === 0) return alert('Selecione pelo menos um pedido.');
@@ -132,22 +139,22 @@ export default function Pedidos() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black text-primary">Meus Pedidos</h1>
+          <h1 className="text-2xl md:text-3xl font-black text-primary">Meus Pedidos</h1>
           <p className="text-muted-foreground font-medium text-sm">Histórico e novos pedidos B2B</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {selectedIds.length > 0 && (
             <>
-              <button onClick={handleExcluirMassa} className="btn-primary bg-destructive text-destructive-foreground flex items-center gap-2">
-                <Trash2 size={18} /> Excluir ({selectedIds.length})
+              <button onClick={handleExcluirMassa} className="btn-primary bg-destructive text-destructive-foreground flex items-center gap-2 text-xs">
+                <Trash2 size={16} /> Excluir ({selectedIds.length})
               </button>
-              <button onClick={handleGerarPDF} className="btn-primary bg-accent text-accent-foreground flex items-center gap-2">
-                <FileText size={18} /> Gerar PDF
+              <button onClick={handleGerarPDF} className="btn-primary bg-accent text-accent-foreground flex items-center gap-2 text-xs">
+                <FileText size={16} /> PDF
               </button>
             </>
           )}
-          <button onClick={() => setIsNovoPedido(true)} className="btn-primary flex items-center gap-2">
-            <Plus size={18} /> Novo Pedido
+          <button onClick={() => setIsNovoPedido(true)} className="btn-primary flex items-center gap-2 text-xs">
+            <Plus size={16} /> Novo Pedido
           </button>
         </div>
       </div>
@@ -161,80 +168,117 @@ export default function Pedidos() {
             <p>Você ainda não fez nenhum pedido.</p>
           </div>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="px-4 py-3"><input type="checkbox" onChange={(e) => setSelectedIds(e.target.checked ? pedidos.map(p => p.firebaseId) : [])} checked={selectedIds.length === pedidos.length && pedidos.length > 0} /></th>
-                <th className="px-4 py-3 font-bold">ID</th>
-                <th className="px-4 py-3 font-bold">Data</th>
-                <th className="px-4 py-3 font-bold">Status</th>
-                <th className="px-4 py-3 font-bold text-center">Itens</th>
-                <th className="px-4 py-3 text-center">PDF</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+          <>
+            {/* DESKTOP TABLE */}
+            <table className="hidden md:table w-full text-left text-sm">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="px-4 py-3"><input type="checkbox" onChange={(e) => setSelectedIds(e.target.checked ? pedidos.map(p => p.firebaseId) : [])} checked={selectedIds.length === pedidos.length && pedidos.length > 0} /></th>
+                  <th className="px-4 py-3 font-bold">ID</th>
+                  <th className="px-4 py-3 font-bold">Data</th>
+                  <th className="px-4 py-3 font-bold">Status</th>
+                  <th className="px-4 py-3 font-bold text-center">Itens</th>
+                  <th className="px-4 py-3 text-center">PDF</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pedidos.map(p => (
+                  <tr key={p.firebaseId} className="hover:bg-muted/50">
+                    <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.includes(p.firebaseId)} onChange={() => handleToggleSelect(p.firebaseId)} /></td>
+                    <td className="px-4 py-3 font-bold text-primary">{p.firebaseId?.slice(-6) || p.id}</td>
+                    <td className="px-4 py-3">{new Date(p.data || p.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3">
+                      <span className={cn(
+                        "px-2 py-1 rounded text-xs font-bold uppercase",
+                        p.status === 'Pendente' ? 'bg-orange-100 text-orange-700' :
+                        p.status === 'Convertido' ? 'bg-green-100 text-green-700' :
+                        'bg-blue-100 text-blue-700'
+                      )}>{p.status}</span>
+                    </td>
+                    <td className="px-4 py-3 text-center font-bold">{(p.itens || []).length}</td>
+                    <td className="px-4 py-3 text-center">
+                      <button onClick={() => generatePreVendaPDF(p)} className="text-primary hover:bg-primary/10 p-2 rounded" title="Gerar PDF">
+                        <FileText size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* MOBILE CARDS — Sem overflow-x, cada pedido é um card vertical */}
+            <div className="md:hidden divide-y divide-border">
               {pedidos.map(p => (
-                <tr key={p.firebaseId} className="hover:bg-muted/50">
-                  <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.includes(p.firebaseId)} onChange={() => handleToggleSelect(p.firebaseId)} /></td>
-                  <td className="px-4 py-3 font-bold text-primary">{p.firebaseId?.slice(-6) || p.id}</td>
-                  <td className="px-4 py-3">{new Date(p.data || p.createdAt).toLocaleDateString()}</td>
-                  <td className="px-4 py-3">
+                <div key={p.firebaseId} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" checked={selectedIds.includes(p.firebaseId)} onChange={() => handleToggleSelect(p.firebaseId)} className="w-5 h-5" />
+                      <div>
+                        <span className="font-black text-primary text-sm">#{p.firebaseId?.slice(-6) || p.id}</span>
+                        <p className="text-xs text-muted-foreground">{new Date(p.data || p.createdAt).toLocaleDateString()}</p>
+                      </div>
+                    </div>
                     <span className={cn(
-                      "px-2 py-1 rounded text-xs font-bold uppercase",
+                      "px-2 py-1 rounded text-[10px] font-bold uppercase",
                       p.status === 'Pendente' ? 'bg-orange-100 text-orange-700' :
                       p.status === 'Convertido' ? 'bg-green-100 text-green-700' :
                       'bg-blue-100 text-blue-700'
                     )}>{p.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center font-bold">{(p.itens || []).length}</td>
-                  <td className="px-4 py-3 text-center">
-                    <button onClick={() => generatePreVendaPDF(p)} className="text-primary hover:bg-primary/10 p-2 rounded" title="Gerar PDF">
-                      <FileText size={18} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <ShoppingBag size={14} />
+                      <span className="font-bold">{(p.itens || []).length} itens</span>
+                    </div>
+                    <button onClick={() => generatePreVendaPDF(p)} className="text-primary hover:bg-primary/10 p-2 rounded-lg flex items-center gap-1 text-xs font-bold">
+                      <FileText size={16} /> PDF
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
 
+      {/* MODAL: Novo Pedido — fullscreen no mobile */}
       {isNovoPedido && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/90 backdrop-blur-sm">
-          <div className="bg-card w-full max-w-4xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-border bg-primary/5 flex justify-between items-center">
-              <h2 className="text-xl font-black">Criar Novo Pedido (Visão B2B)</h2>
+        <div className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center bg-background/95 backdrop-blur-sm">
+          <div className="bg-card w-full md:max-w-4xl h-full md:h-auto md:max-h-[90vh] md:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-border bg-primary/5 flex justify-between items-center shrink-0">
+              <h2 className="text-lg font-black">Novo Pedido (B2B)</h2>
               <button onClick={() => setIsNovoPedido(false)} className="p-2 hover:bg-destructive rounded-full hover:text-destructive-foreground"><X size={20} /></button>
             </div>
 
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              {/* Lado Esquerdo: Pesquisa — mostra SOMENTE itens com estoque > 10 */}
-              <div className="w-full md:w-1/2 p-4 border-r border-border flex flex-col gap-4">
-                <div className="relative">
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+              {/* Lado Esquerdo: Pesquisa — max-h-80 no mobile com scroll */}
+              <div className="w-full md:w-1/2 p-4 md:border-r border-b md:border-b-0 border-border flex flex-col gap-3 shrink-0 md:shrink md:min-h-0 max-h-[45vh] md:max-h-none">
+                <div className="relative shrink-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <input
                     type="text"
-                    className="w-full pl-9 pr-4 py-2 border rounded-lg bg-background text-base"
+                    className="w-full pl-9 pr-4 py-3 border rounded-lg bg-background text-base"
                     placeholder="Pesquisar Produto..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
                 </div>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">
                   Exibindo apenas itens com estoque &gt; 10
                 </p>
-                <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
+                {/* Lista de resultados com altura fixa e scroll */}
+                <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar min-h-0">
                   {query && searchResults.map(p => (
-                    <div key={p.CODIGO || p.codigo} className="p-3 border rounded-lg hover:border-primary flex justify-between items-center bg-muted/20">
-                      <div>
+                    <div key={p.CODIGO || p.codigo} className="p-3 border rounded-lg hover:border-primary flex justify-between items-center bg-muted/20 active:bg-primary/10">
+                      <div className="flex-1 min-w-0 pr-2">
                         <p className="font-bold text-sm text-primary">{p.CODIGO || p.codigo}</p>
-                        <p className="text-xs font-semibold">{p.DESCRICAO || p.descricao}</p>
+                        <p className="text-xs font-semibold truncate">{p.DESCRICAO || p.descricao}</p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
-                          Emb: {p.EMBALAGEM || p.embalagem || p.emb || 'UN'} | <span className="font-black text-primary">Atacado: {formatCurrency(p.PRECO_ATACADO || p.preco_atacado)}</span>
+                          {p.EMBALAGEM || p.embalagem || p.emb || 'UN'} | <span className="font-black text-primary">At: {formatCurrency(p.PRECO_ATACADO || p.preco_atacado)}</span>
                         </p>
                       </div>
-                      <button onClick={() => handleAddItem(p)} className="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-primary-foreground">
-                        <Plus size={16} />
+                      <button onClick={() => handleAddItem(p)} className="p-2.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-primary-foreground shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                        <Plus size={18} />
                       </button>
                     </div>
                   ))}
@@ -242,40 +286,43 @@ export default function Pedidos() {
               </div>
 
               {/* Lado Direito: Itens do Pedido */}
-              <div className="w-full md:w-1/2 p-4 flex flex-col bg-muted/10">
-                <h3 className="font-bold text-sm uppercase mb-4 text-muted-foreground">Itens no Pedido ({itensPedido.length})</h3>
-                <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
+              <div className="w-full md:w-1/2 p-4 flex flex-col bg-muted/10 min-h-0 flex-1">
+                <h3 className="font-bold text-sm uppercase mb-3 text-muted-foreground shrink-0">Itens no Pedido ({itensPedido.length})</h3>
+                <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar min-h-0">
                   {itensPedido.map(item => (
-                    <div key={item.codigo} className="p-3 border bg-card rounded-lg flex items-center justify-between shadow-sm">
-                      <div className="flex-1">
-                        <p className="font-bold text-xs">{item.codigo} - {item.descricao}</p>
-                        <p className="text-[10px] text-muted-foreground">Emb: {item.embalagem}</p>
+                    <div key={item.codigo} className="p-3 border bg-card rounded-lg shadow-sm">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0 pr-2">
+                          <p className="font-bold text-xs truncate">{item.codigo} - {item.descricao}</p>
+                          <p className="text-[10px] text-muted-foreground">Emb: {item.embalagem}</p>
+                        </div>
+                        <button
+                          onClick={() => removeItem(item.codigo)}
+                          className="p-1.5 text-muted-foreground hover:text-destructive shrink-0"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                       <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-muted-foreground">Qtd:</span>
                         <input
                           type="number"
                           inputMode="numeric"
                           min="0"
                           value={item.qtd}
                           onChange={(e) => updateQtd(item.codigo, e.target.value)}
-                          className="w-16 text-center border rounded p-1 font-bold text-base bg-background"
+                          className="w-16 text-center border rounded p-1.5 font-bold text-base bg-background min-h-[44px]"
                           placeholder="0"
                         />
-                        <button
-                          onClick={() => removeItem(item.codigo)}
-                          className="p-1 text-muted-foreground hover:text-destructive"
-                        >
-                          <Trash2 size={14} />
-                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 pt-4 border-t">
+                <div className="mt-3 pt-3 border-t shrink-0">
                   <button
                     onClick={handleSalvarPedido}
                     disabled={saving}
-                    className="w-full btn-primary py-3 text-lg flex items-center justify-center gap-2"
+                    className="w-full btn-primary py-3.5 text-base flex items-center justify-center gap-2 min-h-[48px]"
                   >
                     {saving ? <Loader2 className="animate-spin" /> : <Check size={20} />} Enviar Pedido
                   </button>

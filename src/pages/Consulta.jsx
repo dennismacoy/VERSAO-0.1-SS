@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Info, Package, Phone, X, DollarSign, Activity, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
@@ -11,6 +11,16 @@ export default function Consulta() {
   const [stockFilter, setStockFilter] = useState('com_estoque'); // 'com_estoque' | 'todos'
   const { hasPermission } = useAuth();
   const { products, loading, searchLocal } = useProducts();
+
+  // Scroll Lock: trava o body quando o painel de detalhes está aberto
+  useEffect(() => {
+    if (selectedProduct) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [selectedProduct]);
 
   const filteredProducts = useMemo(() => {
     let results = searchLocal(query);

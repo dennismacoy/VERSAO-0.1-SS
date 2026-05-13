@@ -42,6 +42,16 @@ export default function Relatorios() {
     };
   }, []);
 
+  // Scroll Lock: trava o body quando o modal de PDF está aberto
+  useEffect(() => {
+    if (showPdfModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showPdfModal]);
+
   const filteredData = React.useMemo(() => {
     return cacheProducts.filter(item => {
       const term = query.toLowerCase();
@@ -138,7 +148,7 @@ export default function Relatorios() {
   };
 
   return (
-    <div className="flex flex-col h-full space-y-8 pb-10">
+    <div className="flex flex-col space-y-6 md:space-y-8 pb-10">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-4xl font-black tracking-tighter text-foreground uppercase italic">
