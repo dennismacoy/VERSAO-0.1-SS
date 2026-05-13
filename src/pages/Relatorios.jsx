@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   BarChart3,
   Search,
@@ -10,52 +10,48 @@ import {
   History as HistoryIcon,
   Filter,
   Loader2,
-  DollarSign
+  DollarSign,
+  X
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { generateRelatorioPDF } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
-import { cn } from '../lib/utils';
+import { listenToNode } from '../lib/firebase';
+import { cn, parseEstoque, getEstoqueNumerico, formatCurrency } from '../lib/utils';
 
 export default function Relatorios() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const [activeTab, setActiveTab] = useState('geral');
   const [query, setQuery] = useState('');
   const [selectedRazao, setSelectedRazao] = useState('');
   const { products: cacheProducts, loading: globalLoading, hasLoaded } = useProducts();
   const [visibleCount, setVisibleCount] = useState(20);
 
-  // CORREÇÃO: Faltava a declaração do state para reportHistory
   const [reportHistory, setReportHistory] = useState([]);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const unsubRef = useRef(null);
 
-  const loadData = async () => {
-    try {
-      const hist = await api.getHistory('Relatorios_Hist');
-      setReportHistory(Array.isArray(hist) ? hist : (hist?.data || []));
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
+  // Listener em tempo real para histórico de relatórios
   useEffect(() => {
-    loadData();
+    unsubRef.current = listenToNode('relatorios_hist', (items) => {
+      setReportHistory(items);
+    });
+    return () => {
+      if (unsubRef.current) unsubRef.current();
+    };
   }, []);
-
-  const formatCurrency = (val) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
-  };
 
   const filteredData = React.useMemo(() => {
     return cacheProducts.filter(item => {
       const term = query.toLowerCase();
-      const matchTerm = (
-        item.descricao?.toLowerCase().includes(term) ||
-        item.razaosocial?.toLowerCase().includes(term) ||
-        item.codigo?.toString().includes(term)
-      );
+      const desc = (item.DESCRICAO || item.descricao || '').toLowerCase();
+      const rz = (item.RAZAOSOCIAL || item.razaosocial || '').toLowerCase();
+      const cod = (item.CODIGO || item.codigo || '').toString().toLowerCase();
+
+      const matchTerm = desc.includes(term) || rz.includes(term) || cod.includes(term);
       if (selectedRazao) {
-        return matchTerm && item.razaosocial === selectedRazao;
+        return matchTerm && (item.RAZAOSOCIAL || item.razaosocial) === selectedRazao;
       }
       return matchTerm;
     });
@@ -71,37 +67,69 @@ export default function Relatorios() {
   };
 
   const handleRowClick = (item) => {
-    if (item.razaosocial) {
-      setSelectedRazao(item.razaosocial);
-      setQuery(''); // Optionally clear the query so we see all products for this company
+    const rz = item.RAZAOSOCIAL || item.razaosocial;
+    if (rz) {
+      setSelectedRazao(rz);
+      setQuery('');
     }
   };
 
-  // Risk Analysis
-  const totalInRisk = filteredData.reduce((acc, item) => {
-    const dias = Number(item.dias_sem_venda || 0);
-    const valor = Number(item.valor_estoque || 0);
-    return dias > 0 ? acc + (dias * valor) : acc;
-  }, 0);
+  // Total em Risco (IDW): (itens > 7 dias sem venda que TÊM estoque) + Valor em Estoque desses itens
+  const riskAnalysis = React.useMemo(() => {
+    let totalInRisk = 0;
+    let riskCount = 0;
 
-  const riskCount = filteredData.filter(i => Number(i.dias_sem_venda) > 6).length;
+    filteredData.forEach(item => {
+      const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
+      const temEstoque = parseEstoque(estoqueStr);
+      const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
+      const estoqueNum = getEstoqueNumerico(estoqueStr);
+      const custo = Number(item.CUSTO || item.PRECO || item.custo || 0);
+      const valorEstoque = estoqueNum * custo;
 
-  const generateReportPDF = () => {
-    generateRelatorioPDF(filteredData, totalInRisk, selectedRazao);
+      // Itens Críticos (+6 Dias): Filtrar APENAS itens que tenham estoque
+      if (diasSemVenda > 6 && temEstoque) {
+        riskCount++;
+        // Total em Risco (IDW): soma dos valores dos itens > 7 dias sem venda com estoque
+        totalInRisk += valorEstoque;
+      }
+    });
+
+    return { totalInRisk, riskCount };
+  }, [filteredData]);
+
+  // Modal: pergunta "Com estoque" ou "Todos" antes de gerar PDF
+  const handleGerarPDFClick = () => {
+    setShowPdfModal(true);
+  };
+
+  const handleGerarPDFConfirm = (filterType) => {
+    setShowPdfModal(false);
+    let dataParaPDF = filteredData;
+
+    if (filterType === 'com_estoque') {
+      dataParaPDF = filteredData.filter(item => {
+        const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
+        return parseEstoque(estoqueStr);
+      });
+    }
+
+    generateRelatorioPDF(dataParaPDF, riskAnalysis.totalInRisk, selectedRazao);
   };
 
   const handleSaveToHistory = async () => {
-    if (!hasPermission('Botão Gerar PDF')) return;
     try {
       const reportData = {
-        id: `REL-${Date.now().toString().slice(-6)}`,
+        nome: `REL-${Date.now().toString().slice(-6)}`,
         data: new Date().toISOString(),
         razao: selectedRazao || 'Geral',
-        itensCriticos: riskCount,
-        riscoTotal: totalInRisk,
-        responsavel: 'Admin'
+        itensCriticos: riskAnalysis.riskCount,
+        riscoTotal: riskAnalysis.totalInRisk,
+        geradoPor: user?.name || user?.usuario || 'Admin',
+        valorTotal: riskAnalysis.totalInRisk,
       };
-      setReportHistory([{ ...reportData, nome: reportData.id, geradoPor: reportData.responsavel, valorTotal: reportData.riscoTotal }, ...reportHistory]);
+
+      await api.saveReport(reportData);
       alert("Relatório salvo no histórico com sucesso!");
     } catch (e) {
       console.error(e);
@@ -137,7 +165,7 @@ export default function Relatorios() {
               activeTab === 'historico' ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
             )}
           >
-            Histórico de Relatórios
+            Histórico
           </button>
         </div>
       </div>
@@ -148,7 +176,8 @@ export default function Relatorios() {
             <div className="erp-card p-4 md:p-6 bg-destructive/5 border-l-8 border-l-destructive flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-black text-destructive uppercase tracking-widest mb-1">Total em Risco (IDW)</p>
-                <h3 className="text-3xl font-black tracking-tighter text-destructive">{formatCurrency(totalInRisk)}</h3>
+                <h3 className="text-3xl font-black tracking-tighter text-destructive">{formatCurrency(riskAnalysis.totalInRisk)}</h3>
+                <p className="text-[10px] text-muted-foreground mt-1">Soma do valor em estoque dos itens &gt;7 dias sem venda</p>
               </div>
               <div className="p-4 bg-destructive/10 rounded-2xl text-destructive">
                 <TrendingDown size={32} />
@@ -158,7 +187,8 @@ export default function Relatorios() {
             <div className="erp-card p-4 md:p-6 border-l-8 border-l-primary flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Itens Críticos (+6 Dias)</p>
-                <h3 className="text-3xl font-black tracking-tighter text-foreground">{riskCount}</h3>
+                <h3 className="text-3xl font-black tracking-tighter text-foreground">{riskAnalysis.riskCount}</h3>
+                <p className="text-[10px] text-muted-foreground mt-1">Apenas itens com estoque</p>
               </div>
               <div className="p-4 bg-primary/10 rounded-2xl text-primary">
                 <AlertTriangle size={32} />
@@ -173,7 +203,7 @@ export default function Relatorios() {
                 <input
                   type="text"
                   placeholder="Filtrar por Descrição ou Razão Social..."
-                  className="w-full pl-12 pr-4 py-3 md:py-4 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold transition-all"
+                  className="w-full pl-12 pr-4 py-3 md:py-4 rounded-2xl border-2 border-border bg-background focus:border-primary font-bold transition-all text-base"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
@@ -194,10 +224,10 @@ export default function Relatorios() {
                 className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-muted text-foreground font-black px-6 py-3 md:py-4 rounded-2xl transition-all shadow-sm hover:bg-muted/80 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
               >
                 <HistoryIcon size={18} />
-                Guardar Relatório
+                Guardar
               </button>
               <button
-                onClick={generateReportPDF}
+                onClick={handleGerarPDFClick}
                 className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black px-8 py-3 md:py-4 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
               >
                 <Download size={18} />
@@ -206,54 +236,52 @@ export default function Relatorios() {
             </div>
           </div>
 
+          {/* DESKTOP TABLE */}
           <div className="hidden md:block erp-card overflow-hidden">
             <div
               className="overflow-x-auto custom-scrollbar max-h-[600px] overflow-y-auto"
               onScroll={handleScroll}
             >
               <table className="w-full text-sm text-left border-collapse">
-                <thead className="bg-muted/50 border-b border-border sticky top-0 z-10">
+                {/* Cabeçalho com cor opaca */}
+                <thead className="bg-zinc-200 dark:bg-zinc-800 border-b-2 border-border sticky top-0 z-10">
                   <tr>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Descrição</th>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground">Razão Social</th>
-                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-muted-foreground text-center">PDF</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-zinc-700 dark:text-zinc-300">Código</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-zinc-700 dark:text-zinc-300">Descrição</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-zinc-700 dark:text-zinc-300">Embalagem</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-zinc-700 dark:text-zinc-300 text-center">Entrada</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-zinc-700 dark:text-zinc-300 text-center">Dias S/ Venda</th>
+                    <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-zinc-700 dark:text-zinc-300 text-center">Estoque</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {(!hasLoaded && globalLoading) ? (
                     <tr>
-                      <td colSpan="3" className="px-6 py-20 text-center">
+                      <td colSpan="6" className="px-6 py-20 text-center">
                         <Loader2 className="animate-spin mx-auto text-primary w-12 h-12" />
                       </td>
                     </tr>
                   ) : visibleData.map((item, idx) => {
+                    const diasSV = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
+                    const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || '0';
                     return (
                       <tr
                         key={idx}
                         onClick={() => handleRowClick(item)}
                         className={cn(
                           "hover:bg-primary/5 transition-all cursor-pointer",
-                          selectedRazao === item.razaosocial ? "border-l-4 border-l-primary bg-primary/5" : ""
+                          selectedRazao === (item.RAZAOSOCIAL || item.razaosocial) ? "border-l-4 border-l-primary bg-primary/5" : "",
+                          diasSV > 6 ? "bg-red-50/50 dark:bg-red-950/10" : ""
                         )}
                       >
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-foreground">{item.descricao || item.DESCRICAO}</span>
-                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">{item.codigo || item.CODIGO}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-xs font-bold text-muted-foreground">{item.razaosocial || item.RAZAOSOCIAL}</span>
-                        </td>
+                        <td className="px-6 py-4 font-black text-primary text-xs uppercase tracking-widest">{item.CODIGO || item.codigo}</td>
+                        <td className="px-6 py-4 font-bold text-foreground">{item.DESCRICAO || item.descricao}</td>
+                        <td className="px-6 py-4 text-xs font-bold text-muted-foreground">{item.EMBALAGEM || item.embalagem || item.emb || 'UN'}</td>
+                        <td className="px-6 py-4 text-center text-xs font-bold">{item.ENTRADA || item.entrada || '-'}</td>
                         <td className="px-6 py-4 text-center">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); generateReportPDF(); }}
-                            className="text-primary hover:bg-primary/10 p-2 rounded"
-                            title="Gerar PDF"
-                          >
-                            <FileText size={18} />
-                          </button>
+                          <span className={cn("font-black", diasSV > 6 ? "text-destructive" : "text-foreground")}>{diasSV}</span>
                         </td>
+                        <td className="px-6 py-4 text-center font-bold">{estoqueStr}</td>
                       </tr>
                     );
                   })}
@@ -262,28 +290,29 @@ export default function Relatorios() {
             </div>
           </div>
 
+          {/* MOBILE CARDS */}
           <div
             className="md:hidden flex flex-col gap-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-1"
             onScroll={handleScroll}
           >
             {visibleData.map((item, idx) => {
-              const dias = Number(item.dias_sem_venda || 0);
-              const risco = dias * (Number(item.valor_estoque) || 0);
+              const dias = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
+              const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || '0';
               return (
                 <div
                   key={idx}
                   onClick={() => handleRowClick(item)}
                   className={cn(
                     "erp-card p-5 space-y-4 relative border-l-4 cursor-pointer",
-                    dias > 6 ? "border-l-destructive" : "border-l-success",
-                    selectedRazao === item.razaosocial ? "ring-2 ring-primary bg-primary/5" : ""
+                    dias > 6 ? "border-l-destructive" : "border-l-primary",
+                    selectedRazao === (item.RAZAOSOCIAL || item.razaosocial) ? "ring-2 ring-primary bg-primary/5" : ""
                   )}
                 >
                   <div className="flex justify-between items-start gap-4">
                     <div className="space-y-1 flex-1">
-                      <span className="font-black text-xs text-primary bg-primary/10 px-2 py-1 rounded-md uppercase tracking-widest inline-block">{item.codigo}</span>
-                      <h3 className="font-bold text-base leading-tight mt-2">{item.descricao}</h3>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{item.razaosocial}</p>
+                      <span className="font-black text-xs text-primary bg-primary/10 px-2 py-1 rounded-md uppercase tracking-widest inline-block">{item.CODIGO || item.codigo}</span>
+                      <h3 className="font-bold text-base leading-tight mt-2">{item.DESCRICAO || item.descricao}</h3>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{item.RAZAOSOCIAL || item.razaosocial}</p>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-dashed border-border">
@@ -292,12 +321,12 @@ export default function Relatorios() {
                       <p className={cn("font-black", dias > 6 ? "text-destructive" : "text-foreground")}>{dias}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Valor Est.</p>
-                      <p className="font-bold text-foreground">{formatCurrency(item.valor_estoque)}</p>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Estoque</p>
+                      <p className="font-bold text-foreground">{estoqueStr}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Risco Calc.</p>
-                      <p className={cn("font-black text-lg", risco > 0 ? "text-destructive" : "text-foreground")}>{formatCurrency(risco)}</p>
+                    <div>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Entrada</p>
+                      <p className="font-bold text-foreground">{item.ENTRADA || item.entrada || '-'}</p>
                     </div>
                   </div>
                 </div>
@@ -314,26 +343,73 @@ export default function Relatorios() {
             </div>
           ) : (
             reportHistory.map((h, idx) => (
-              <div key={idx} className="erp-card p-6 flex flex-col gap-4 border-l-4 border-l-primary hover:scale-[1.02]">
+              <div key={h.firebaseId || idx} className="erp-card p-6 flex flex-col gap-4 border-l-4 border-l-primary hover:scale-[1.02]">
                 <div className="flex justify-between items-start">
                   <div className="p-3 bg-muted rounded-2xl">
                     <FileText size={24} className="text-primary" />
                   </div>
-                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{h.data}</span>
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                    {new Date(h.data || h.createdAt).toLocaleDateString('pt-BR')}
+                  </span>
                 </div>
                 <div>
                   <h3 className="text-lg font-black tracking-tight">{h.nome || h.id}</h3>
                   <p className="text-xs font-bold text-muted-foreground uppercase mt-1">Gerado por: {h.geradoPor || h.responsavel}</p>
+                  <p className="text-xs font-bold text-muted-foreground mt-0.5">Razão: {h.razao || 'Geral'}</p>
                 </div>
                 <div className="pt-4 border-t border-border flex justify-between items-center">
-                  <div className="text-xs font-black text-primary uppercase">Total: {formatCurrency(h.valorTotal || h.total)}</div>
-                  <button className="p-2 bg-muted hover:bg-primary hover:text-primary-foreground rounded-xl transition-all">
-                    <Download size={18} />
-                  </button>
+                  <div className="text-xs font-black text-primary uppercase">Risco: {formatCurrency(h.valorTotal || h.riscoTotal || h.total)}</div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        // Gera o PDF com os dados atuais filtrados pela razão do relatório
+                        const razao = h.razao || '';
+                        const dataParaPDF = razao && razao !== 'Geral'
+                          ? cacheProducts.filter(p => (p.RAZAOSOCIAL || p.razaosocial) === razao)
+                          : cacheProducts;
+                        generateRelatorioPDF(dataParaPDF, h.valorTotal || h.riscoTotal || 0, razao);
+                      }}
+                      className="p-2 bg-muted hover:bg-primary hover:text-primary-foreground rounded-xl transition-all"
+                      title="Gerar PDF"
+                    >
+                      <Download size={18} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* Modal: Escolher "Com Estoque" ou "Todos" antes de gerar PDF */}
+      {showPdfModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/90 backdrop-blur-sm">
+          <div className="bg-card w-full max-w-sm rounded-2xl shadow-2xl border border-border overflow-hidden">
+            <div className="p-5 border-b border-border bg-primary/5 flex justify-between items-center">
+              <h3 className="text-lg font-black">Gerar Relatório PDF</h3>
+              <button onClick={() => setShowPdfModal(false)} className="p-1 hover:bg-destructive hover:text-destructive-foreground rounded-full">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-muted-foreground font-bold text-center">Escolha o tipo de filtro para o PDF:</p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => handleGerarPDFConfirm('com_estoque')}
+                  className="w-full btn-primary py-4 flex items-center justify-center gap-2 text-sm"
+                >
+                  <FileText size={18} /> Com Estoque
+                </button>
+                <button
+                  onClick={() => handleGerarPDFConfirm('todos')}
+                  className="w-full bg-muted text-foreground font-bold py-4 rounded-lg flex items-center justify-center gap-2 text-sm hover:bg-muted/80 transition-all"
+                >
+                  <FileText size={18} /> Todos os Itens
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

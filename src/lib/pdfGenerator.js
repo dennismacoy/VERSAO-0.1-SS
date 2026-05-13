@@ -9,42 +9,42 @@ const formatCurrency = (val) => {
 const COMPANY_NAME = 'SmartStock ERP';
 const COMPANY_SUB = 'Gestão Logística & Comercial';
 
-// Shared professional header
+// Shared professional header — NEUTRAL tones (gray/white, no black bars)
 const drawHeader = (doc, title, subtitle) => {
   const w = doc.internal.pageSize.getWidth();
 
-  // Dark bar
-  doc.setFillColor(24, 24, 27);
-  doc.rect(0, 0, w, 36, 'F');
+  // Light gray header bar
+  doc.setFillColor(245, 245, 245);
+  doc.rect(0, 0, w, 34, 'F');
 
-  // Accent line
-  doc.setFillColor(34, 197, 94); // green-500
-  doc.rect(0, 36, w, 2, 'F');
+  // Bottom accent line (subtle green)
+  doc.setFillColor(34, 197, 94);
+  doc.rect(0, 34, w, 1.5, 'F');
 
   // Company name
-  doc.setFontSize(18);
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text(COMPANY_NAME, 14, 16);
+  doc.setTextColor(50, 50, 50);
+  doc.text(COMPANY_NAME, 14, 14);
 
   // Company sub
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(160, 160, 170);
-  doc.text(COMPANY_SUB, 14, 24);
+  doc.setTextColor(130, 130, 130);
+  doc.text(COMPANY_SUB, 14, 21);
 
   // Title (right)
-  doc.setFontSize(12);
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(34, 197, 94);
-  doc.text(title, w - 14, 16, { align: 'right' });
+  doc.setTextColor(34, 120, 60);
+  doc.text(title, w - 14, 14, { align: 'right' });
 
   // Subtitle (right)
   if (subtitle) {
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(160, 160, 170);
-    doc.text(subtitle, w - 14, 24, { align: 'right' });
+    doc.setTextColor(130, 130, 130);
+    doc.text(subtitle, w - 14, 22, { align: 'right' });
   }
 };
 
@@ -55,41 +55,41 @@ const drawFooter = (doc) => {
   const now = new Date();
   const dateStr = `${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`;
 
-  doc.setFillColor(245, 245, 245);
-  doc.rect(0, h - 16, w, 16, 'F');
+  doc.setFillColor(248, 248, 248);
+  doc.rect(0, h - 14, w, 14, 'F');
 
-  doc.setFontSize(7);
+  doc.setFontSize(6.5);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(120, 120, 120);
-  doc.text(`Gerado em ${dateStr} — ${COMPANY_NAME}`, 14, h - 6);
-  doc.text(`Página ${doc.internal.getCurrentPageInfo().pageNumber}`, w - 14, h - 6, { align: 'right' });
+  doc.setTextColor(130, 130, 130);
+  doc.text(`Gerado em ${dateStr} — ${COMPANY_NAME}`, 14, h - 5);
+  doc.text(`Página ${doc.internal.getCurrentPageInfo().pageNumber}`, w - 14, h - 5, { align: 'right' });
 };
 
-// Shared table styles
+// Neutral table styles (gray headers, no black)
 const baseTableStyles = {
   theme: 'grid',
   styles: {
     font: 'helvetica',
     fontSize: 8,
     cellPadding: 3,
-    lineColor: [220, 220, 225],
+    lineColor: [210, 210, 215],
     lineWidth: 0.3,
     valign: 'middle',
   },
   headStyles: {
-    fillColor: [24, 24, 27],
-    textColor: [255, 255, 255],
+    fillColor: [230, 230, 235],
+    textColor: [50, 50, 50],
     fontStyle: 'bold',
     fontSize: 8,
   },
   alternateRowStyles: {
-    fillColor: [249, 250, 251],
+    fillColor: [250, 250, 252],
   },
-  margin: { bottom: 20 },
+  margin: { bottom: 18 },
 };
 
 // =============================================
-// PRÉ-VENDA PDF
+// PRÉ-VENDA PDF (also used for Pedido Convertido)
 // =============================================
 export const generatePreVendaPDF = (item) => {
   if (!item || !item.itens || item.itens.length === 0) return;
@@ -102,20 +102,20 @@ export const generatePreVendaPDF = (item) => {
     drawHeader(doc, 'PRÉ-VENDA', `#${item.firebaseId?.slice(-6) || item.id} | ${dataObj.toLocaleDateString('pt-BR')}`);
 
     // Info section
-    doc.setFillColor(249, 250, 251);
-    doc.roundedRect(14, 44, w - 28, 18, 2, 2, 'F');
+    doc.setFillColor(248, 248, 250);
+    doc.roundedRect(14, 42, w - 28, 16, 2, 2, 'F');
 
     doc.setFontSize(9);
     doc.setTextColor(80);
     doc.setFont('helvetica', 'normal');
-    doc.text('Cliente:', 20, 53);
+    doc.text('Cliente:', 20, 51);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0);
-    doc.text(item.cliente || 'NÃO INFORMADO', 42, 53);
+    doc.setTextColor(30);
+    doc.text(item.cliente || 'NÃO INFORMADO', 42, 51);
 
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL: ${formatCurrency(item.total)}`, w - 20, 56, { align: 'right' });
+    doc.text(`TOTAL: ${formatCurrency(item.total)}`, w - 20, 53, { align: 'right' });
 
     const tableData = item.itens.map(prod => [
       { content: '', styles: { minCellHeight: 18 } },
@@ -129,13 +129,10 @@ export const generatePreVendaPDF = (item) => {
 
     autoTable(doc, {
       ...baseTableStyles,
-      startY: 70,
+      startY: 65,
       head: [['Barras', 'Código', 'Descrição', 'Emb', 'Qtd', 'Preço', 'Subtotal']],
       body: tableData,
-      columnStyles: {
-        0: { cellWidth: 30 },
-        2: { cellWidth: 'auto' },
-      },
+      columnStyles: { 0: { cellWidth: 30 }, 2: { cellWidth: 'auto' } },
       didDrawCell: (data) => {
         if (data.section === 'body' && data.column.index === 0) {
           const prod = item.itens[data.row.index];
@@ -144,7 +141,7 @@ export const generatePreVendaPDF = (item) => {
           try {
             JsBarcode(canvas, prod.codigo, { format: 'CODE128', displayValue: false, height: 30, width: 1.5, margin: 0 });
             doc.addImage(canvas.toDataURL('image/png'), 'PNG', data.cell.x + 1, data.cell.y + 2, 28, 12);
-          } catch (e) { /* silently skip invalid barcodes */ }
+          } catch (e) { /* skip invalid barcodes */ }
         }
       }
     });
@@ -166,11 +163,10 @@ export const generatePickingPDF = (item) => {
 
     drawHeader(doc, 'LISTA DE SEPARAÇÃO', `#${item.id || item.firebaseId?.slice(-6)} | ${new Date(item.data || item.createdAt).toLocaleDateString('pt-BR')}`);
 
-    // Info
     doc.setFontSize(9);
     doc.setTextColor(80);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Responsável: ${item.atribuicao || item.separador || '-'}`, 14, 48);
+    doc.text(`Responsável: ${item.atribuicao || item.separador || '-'}`, 14, 46);
 
     const tableData = (item.itens || []).map(prod => [
       prod.codigo,
@@ -182,11 +178,10 @@ export const generatePickingPDF = (item) => {
 
     autoTable(doc, {
       ...baseTableStyles,
-      startY: 55,
+      startY: 52,
       head: [['Código', 'Descrição', 'Emb', 'Estoque', 'Qtd Pedida']],
       body: tableData,
       styles: { ...baseTableStyles.styles, fontSize: 11, cellPadding: 4 },
-      headStyles: { ...baseTableStyles.headStyles, fontSize: 10 },
     });
 
     drawFooter(doc);
@@ -198,7 +193,7 @@ export const generatePickingPDF = (item) => {
 };
 
 // =============================================
-// RELATÓRIO DE AUDITORIA PDF
+// RELATÓRIO PDF — Colunas: Código, Descrição, Embalagem, Entrada, Dias S/Venda, Estoque
 // =============================================
 export const generateRelatorioPDF = (filteredData, totalInRisk, selectedRazao) => {
   try {
@@ -208,24 +203,24 @@ export const generateRelatorioPDF = (filteredData, totalInRisk, selectedRazao) =
     drawHeader(doc, 'AUDITORIA DE ESTOQUE', selectedRazao || 'Relatório Geral');
 
     // Summary bar
-    doc.setFillColor(254, 226, 226);
-    doc.roundedRect(14, 44, w - 28, 14, 2, 2, 'F');
-    doc.setFontSize(9);
+    doc.setFillColor(255, 240, 240);
+    doc.roundedRect(14, 42, w - 28, 12, 2, 2, 'F');
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(185, 28, 28);
-    doc.text(`TOTAL EM RISCO (IDW): ${formatCurrency(totalInRisk)}`, 20, 53);
+    doc.setTextColor(180, 30, 30);
+    doc.text(`TOTAL EM RISCO (IDW): ${formatCurrency(totalInRisk)}`, 20, 50);
 
     autoTable(doc, {
       ...baseTableStyles,
-      startY: 65,
-      head: [['Código', 'Descrição', 'Razão Social', 'Dias S/ Venda', 'Valor Est.', 'Risco (V×D)']],
+      startY: 60,
+      head: [['Código', 'Descrição', 'Embalagem', 'Entrada', 'Dias S/ Venda', 'Estoque']],
       body: filteredData.map(item => [
-        item.codigo || item.CODIGO,
-        item.descricao || item.DESCRICAO,
-        item.razaosocial || item.RAZAOSOCIAL,
-        item.dias_sem_venda || '0',
-        formatCurrency(item.valor_estoque),
-        formatCurrency((Number(item.dias_sem_venda) || 0) * (Number(item.valor_estoque) || 0))
+        item.CODIGO || item.codigo || '',
+        item.DESCRICAO || item.descricao || '',
+        item.EMBALAGEM || item.embalagem || item.emb || 'UN',
+        item.ENTRADA || item.entrada || '-',
+        String(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || '0'),
+        String(item.ESTOQUE || item.QTE || item.estoque || '0'),
       ]),
     });
 
@@ -238,40 +233,9 @@ export const generateRelatorioPDF = (filteredData, totalInRisk, selectedRazao) =
 };
 
 // =============================================
-// PEDIDO B2B PDF
+// PEDIDO B2B PDF — Usa mesmo layout de Pré-Venda
 // =============================================
 export const generateB2BPDF = (pedido) => {
-  if (!pedido || !pedido.itens || pedido.itens.length === 0) return;
-
-  try {
-    const doc = new jsPDF();
-
-    drawHeader(doc, 'PEDIDO B2B', `#${pedido.firebaseId?.slice(-6) || pedido.id} | ${new Date(pedido.data || pedido.createdAt).toLocaleDateString('pt-BR')}`);
-
-    // Client
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(80);
-    doc.text(`Cliente: ${pedido.cliente || '-'}`, 14, 48);
-
-    const tableData = pedido.itens.map(prod => [
-      prod.codigo,
-      prod.descricao,
-      prod.embalagem || prod.emb || 'UN',
-      prod.qtd?.toString() || '0'
-    ]);
-
-    autoTable(doc, {
-      ...baseTableStyles,
-      startY: 55,
-      head: [['Código', 'Descrição', 'Emb', 'Qtd Solicitada']],
-      body: tableData,
-    });
-
-    drawFooter(doc);
-    doc.save(`pedido_b2b_${pedido.firebaseId?.slice(-6) || pedido.id}.pdf`);
-  } catch (error) {
-    console.error('Erro ao gerar PDF B2B:', error);
-    alert('Ocorreu um erro ao gerar o PDF.');
-  }
+  // Redireciona para o layout de Pré-Venda
+  return generatePreVendaPDF(pedido);
 };

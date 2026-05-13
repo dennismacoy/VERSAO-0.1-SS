@@ -3,9 +3,9 @@ import { Plus, Search, Trash2, FileText, X, Package, Check, Loader2 } from 'luci
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
 import { api } from '../lib/api';
-import { generateB2BPDF } from '../lib/pdfGenerator';
+import { generatePreVendaPDF } from '../lib/pdfGenerator';
 import { listenToNode } from '../lib/firebase';
-import { cn } from '../lib/utils';
+import { cn, parseEstoque, getEstoqueNumerico, formatCurrency } from '../lib/utils';
 
 export default function Pedidos() {
   const { user } = useAuth();
@@ -22,7 +22,6 @@ export default function Pedidos() {
   // Listener em tempo real do Firebase, filtrado pelo usuário logado
   useEffect(() => {
     unsubRef.current = listenToNode('pedidos', (items) => {
-      // Filtra apenas pedidos do usuário logado
       const userName = user?.name || user?.usuario || '';
       const filtered = items.filter(p =>
         (p.cliente || '').toLowerCase() === userName.toLowerCase() ||
@@ -37,8 +36,13 @@ export default function Pedidos() {
     };
   }, [user]);
 
-  // Visão Cega: Apenas pesquisa Codigo e Descricao
-  const searchResults = searchLocal(query).slice(0, 10);
+  // Pesquisa: filtrar SOMENTE itens com estoque > 10
+  const searchResults = searchLocal(query)
+    .filter(p => {
+      const estoqueStr = p.ESTOQUE || p.QTE || p.estoque || 0;
+      return getEstoqueNumerico(estoqueStr) > 10;
+    })
+    .slice(0, 10);
 
   const handleAddItem = (p) => {
     const codigo = p.CODIGO || p.codigo;
@@ -55,23 +59,32 @@ export default function Pedidos() {
     }
   };
 
-  const updateQtd = (codigo, qtd) => {
-    if (qtd <= 0) {
-      setItensPedido(itensPedido.filter(i => i.codigo !== codigo));
+  // Permite apagar o valor sem deletar o item
+  const updateQtd = (codigo, value) => {
+    // Se o valor for vazio ou inválido, permite ficar sem número (não deleta)
+    if (value === '' || value === null || value === undefined) {
+      setItensPedido(itensPedido.map(i => i.codigo === codigo ? { ...i, qtd: '' } : i));
       return;
     }
+    const qtd = Number(value);
+    if (isNaN(qtd) || qtd < 0) return;
     setItensPedido(itensPedido.map(i => i.codigo === codigo ? { ...i, qtd } : i));
   };
 
+  const removeItem = (codigo) => {
+    setItensPedido(itensPedido.filter(i => i.codigo !== codigo));
+  };
+
   const handleSalvarPedido = async () => {
-    if (itensPedido.length === 0) return alert('Adicione itens ao pedido.');
+    const validItems = itensPedido.filter(i => i.qtd > 0);
+    if (validItems.length === 0) return alert('Adicione itens com quantidade válida ao pedido.');
     setSaving(true);
 
     const novoPedido = {
       cliente: user?.name || user?.usuario || 'Cliente',
       usuario: user?.usuario || user?.name || '',
       data: new Date().toISOString(),
-      itens: itensPedido,
+      itens: validItems,
       status: 'Pendente',
     };
 
@@ -108,10 +121,11 @@ export default function Pedidos() {
     }
   };
 
+  // PDF de Pedido Convertido usa o mesmo layout de Pré-Venda
   const handleGerarPDF = () => {
     const selectedPedidos = pedidos.filter(p => selectedIds.includes(p.firebaseId));
     if (selectedPedidos.length === 0) return alert('Selecione pelo menos um pedido.');
-    selectedPedidos.forEach(pedido => generateB2BPDF(pedido));
+    selectedPedidos.forEach(pedido => generatePreVendaPDF(pedido));
   };
 
   return (
@@ -174,7 +188,7 @@ export default function Pedidos() {
                   </td>
                   <td className="px-4 py-3 text-center font-bold">{(p.itens || []).length}</td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => generateB2BPDF(p)} className="text-primary hover:bg-primary/10 p-2 rounded" title="Gerar PDF">
+                    <button onClick={() => generatePreVendaPDF(p)} className="text-primary hover:bg-primary/10 p-2 rounded" title="Gerar PDF">
                       <FileText size={18} />
                     </button>
                   </td>
@@ -194,25 +208,30 @@ export default function Pedidos() {
             </div>
 
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              {/* Lado Esquerdo: Pesquisa (Visao Cega) */}
+              {/* Lado Esquerdo: Pesquisa — mostra SOMENTE itens com estoque > 10 */}
               <div className="w-full md:w-1/2 p-4 border-r border-border flex flex-col gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <input
                     type="text"
-                    className="w-full pl-9 pr-4 py-2 border rounded-lg bg-background text-sm"
+                    className="w-full pl-9 pr-4 py-2 border rounded-lg bg-background text-base"
                     placeholder="Pesquisar Produto..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                   />
                 </div>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  Exibindo apenas itens com estoque &gt; 10
+                </p>
                 <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
                   {query && searchResults.map(p => (
                     <div key={p.CODIGO || p.codigo} className="p-3 border rounded-lg hover:border-primary flex justify-between items-center bg-muted/20">
                       <div>
                         <p className="font-bold text-sm text-primary">{p.CODIGO || p.codigo}</p>
                         <p className="text-xs font-semibold">{p.DESCRICAO || p.descricao}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">Emb: {p.EMBALAGEM || p.embalagem || p.emb || 'UN'}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Emb: {p.EMBALAGEM || p.embalagem || p.emb || 'UN'} | <span className="font-black text-primary">Atacado: {formatCurrency(p.PRECO_ATACADO || p.preco_atacado)}</span>
+                        </p>
                       </div>
                       <button onClick={() => handleAddItem(p)} className="p-2 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-primary-foreground">
                         <Plus size={16} />
@@ -235,11 +254,19 @@ export default function Pedidos() {
                       <div className="flex items-center gap-2">
                         <input
                           type="number"
+                          inputMode="numeric"
                           min="0"
                           value={item.qtd}
-                          onChange={(e) => updateQtd(item.codigo, Number(e.target.value))}
-                          className="w-16 text-center border rounded p-1 font-bold text-sm"
+                          onChange={(e) => updateQtd(item.codigo, e.target.value)}
+                          className="w-16 text-center border rounded p-1 font-bold text-base bg-background"
+                          placeholder="0"
                         />
+                        <button
+                          onClick={() => removeItem(item.codigo)}
+                          className="p-1 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </div>
                     </div>
                   ))}

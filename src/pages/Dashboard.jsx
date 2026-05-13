@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useProducts } from '../context/ProductsContext';
 import { useAuth } from '../context/AuthContext';
+import { parseEstoque, getEstoqueNumerico, formatCurrency } from '../lib/utils';
 import {
   Package,
   Inbox,
@@ -17,8 +18,6 @@ export default function Dashboard() {
   const { hasPermission, role } = useAuth();
 
   const stats = useMemo(() => {
-    // Retorna sempre um objeto padrão. Desta forma o Dashboard NUNCA bloqueia, 
-    // mesmo que a base de dados esteja vazia ou demore a carregar.
     let data = {
       isvCount: 0, isvValue: 0,
       ageCount: 0, ageValue: 0,
@@ -29,36 +28,39 @@ export default function Dashboard() {
     if (!products || products.length === 0) return data;
 
     products.forEach(p => {
-      const qte = Number(p.ESTOQUE || p.QTE) || 0;
-      const custo = Number(p.CUSTO || p.PRECO) || 0;
-      const val = qte * custo;
+      // Usar parseEstoque para determinar se tem estoque real
+      const estoqueStr = p.ESTOQUE || p.QTE || p.estoque || 0;
+      const temEstoque = parseEstoque(estoqueStr);
+      const estoqueNum = getEstoqueNumerico(estoqueStr);
+      const custo = Number(p.CUSTO || p.PRECO || p.custo || 0);
+      const val = estoqueNum * custo;
 
-      if (qte > 0) {
+      if (temEstoque) {
+        // Valor de Estoque: Somatório financeiro de TODOS os itens em estoque
         data.totalValue += val;
 
-        const diasSemVenda = Number(p.ISV || Math.floor(Math.random() * 20));
-        const idade = Number(p.IDADE || Math.floor(Math.random() * 400));
-        const paletes = Number(p.PALETES || 0);
-
+        // ISV: Contar apenas itens com estoque > 0 E dias sem venda > 7
+        const diasSemVenda = Number(p.ISV || p.DIAS_SEM_VENDA || p.dias_sem_venda || 0);
         if (diasSemVenda > 7) {
           data.isvCount++;
           data.isvValue += val;
         }
+
+        // Idade: Contar itens com estoque > 0 E dias de idade > 300
+        const idade = Number(p.IDADE || p.idade || 0);
         if (idade > 300) {
           data.ageCount++;
           data.ageValue += val;
         }
+
+        // Total Paletes: Somar valor numérico da coluna "estoque paletes"
+        const paletes = Number(p.PALETES || p.PALETE_ESTOQUE || p.paletes || 0);
         data.totalPallets += paletes;
       }
     });
 
-    data.separacoes = 12; // Mocked
-    data.requisicoes = 5; // Mocked
-
     return data;
   }, [products]);
-
-  const formatMoney = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
   // A condição de carregamento agora APENAS verifica o estado "loading"
   if (loading) {
@@ -80,7 +82,7 @@ export default function Dashboard() {
         <div className="bg-card px-4 py-2 rounded-xl border border-border shadow-sm flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${products.length > 0 ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
           <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-            {products.length > 0 ? 'Cache Sincronizado' : 'Base Vazia'}
+            {products.length > 0 ? `${products.length.toLocaleString()} itens` : 'Base Vazia'}
           </span>
         </div>
       </div>
@@ -129,7 +131,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="bg-muted p-2 rounded-lg">
-              <p className="text-xs font-bold text-muted-foreground">Valor Retido: <span className="text-foreground">{formatMoney(stats.isvValue)}</span></p>
+              <p className="text-xs font-bold text-muted-foreground">Valor Retido: <span className="text-foreground">{formatCurrency(stats.isvValue)}</span></p>
             </div>
           </div>
         )}
@@ -146,7 +148,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="bg-muted p-2 rounded-lg">
-              <p className="text-xs font-bold text-muted-foreground">Valor Retido: <span className="text-foreground">{formatMoney(stats.ageValue)}</span></p>
+              <p className="text-xs font-bold text-muted-foreground">Valor Retido: <span className="text-foreground">{formatCurrency(stats.ageValue)}</span></p>
             </div>
           </div>
         )}
@@ -171,7 +173,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Valor em Estoque</p>
-                <h3 className="text-2xl font-black mt-1 text-primary">{formatMoney(stats.totalValue)}</h3>
+                <h3 className="text-2xl font-black mt-1 text-primary">{formatCurrency(stats.totalValue)}</h3>
               </div>
               <div className="p-3 bg-primary/10 rounded-xl text-primary">
                 <DollarSign size={24} />

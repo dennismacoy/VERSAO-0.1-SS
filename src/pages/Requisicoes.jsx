@@ -5,8 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
 import { api } from '../lib/api';
 import { listenToNode } from '../lib/firebase';
-import { generateB2BPDF } from '../lib/pdfGenerator';
-import { cn } from '../lib/utils';
+import { generatePreVendaPDF } from '../lib/pdfGenerator';
+import { cn, formatCurrency } from '../lib/utils';
 
 export default function Requisicoes() {
   const navigate = useNavigate();
@@ -14,8 +14,8 @@ export default function Requisicoes() {
   const { searchLocal } = useProducts();
   const [requisicoes, setRequisicoes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [convertingReq, setConvertingReq] = useState(null); // Requisição sendo convertida
-  const [precoMap, setPrecoMap] = useState({}); // { codigo: preco } para a conversão
+  const [convertingReq, setConvertingReq] = useState(null);
+  const [precoMap, setPrecoMap] = useState({});
   const [saving, setSaving] = useState(false);
   const unsubRef = useRef(null);
 
@@ -65,10 +65,10 @@ export default function Requisicoes() {
       const itensComPreco = (convertingReq.itens || []).map(item => ({
         ...item,
         preco: Number(precoMap[item.codigo] || 0),
-        subtotal: Number(precoMap[item.codigo] || 0) * item.qtd,
+        subtotal: Number(precoMap[item.codigo] || 0) * (Number(item.qtd) || 0),
       }));
 
-      const total = itensComPreco.reduce((acc, i) => acc + i.subtotal, 0);
+      const total = itensComPreco.reduce((acc, i) => acc + (i.subtotal || 0), 0);
 
       const preVendaData = {
         cliente: convertingReq.cliente || 'Cliente',
@@ -91,14 +91,12 @@ export default function Requisicoes() {
       setPrecoMap({});
       alert('Pré-Venda criada com sucesso!');
     } catch (e) {
-      console.error(e);
-      alert('Erro ao converter requisição.');
+      console.error('Erro na conversão:', e);
+      alert('Erro ao converter requisição. Verifique o console.');
     } finally {
       setSaving(false);
     }
   };
-
-  const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
   return (
     <div className="space-y-6">
@@ -131,7 +129,7 @@ export default function Requisicoes() {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => generateB2BPDF(req)}
+                      onClick={() => generatePreVendaPDF(req)}
                       className="p-2 text-primary hover:bg-primary/10 rounded-xl transition-all"
                       title="Gerar PDF"
                     >
@@ -173,7 +171,7 @@ export default function Requisicoes() {
 
       {/* Modal de Conversão com Preços */}
       {convertingReq && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/90 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/90 backdrop-blur-sm">
           <div className="bg-card w-full max-w-2xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
             <div className="p-4 border-b border-border bg-accent/5 flex justify-between items-center">
               <h2 className="text-xl font-black flex items-center gap-2">
@@ -189,7 +187,7 @@ export default function Requisicoes() {
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
               {(convertingReq.itens || []).map(item => {
-                const subtotal = (precoMap[item.codigo] || 0) * item.qtd;
+                const subtotal = (Number(precoMap[item.codigo]) || 0) * (Number(item.qtd) || 0);
                 return (
                   <div key={item.codigo} className="p-4 border bg-card rounded-xl flex flex-col md:flex-row md:items-center gap-4 shadow-sm">
                     <div className="flex-1">
@@ -202,11 +200,12 @@ export default function Requisicoes() {
                         <label className="text-[10px] font-bold uppercase text-muted-foreground block mb-1">Preço Unit.</label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           min="0"
                           step="0.01"
-                          value={precoMap[item.codigo] || ''}
-                          onChange={(e) => setPrecoMap({ ...precoMap, [item.codigo]: Number(e.target.value) })}
-                          className="w-28 text-center border-2 border-accent/30 rounded-lg p-2 font-bold text-sm bg-background focus:border-accent"
+                          value={precoMap[item.codigo] ?? ''}
+                          onChange={(e) => setPrecoMap({ ...precoMap, [item.codigo]: e.target.value === '' ? '' : Number(e.target.value) })}
+                          className="w-28 text-center border-2 border-accent/30 rounded-lg p-2 font-bold text-base bg-background focus:border-accent"
                           placeholder="R$ 0,00"
                         />
                       </div>
@@ -224,7 +223,7 @@ export default function Requisicoes() {
               <div className="flex justify-between items-center mb-4">
                 <span className="text-xs font-black uppercase text-muted-foreground tracking-widest">Total da Pré-Venda</span>
                 <span className="text-2xl font-black text-accent">
-                  {formatCurrency((convertingReq.itens || []).reduce((acc, i) => acc + (precoMap[i.codigo] || 0) * i.qtd, 0))}
+                  {formatCurrency((convertingReq.itens || []).reduce((acc, i) => acc + (Number(precoMap[i.codigo]) || 0) * (Number(i.qtd) || 0), 0))}
                 </span>
               </div>
               <button

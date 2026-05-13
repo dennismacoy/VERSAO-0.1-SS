@@ -1,4 +1,5 @@
 import {
+  loginFirebase,
   createPreVendaFirebase,
   createPedidoFirebase,
   getHistoryFirebase,
@@ -6,21 +7,29 @@ import {
   updateRecordFirebase,
   deleteRecordFirebase,
   deleteMultipleFirebase,
+  saveReportFirebase,
+  changePasswordFirebase,
 } from './firebase';
 
 // =============================================
-// Google Apps Script (mantido APENAS para Login)
+// Google Apps Script — SOMENTE para Sincronização Master (smg13/smg32)
 // =============================================
-const GAS_URL = "https://script.google.com/macros/s/AKfycbw0mQy3XLnfpf-EaKjScjG9PAam4p8Br7X0do9b6SrL_Cwdb7I_lXDd0lSaHtI0CpCxOw/exec";
+const GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbyX6oFf2C5uyI7eFz4x3ATcCPeoUKJY_z39oDN5yFSIDwmfXMsx9QDMhTcwlUph2_a4Gw/exec";
 
 const fetchGAS = async (payload) => {
   try {
-    const response = await fetch(GAS_URL, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+
+    const response = await fetch(GAS_SYNC_URL, {
       method: "POST",
       redirect: "follow",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
     const text = await response.text();
     try {
       return JSON.parse(text);
@@ -28,6 +37,9 @@ const fetchGAS = async (payload) => {
       return text;
     }
   } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('Timeout: A requisição demorou mais de 20 segundos.');
+    }
     console.error(`[GAS] Erro (action: ${payload.action}):`, error);
     throw error;
   }
@@ -37,9 +49,14 @@ const fetchGAS = async (payload) => {
 // API Pública (usada pelo resto do app)
 // =============================================
 export const api = {
-  // Login continua no Google Apps Script (lê a aba "Usuarios")
+  // ---- Login via Firebase (sem GAS) ----
   async login(username, password) {
-    return await fetchGAS({ action: 'login', usuario: username, senha: password });
+    return await loginFirebase(username, password);
+  },
+
+  // ---- Trocar senha do usuário ----
+  async changePassword(firebaseId, newPassword) {
+    return await changePasswordFirebase(firebaseId, newPassword);
   },
 
   // --- FIREBASE: Pré-Vendas ---
@@ -68,6 +85,8 @@ export const api = {
       'prevendas': 'prevendas',
       'Pedidos': 'pedidos',
       'pedidos': 'pedidos',
+      'Relatorios_Hist': 'relatorios_hist',
+      'relatorios_hist': 'relatorios_hist',
     };
     const resolvedNode = nodeMap[nodeName] || nodeName;
     return await getHistoryFirebase(resolvedNode);
@@ -92,13 +111,16 @@ export const api = {
     return await deleteMultipleFirebase(nodeName, firebaseIds);
   },
 
-  // --- GAS: Upload de dados para planilha (relatórios/backoffice) ---
+  // --- FIREBASE: Salvar relatório no histórico ---
   async saveReport(reportData) {
-    return await fetchGAS({ action: 'saveReport', data: reportData });
+    return await saveReportFirebase(reportData);
   },
 
-  async uploadData(payload, targetBase) {
-    return await fetchGAS({ action: 'uploadData', targetBase, data: payload });
-  }
+  // --- GAS: Sincronização Master (ÚNICO uso restante do GAS) ---
+  // Dispara dados para as planilhas smg13 e smg32
+  async syncToSheet(targetBase, data) {
+    return await fetchGAS({ action: 'syncMaster', targetBase, data });
+  },
 };
+
 

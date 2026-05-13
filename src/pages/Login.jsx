@@ -20,7 +20,7 @@ export default function Login() {
       navigate('/');
     } catch (error) {
       console.error(error);
-      setErrorMsg('Acesso Negado: Verifique suas credenciais de segurança.');
+      setErrorMsg(error?.message || 'Acesso Negado: Verifique suas credenciais.');
     } finally {
       setLoading(false);
     }
@@ -29,61 +29,64 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f8f9fa] dark:bg-[#0a0a0a] px-4 overflow-hidden relative">
       {/* Abstract Background Elements */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] -mr-64 -mt-64" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -ml-64 -mb-64" />
+      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary/10 rounded-full blur-[120px] -mr-48 -mt-48" />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-primary/5 rounded-full blur-[120px] -ml-48 -mb-48" />
 
-      <div className="max-w-sm w-full relative">
-        <div className="bg-card p-8 rounded-3xl shadow-2xl border-2 border-white dark:border-zinc-900 transition-all">
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-primary/20 transform rotate-3">
-              <Package2 size={32} className="text-primary-foreground" />
+      <div className="max-w-xs w-full relative">
+        <div className="bg-card p-6 rounded-2xl shadow-xl border border-border transition-all">
+          <div className="flex flex-col items-center mb-6">
+            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mb-3 shadow-lg shadow-primary/20 transform rotate-3">
+              <Package2 size={24} className="text-primary-foreground" />
             </div>
-            <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase italic">
+            <h1 className="text-2xl font-black text-foreground tracking-tighter uppercase italic">
               Smart<span className="text-primary">Stock</span>
             </h1>
-            <div className="flex items-center gap-2 mt-2">
-              <ShieldCheck size={12} className="text-muted-foreground" />
-              <p className="text-muted-foreground font-bold text-[9px] uppercase tracking-[0.2em]">Acesso Seguro</p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <ShieldCheck size={10} className="text-muted-foreground" />
+              <p className="text-muted-foreground font-bold text-[8px] uppercase tracking-[0.2em]">Acesso Seguro</p>
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {errorMsg && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-[10px] font-black uppercase tracking-widest text-center animate-in shake">
+              <div className="p-2.5 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-[10px] font-black uppercase tracking-widest text-center animate-in shake">
                 {errorMsg}
               </div>
             )}
             
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Usuário</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors">
-                  <User size={18} />
+                  <User size={16} />
                 </div>
+                {/* font-size 16px (text-base) impede zoom automático no mobile */}
                 <input
                   type="text"
                   required
-                  className="block w-full pl-10 pr-4 py-3 rounded-xl border-2 border-border bg-background focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary font-bold transition-all text-sm min-h-[44px]"
-                  placeholder="Seu usuário corporativo"
+                  className="block w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-bold transition-all text-base min-h-[44px]"
+                  placeholder="Seu usuário"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
                 />
               </div>
             </div>
             
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Senha</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors">
-                  <Lock size={18} />
+                  <Lock size={16} />
                 </div>
                 <input
                   type="password"
                   required
-                  className="block w-full pl-10 pr-4 py-3 rounded-xl border-2 border-border bg-background focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary font-bold transition-all text-sm min-h-[44px]"
+                  className="block w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-bold transition-all text-base min-h-[44px]"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                 />
               </div>
             </div>
@@ -91,36 +94,36 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-primary-foreground hover:opacity-90 font-black py-4 rounded-xl transition-all flex items-center justify-center gap-3 disabled:opacity-70 mt-4 shadow-xl shadow-primary/20 transform active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
+              className="w-full bg-primary text-primary-foreground hover:opacity-90 font-black py-3 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2 shadow-lg shadow-primary/20 transform active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
             >
               {loading ? (
                 <>
-                  <Loader2 className="animate-spin" size={20} />
+                  <Loader2 className="animate-spin" size={18} />
                   <span>Autenticando...</span>
                 </>
               ) : (
                 <>
-                  <span>Entrar no Sistema</span>
-                  <ArrowRight size={20} />
+                  <span>Entrar</span>
+                  <ArrowRight size={18} />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-10 pt-8 border-t border-border flex flex-col items-center gap-4">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center">
+          <div className="mt-6 pt-5 border-t border-border flex flex-col items-center gap-2">
+            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest text-center">
               Acesso restrito a colaboradores autorizados
             </p>
-            <div className="flex gap-2">
-              <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-              <div className="w-2 h-2 bg-primary/40 rounded-full" />
-              <div className="w-2 h-2 bg-primary/10 rounded-full" />
+            <div className="flex gap-1.5">
+              <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+              <div className="w-1.5 h-1.5 bg-primary/40 rounded-full" />
+              <div className="w-1.5 h-1.5 bg-primary/10 rounded-full" />
             </div>
           </div>
         </div>
         
-        <p className="mt-8 text-center text-muted-foreground/40 font-black text-[8px] uppercase tracking-[0.5em]">
-          &copy; 2026 SmartStock Logistics Division
+        <p className="mt-6 text-center text-muted-foreground/40 font-black text-[7px] uppercase tracking-[0.4em]">
+          &copy; 2026 SmartStock Logistics
         </p>
       </div>
     </div>

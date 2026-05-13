@@ -3,35 +3,43 @@ import { Search, Info, Package, Phone, X, DollarSign, Activity, MessageSquare } 
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
 import { cn } from '../lib/utils';
+import { parseEstoque, getEstoqueNumerico, formatCurrency } from '../lib/utils';
 
 export default function Consulta() {
   const [query, setQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [stockFilter, setStockFilter] = useState('com_estoque'); // 'com_estoque' | 'todos'
   const { hasPermission } = useAuth();
   const { products, loading, searchLocal } = useProducts();
 
-  const filteredProducts = useMemo(() => searchLocal(query), [query, products]);
+  const filteredProducts = useMemo(() => {
+    let results = searchLocal(query);
 
-  const visibleProducts = filteredProducts.slice(0, 100); // Exibir 100 itens p/ performance
+    // Aplica filtro de estoque
+    if (stockFilter === 'com_estoque') {
+      results = results.filter(p => {
+        const estoqueStr = p.ESTOQUE || p.QTE || p.estoque || 0;
+        return parseEstoque(estoqueStr);
+      });
+    }
+
+    return results;
+  }, [query, products, stockFilter]);
+
+  const visibleProducts = filteredProducts.slice(0, 100);
 
   const handleSearch = (e) => {
     setQuery(e.target.value);
-  };
-
-  const formatCurrency = (val) => {
-    const num = Number(val);
-    if (isNaN(num)) return 'R$ 0,00';
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
   };
 
   const buildWppMessage = (p) => {
     const cod = p.CODIGO || p.codigo || '';
     const desc = p.DESCRICAO || p.descricao || '';
     const emb = p.EMBALAGEM || p.embalagem || p.emb || 'UN';
-    const estoque = p.ESTOQUE || p.QTE || 0;
-    const idade = p.IDADE || 0;
-    const isv = p.DIAS_SEM_VENDA || p.ISV || 0;
-    const entrada = p.ENTRADA || '-';
+    const estoque = p.ESTOQUE || p.QTE || p.estoque || 0;
+    const idade = p.IDADE || p.idade || 0;
+    const isv = p.DIAS_SEM_VENDA || p.ISV || p.dias_sem_venda || 0;
+    const entrada = p.ENTRADA || p.entrada || '-';
     return [
       `📦 *PRODUTO:* ${cod} - ${desc}`,
       `📏 *EMBALAGEM:* ${emb}`,
@@ -48,6 +56,20 @@ export default function Consulta() {
     window.open(url, '_blank');
   };
 
+  // Helper para extrair valores do produto com fallback case-insensitive
+  const getVal = (p, ...keys) => {
+    for (const k of keys) {
+      if (p[k] !== undefined && p[k] !== null && p[k] !== '') return p[k];
+      // Tenta lowercase
+      const lk = k.toLowerCase();
+      if (p[lk] !== undefined && p[lk] !== null && p[lk] !== '') return p[lk];
+      // Tenta uppercase
+      const uk = k.toUpperCase();
+      if (p[uk] !== undefined && p[uk] !== null && p[uk] !== '') return p[uk];
+    }
+    return null;
+  };
+
   return (
     <div className="flex flex-col h-full space-y-4 md:space-y-6">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
@@ -60,12 +82,41 @@ export default function Consulta() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <input
             type="text"
-            className="w-full pl-12 pr-4 py-3 border border-border rounded-xl bg-card text-foreground focus:ring-2 focus:ring-primary focus:border-primary shadow-sm"
+            className="w-full pl-12 pr-4 py-3 border border-border rounded-xl bg-card text-foreground focus:ring-2 focus:ring-primary focus:border-primary shadow-sm text-base"
             placeholder="Buscar por código ou descrição..."
             value={query}
             onChange={handleSearch}
           />
         </div>
+      </div>
+
+      {/* Toggle: Com Estoque / Todos */}
+      <div className="flex items-center gap-3 bg-card p-2 rounded-xl border border-border shadow-sm w-fit">
+        <button
+          onClick={() => setStockFilter('com_estoque')}
+          className={cn(
+            "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all",
+            stockFilter === 'com_estoque'
+              ? "bg-primary text-primary-foreground shadow-md"
+              : "text-muted-foreground hover:bg-muted"
+          )}
+        >
+          Com Estoque
+        </button>
+        <button
+          onClick={() => setStockFilter('todos')}
+          className={cn(
+            "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all",
+            stockFilter === 'todos'
+              ? "bg-primary text-primary-foreground shadow-md"
+              : "text-muted-foreground hover:bg-muted"
+          )}
+        >
+          Todos
+        </button>
+        <span className="text-xs font-bold text-muted-foreground ml-2">
+          {filteredProducts.length.toLocaleString()} itens
+        </span>
       </div>
 
       <div className="flex-1 overflow-hidden erp-card">
@@ -82,9 +133,7 @@ export default function Consulta() {
         ) : (
           <div className="h-full overflow-auto custom-scrollbar">
 
-            {/* ============================================================ */}
-            {/* DESKTOP TABLE (hidden on mobile, visible from md)             */}
-            {/* ============================================================ */}
+            {/* DESKTOP TABLE */}
             <table className="hidden md:table w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-muted sticky top-0 z-10 shadow-sm">
                 <tr>
@@ -97,7 +146,8 @@ export default function Consulta() {
               </thead>
               <tbody className="divide-y divide-border">
                 {visibleProducts.map((p, idx) => {
-                  const estoque = Number(p.ESTOQUE || p.QTE || 0);
+                  const estoqueStr = p.ESTOQUE || p.QTE || p.estoque || '0';
+                  const temEstoque = parseEstoque(estoqueStr);
                   return (
                     <tr
                       key={idx}
@@ -120,9 +170,9 @@ export default function Consulta() {
                       <td className="px-4 py-3 text-center">
                         <span className={cn(
                           "px-2 py-1 rounded-md text-xs font-bold uppercase",
-                          estoque > 0 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          temEstoque ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                         )}>
-                          {estoque > 0 ? estoque : "Sem Estoque"}
+                          {temEstoque ? String(estoqueStr) : "Sem Estoque"}
                         </span>
                       </td>
                     </tr>
@@ -131,12 +181,11 @@ export default function Consulta() {
               </tbody>
             </table>
 
-            {/* ============================================================ */}
-            {/* MOBILE CARD LIST (visible only on small screens, < md)        */}
-            {/* ============================================================ */}
+            {/* MOBILE CARD LIST */}
             <div className="md:hidden divide-y divide-border">
               {visibleProducts.map((p, idx) => {
-                const estoque = Number(p.ESTOQUE || p.QTE || 0);
+                const estoqueStr = p.ESTOQUE || p.QTE || p.estoque || '0';
+                const temEstoque = parseEstoque(estoqueStr);
                 const codigo = p.CODIGO || p.codigo;
                 const descricao = p.DESCRICAO || p.descricao;
                 const embalagem = p.EMBALAGEM || p.embalagem || p.emb || 'UN';
@@ -149,25 +198,20 @@ export default function Consulta() {
                     className="px-3 py-3 active:bg-primary/5 transition-colors cursor-pointer"
                     onClick={() => setSelectedProduct(p)}
                   >
-                    {/* Row 1: Código + Estoque Badge */}
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-black text-primary tracking-wide">{codigo}</span>
                       <span className={cn(
                         "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                        estoque > 0
+                        temEstoque
                           ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                           : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                       )}>
-                        {estoque > 0 ? `Est: ${estoque}` : "Sem Est."}
+                        {temEstoque ? `Est: ${estoqueStr}` : "Sem Est."}
                       </span>
                     </div>
-
-                    {/* Row 2: Descrição (truncated) */}
                     <p className="text-sm font-semibold text-foreground leading-tight line-clamp-1">
                       {descricao}
                     </p>
-
-                    {/* Row 3: Embalagem + Preços (stacked horizontally) */}
                     <div className="flex items-center gap-3 mt-1.5 text-[11px]">
                       <span className="bg-muted px-2 py-0.5 rounded font-bold text-muted-foreground shrink-0">
                         {embalagem}
@@ -185,7 +229,7 @@ export default function Consulta() {
         )}
       </div>
 
-      {/* BOTTOM SHEET / MODAL */}
+      {/* BOTTOM SHEET / MODAL — Detail Panel */}
       {selectedProduct && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end md:justify-center md:items-center bg-background/80 backdrop-blur-sm animate-in fade-in">
           <div
@@ -194,13 +238,13 @@ export default function Consulta() {
             <div className="p-4 border-b border-border flex items-start justify-between bg-primary/5">
               <div className="flex-1 min-w-0 pr-3">
                 <span className="text-xs font-bold text-primary uppercase bg-primary/10 px-2 py-1 rounded">
-                  {selectedProduct.CODIGO || selectedProduct.codigo}
+                  {getVal(selectedProduct, 'CODIGO', 'codigo') || '-'}
                 </span>
                 <h2 className="text-lg md:text-xl font-black mt-2 leading-tight line-clamp-2">
-                  {selectedProduct.DESCRICAO || selectedProduct.descricao}
+                  {getVal(selectedProduct, 'DESCRICAO', 'descricao') || '-'}
                 </h2>
                 <p className="text-xs md:text-sm font-bold text-muted-foreground mt-1 bg-muted inline-block px-2 rounded">
-                  Emb: {selectedProduct.EMBALAGEM || selectedProduct.embalagem || selectedProduct.emb || 'UN'}
+                  Emb: {getVal(selectedProduct, 'EMBALAGEM', 'embalagem', 'emb') || 'UN'}
                 </p>
               </div>
               <button
@@ -219,29 +263,33 @@ export default function Consulta() {
                   <div className="grid grid-cols-2 gap-y-3 text-sm">
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Estoque</p>
-                      <p className={cn("font-black", (selectedProduct.ESTOQUE || 0) > 0 ? "text-green-600" : "text-red-500")}>
-                        {selectedProduct.ESTOQUE || selectedProduct.QTE || 0}
+                      <p className={cn("font-black", parseEstoque(getVal(selectedProduct, 'ESTOQUE', 'QTE', 'estoque') || 0) ? "text-green-600" : "text-red-500")}>
+                        {getVal(selectedProduct, 'ESTOQUE', 'QTE', 'estoque') || '0'}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Preços (At/Var)</p>
-                      <p className="font-bold text-xs md:text-sm">{formatCurrency(selectedProduct.PRECO_ATACADO || selectedProduct.preco_atacado)} / {formatCurrency(selectedProduct.PRECO_VAREJO || selectedProduct.preco_unitario)}</p>
+                      <p className="font-bold text-xs md:text-sm">
+                        {formatCurrency(getVal(selectedProduct, 'PRECO_ATACADO', 'preco_atacado'))} / {formatCurrency(getVal(selectedProduct, 'PRECO_VAREJO', 'preco_unitario'))}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Idade / Dias S/ Venda</p>
-                      <p className="font-bold">{selectedProduct.IDADE || 0} / {selectedProduct.DIAS_SEM_VENDA || selectedProduct.ISV || 0} dias</p>
+                      <p className="font-bold">
+                        {getVal(selectedProduct, 'IDADE', 'idade') || 0} / {getVal(selectedProduct, 'DIAS_SEM_VENDA', 'ISV', 'dias_sem_venda') || 0} dias
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Palete Estoque</p>
-                      <p className="font-bold">{selectedProduct.PALETE_ESTOQUE || selectedProduct.PALETES || '-'}</p>
+                      <p className="font-bold">{getVal(selectedProduct, 'PALETE_ESTOQUE', 'PALETES', 'paletes') || '-'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Corredor</p>
-                      <p className="font-bold text-accent">{selectedProduct.CORREDOR || '-'}</p>
+                      <p className="font-bold text-accent">{getVal(selectedProduct, 'CORREDOR', 'corredor') || '-'}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Última Entrada</p>
-                      <p className="font-bold">{selectedProduct.ENTRADA || '-'}</p>
+                      <p className="font-bold">{getVal(selectedProduct, 'ENTRADA', 'entrada') || '-'}</p>
                     </div>
                   </div>
 
@@ -257,36 +305,41 @@ export default function Consulta() {
                 </div>
               )}
 
-              {/* Card Extras */}
+              {/* Card Extras — Controlado por permissão */}
               {hasPermission('Ver Card Extras') && (
                 <div className="border border-border rounded-xl p-4 space-y-3 bg-muted/20">
                   <h3 className="font-bold text-sm uppercase text-accent border-b border-border/50 pb-2">Informações Extras</h3>
                   <div className="grid grid-cols-2 gap-y-3 text-sm">
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Valor em Estoque</p>
-                      <p className="font-black text-primary">{formatCurrency((selectedProduct.ESTOQUE || selectedProduct.QTE || 0) * (selectedProduct.CUSTO || selectedProduct.PRECO || 0))}</p>
+                      <p className="font-black text-primary">
+                        {formatCurrency(
+                          getEstoqueNumerico(getVal(selectedProduct, 'ESTOQUE', 'QTE', 'estoque') || 0) *
+                          Number(getVal(selectedProduct, 'CUSTO', 'PRECO', 'custo') || 0)
+                        )}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Custo</p>
-                      <p className="font-bold text-destructive">{formatCurrency(selectedProduct.CUSTO || selectedProduct.PRECO)}</p>
+                      <p className="font-bold text-destructive">{formatCurrency(getVal(selectedProduct, 'CUSTO', 'PRECO', 'custo'))}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Autonomia</p>
-                      <p className="font-bold">{selectedProduct.AUTONOMIA || 0} dias</p>
+                      <p className="font-bold">{getVal(selectedProduct, 'AUTONOMIA', 'autonomia') || 0} dias</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Rentabilidade</p>
-                      <p className="font-bold text-green-600">{selectedProduct.RENTABILIDADE || '0'}%</p>
+                      <p className="font-bold text-green-600">{getVal(selectedProduct, 'RENTABILIDADE', 'rentabilidade') || '0'}%</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Venda Mês</p>
-                      <p className="font-bold">{selectedProduct.VENDA_MES || 0}</p>
+                      <p className="font-bold">{getVal(selectedProduct, 'VENDA_MES', 'venda_mes') || 0}</p>
                     </div>
                   </div>
 
                   {hasPermission('Botao Ligar Comprador') && (
                     <button
-                      onClick={() => handleWppContact(`Atenção comprador, sobre o item ${selectedProduct.CODIGO || selectedProduct.codigo}.`)}
+                      onClick={() => handleWppContact(`Atenção comprador, sobre o item ${getVal(selectedProduct, 'CODIGO', 'codigo')}.`)}
                       className="mt-4 w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent/90 text-accent-foreground py-2 rounded-lg font-bold transition-colors"
                     >
                       <Phone size={18} />

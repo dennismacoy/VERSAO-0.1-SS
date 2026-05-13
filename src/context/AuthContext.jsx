@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api';
+import { listenToPermissions, fetchPermissionsFromFirebase, savePermissionsToFirebase } from '../lib/firebase';
 
 const AuthContext = createContext({});
 
@@ -14,7 +15,7 @@ const defaultPermissions = {
   'Acesso Pre-Venda': ['admin', 'gerente', 'vendedor'],
   'Acesso Separacao': ['admin', 'gerente', 'repositor'],
   'Acesso Relatorios': ['admin', 'gerente'],
-  'Acesso Configuracoes': ['admin', 'gerente', 'repositor', 'vendedor', 'clientes'], // global for 'Minha Conta'
+  'Acesso Configuracoes': ['admin', 'gerente', 'repositor', 'vendedor', 'clientes'],
 
   // Dashboard Cards
   'Ver Separacoes Abertas': ['admin', 'gerente', 'repositor'],
@@ -26,7 +27,7 @@ const defaultPermissions = {
 
   // Consulta Details (Bottom Sheet)
   'Ver Card Geral': ['admin', 'gerente', 'vendedor', 'repositor'],
-  'Ver Card Extras': ['admin', 'gerente'], // Custo, rentabilidade, ligar comprador
+  'Ver Card Extras': ['admin', 'gerente'],
 
   // Botoes
   'Botao Enviar WPP': ['admin', 'gerente', 'vendedor'],
@@ -39,25 +40,37 @@ export const AuthProvider = ({ children }) => {
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState(defaultPermissions);
+  const unsubPermsRef = useRef(null);
+
+  // Listener em tempo real para permissões do Firebase
+  useEffect(() => {
+    unsubPermsRef.current = listenToPermissions((fbPerms) => {
+      if (fbPerms && typeof fbPerms === 'object') {
+        // Remove a chave interna 'updatedAt' para não poluir a matriz
+        const { updatedAt, ...cleanPerms } = fbPerms;
+        if (Object.keys(cleanPerms).length > 0) {
+          setPermissions(cleanPerms);
+        }
+      }
+    });
+
+    return () => {
+      if (unsubPermsRef.current) unsubPermsRef.current();
+    };
+  }, []);
 
   const login = async (username, password) => {
     try {
       const response = await api.login(username, password);
-      
+
       let userRole = '';
       let userData = null;
-      
+
       if (response && response.success === true) {
-        userRole = response.role || 'Admin';
-        
-        // Force exact "Admin" capitalization to match permissions matrix
-        if (userRole.toLowerCase() === 'admin') {
-          userRole = 'Admin';
-        }
-        
+        userRole = response.role || 'vendedor';
         userData = response.user || { name: username };
       } else {
-        throw new Error(response?.message || "Credenciais inválidas ou erro na API");
+        throw new Error(response?.message || "Credenciais inválidas.");
       }
 
       setUser(userData);
@@ -79,16 +92,25 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasPermission = React.useCallback((actionName) => {
-    if (user?.role && user.role.toLowerCase() === 'admin') return true;
-    if (role && role.toLowerCase() === 'admin') return true; // Fallback
-    
-    const allowedRoles = permissions[actionName] || [];
-    return allowedRoles.includes(role);
-  }, [user, role, permissions]);
+    // Admin sempre tem acesso total
+    const currentRole = (role || '').toLowerCase();
+    if (currentRole === 'admin') return true;
 
-  const updatePermissions = React.useCallback((newPermissions) => {
+    const allowedRoles = permissions[actionName] || [];
+    return allowedRoles.some(r => r.toLowerCase() === currentRole);
+  }, [role, permissions]);
+
+  const isAdmin = React.useCallback(() => {
+    return (role || '').toLowerCase() === 'admin';
+  }, [role]);
+
+  const updatePermissions = React.useCallback(async (newPermissions) => {
     setPermissions(newPermissions);
-    localStorage.setItem('permissions_matrix', JSON.stringify(newPermissions));
+    try {
+      await savePermissionsToFirebase(newPermissions);
+    } catch (e) {
+      console.error('Erro ao salvar permissões no Firebase:', e);
+    }
   }, []);
 
   useEffect(() => {
@@ -98,17 +120,12 @@ export const AuthProvider = ({ children }) => {
       setUser(JSON.parse(savedUser));
       setRole(savedRole);
     }
-
-    const savedPerms = localStorage.getItem('permissions_matrix');
-    if (savedPerms) {
-      setPermissions(JSON.parse(savedPerms));
-    }
     setLoading(false);
   }, []);
 
   const contextValue = React.useMemo(() => ({
-    user, role, login, logout, loading, permissions, hasPermission, updatePermissions
-  }), [user, role, loading, permissions, hasPermission, updatePermissions]);
+    user, role, login, logout, loading, permissions, hasPermission, updatePermissions, isAdmin
+  }), [user, role, loading, permissions, hasPermission, updatePermissions, isAdmin]);
 
   return (
     <AuthContext.Provider value={contextValue}>

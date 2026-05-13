@@ -165,7 +165,7 @@ export default function Layout({ children }) {
       {/* ================================================================ */}
       {/* MAIN CONTENT AREA                                                */}
       {/* ================================================================ */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden relative z-0">
         <header className="h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 z-20 shadow-sm sticky top-0">
           <div className="flex items-center gap-4">
             <div className="md:hidden flex items-center gap-2">
@@ -197,7 +197,7 @@ export default function Layout({ children }) {
         </header>
 
         {/* Page Container */}
-        <div className="flex-1 overflow-auto custom-scrollbar bg-muted/30 p-4 pb-28 md:p-8 md:pb-8">
+        <div className="flex-1 overflow-auto custom-scrollbar bg-muted/30 p-4 pb-24 md:p-8 md:pb-8 relative z-0">
           <div className="max-w-[1600px] mx-auto h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
             {children}
           </div>
@@ -207,7 +207,7 @@ export default function Layout({ children }) {
       {/* ================================================================ */}
       {/* MOBILE: BOTTOM BAR (Always visible — quick access + "Mais")      */}
       {/* ================================================================ */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.25)]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border shadow-[0_-4px_16px_-6px_rgba(0,0,0,0.15)]">
         <div className="flex items-center justify-around px-2 py-2 pb-safe">
           {filteredMenu.slice(0, 4).map((item) => (
             <NavLink

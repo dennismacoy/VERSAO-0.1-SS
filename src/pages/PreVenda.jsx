@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, FileText, ShoppingCart, Save, History, Loader2, Calendar, User, Search, X } from 'lucide-react';
+import { Plus, Trash2, FileText, ShoppingCart, Save, History, Loader2, Calendar, User, Search, X, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
 import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 import { generatePreVendaPDF } from '../lib/pdfGenerator';
-import { listenToNode, fetchUsersFromFirebase, updateRecordFirebase } from '../lib/firebase';
-import { cn } from '../lib/utils';
+import { listenToNode, listenToUsers, updateRecordFirebase } from '../lib/firebase';
+import { cn, formatCurrency } from '../lib/utils';
 
 export default function PreVenda() {
   const { user, hasPermission } = useAuth();
@@ -18,13 +18,14 @@ export default function PreVenda() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [filterDate, setFilterDate] = useState('');
   const [filterText, setFilterText] = useState('');
-  const [repositores, setRepositores] = useState([]); // Lista dinâmica de separadores
+  const [repositores, setRepositores] = useState([]);
 
   const [isNova, setIsNova] = useState(false);
   const [cart, setCart] = useState([]);
   const [query, setQuery] = useState('');
   const [saving, setSaving] = useState(false);
   const unsubRef = useRef(null);
+  const unsubUsersRef = useRef(null);
 
   // Pre-fill if coming from Requisicoes
   useEffect(() => {
@@ -58,21 +59,19 @@ export default function PreVenda() {
     };
   }, []);
 
-  // Buscar lista de repositores/líderes do Firebase para o dropdown dinâmico
+  // Listener em tempo real para repositores/líderes do Firebase
   useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        const users = await fetchUsersFromFirebase();
-        const filteredUsers = users.filter(u => {
-          const role = (u.role || u.perfil || u.cargo || '').toLowerCase();
-          return role === 'repositor' || role === 'lider' || role === 'líder';
-        });
-        setRepositores(filteredUsers);
-      } catch (e) {
-        console.error('Erro ao carregar repositores:', e);
-      }
+    unsubUsersRef.current = listenToUsers((users) => {
+      const filteredUsers = users.filter(u => {
+        const role = (u.role || u.perfil || u.cargo || '').toLowerCase();
+        return role === 'repositor' || role === 'lider' || role === 'líder';
+      });
+      setRepositores(filteredUsers);
+    });
+
+    return () => {
+      if (unsubUsersRef.current) unsubUsersRef.current();
     };
-    loadUsers();
   }, []);
 
   const filteredHistory = history.filter(h => {
@@ -88,8 +87,6 @@ export default function PreVenda() {
   });
 
   const searchResults = searchLocal(query).slice(0, 5);
-
-  const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 
   const handleAddItem = (p) => {
     const codigo = p.CODIGO || p.codigo;
@@ -108,26 +105,46 @@ export default function PreVenda() {
     }
   };
 
-  const updateCartQtd = (id, qtd) => {
-    if (qtd <= 0) {
-      setCart(cart.filter(i => i.id !== id));
+  // Permite apagar sem remover (input controlado)
+  const updateCartQtd = (id, value) => {
+    if (value === '' || value === null || value === undefined) {
+      setCart(cart.map(i => i.id === id ? { ...i, qtd: '' } : i));
       return;
     }
+    const qtd = Number(value);
+    if (isNaN(qtd) || qtd < 0) return;
     setCart(cart.map(i => i.id === id ? { ...i, qtd } : i));
   };
 
-  const totalCart = cart.reduce((acc, i) => acc + (i.qtd * i.preco), 0);
+  const updateCartPreco = (id, value) => {
+    if (value === '' || value === null || value === undefined) {
+      setCart(cart.map(i => i.id === id ? { ...i, preco: '' } : i));
+      return;
+    }
+    const preco = Number(value);
+    if (isNaN(preco) || preco < 0) return;
+    setCart(cart.map(i => i.id === id ? { ...i, preco } : i));
+  };
+
+  const removeCartItem = (id) => {
+    setCart(cart.filter(i => i.id !== id));
+  };
+
+  const totalCart = cart.reduce((acc, i) => acc + ((Number(i.qtd) || 0) * (Number(i.preco) || 0)), 0);
 
   const handleSalvarPreVenda = async () => {
-    if (cart.length === 0) return alert('Adicione itens.');
+    const validCart = cart.filter(i => Number(i.qtd) > 0);
+    if (validCart.length === 0) return alert('Adicione itens com quantidade válida.');
     setSaving(true);
     try {
       const preVendaData = {
         cliente: user?.name || user?.usuario || 'Vendedor',
         data: new Date().toISOString(),
-        itens: cart.map(i => ({
+        itens: validCart.map(i => ({
           ...i,
-          subtotal: i.qtd * i.preco
+          qtd: Number(i.qtd),
+          preco: Number(i.preco),
+          subtotal: Number(i.qtd) * Number(i.preco)
         })),
         total: totalCart,
         status: 'Aberta',
@@ -170,6 +187,32 @@ export default function PreVenda() {
     }
   };
 
+  // Gerar texto formatado para WhatsApp
+  const buildWhatsAppText = (preVenda) => {
+    const lines = [
+      `📋 *PRÉ-VENDA* #${preVenda.firebaseId?.slice(-6) || ''}`,
+      `📅 ${new Date(preVenda.data || preVenda.createdAt).toLocaleDateString('pt-BR')}`,
+      `👤 *Cliente:* ${preVenda.cliente || '-'}`,
+      `──────────────────`,
+    ];
+
+    (preVenda.itens || []).forEach((item, idx) => {
+      lines.push(`${idx + 1}. *${item.codigo}* — ${item.descricao}`);
+      lines.push(`   Emb: ${item.emb || item.embalagem || 'UN'} | Qtd: ${item.qtd} | Preço: ${formatCurrency(item.preco)} | Sub: ${formatCurrency(item.subtotal || (item.qtd * item.preco))}`);
+    });
+
+    lines.push(`──────────────────`);
+    lines.push(`💰 *TOTAL GERAL: ${formatCurrency(preVenda.total)}*`);
+
+    return lines.join('\n');
+  };
+
+  const handleEnviarWhatsApp = (preVenda) => {
+    const text = buildWhatsAppText(preVenda);
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
@@ -197,7 +240,7 @@ export default function PreVenda() {
           <input
             type="text"
             placeholder="Filtrar por Cliente ou ID..."
-            className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background"
+            className="w-full pl-9 pr-4 py-2 rounded-lg border border-border bg-background text-base"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
           />
@@ -219,73 +262,84 @@ export default function PreVenda() {
         ) : filteredHistory.length === 0 ? (
           <div className="p-12 text-center text-muted-foreground">Nenhuma pré-venda encontrada.</div>
         ) : (
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-muted">
-              <tr>
-                <th className="px-4 py-3"><input type="checkbox" onChange={(e) => setSelectedIds(e.target.checked ? filteredHistory.map(h => h.firebaseId) : [])} checked={selectedIds.length === filteredHistory.length && filteredHistory.length > 0} /></th>
-                <th className="px-4 py-3 font-bold">ID / Cliente</th>
-                <th className="px-4 py-3 font-bold">Data</th>
-                <th className="px-4 py-3 font-bold text-center">Status</th>
-                <th className="px-4 py-3 font-bold text-right">Total</th>
-                <th className="px-4 py-3 font-bold text-center">Separador</th>
-                <th className="px-4 py-3 text-center">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredHistory.map(h => (
-                <tr key={h.firebaseId} className="hover:bg-muted/30">
-                  <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.includes(h.firebaseId)} onChange={() => {
-                    if (selectedIds.includes(h.firebaseId)) setSelectedIds(selectedIds.filter(i => i !== h.firebaseId));
-                    else setSelectedIds([...selectedIds, h.firebaseId]);
-                  }} /></td>
-                  <td className="px-4 py-3">
-                    <span className="font-bold text-primary block">{h.firebaseId?.slice(-6) || h.id}</span>
-                    <span className="text-xs text-muted-foreground font-semibold">{h.cliente}</span>
-                  </td>
-                  <td className="px-4 py-3">{new Date(h.data || h.createdAt).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={cn(
-                      "px-2 py-1 rounded text-xs font-bold uppercase",
-                      h.status === 'Aberta' ? 'bg-orange-100 text-orange-700' :
-                      h.status === 'Em Separação' ? 'bg-blue-100 text-blue-700' :
-                      h.status === 'Finalizada' ? 'bg-green-100 text-green-700' :
-                      'bg-muted text-muted-foreground'
-                    )}>
-                      {h.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right font-black">{formatCurrency(h.total)}</td>
-                  <td className="px-4 py-3 text-center">
-                    {hasPermission('Acesso Requisições') ? (
-                      <select
-                        value={h.separador || ''}
-                        onChange={(e) => assignSeparador(h.firebaseId, e.target.value)}
-                        className="bg-background border border-border rounded px-2 py-1 text-xs"
-                      >
-                        <option value="">Não atribuído</option>
-                        {repositores.map(u => (
-                          <option key={u.usuario || u.nome} value={u.nome || u.usuario}>
-                            {u.nome || u.usuario} ({u.role || u.perfil || u.cargo})
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-xs">{h.separador || 'N/A'}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      className="text-primary hover:bg-primary/10 p-2 rounded"
-                      title="Gerar PDF Profissional"
-                      onClick={() => generatePreVendaPDF(h)}
-                    >
-                      <FileText size={18} />
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-muted">
+                <tr>
+                  <th className="px-4 py-3"><input type="checkbox" onChange={(e) => setSelectedIds(e.target.checked ? filteredHistory.map(h => h.firebaseId) : [])} checked={selectedIds.length === filteredHistory.length && filteredHistory.length > 0} /></th>
+                  <th className="px-4 py-3 font-bold">ID / Cliente</th>
+                  <th className="px-4 py-3 font-bold">Data</th>
+                  <th className="px-4 py-3 font-bold text-center">Status</th>
+                  <th className="px-4 py-3 font-bold text-right">Total</th>
+                  <th className="px-4 py-3 font-bold text-center">Separador</th>
+                  <th className="px-4 py-3 text-center">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredHistory.map(h => (
+                  <tr key={h.firebaseId} className="hover:bg-muted/30">
+                    <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.includes(h.firebaseId)} onChange={() => {
+                      if (selectedIds.includes(h.firebaseId)) setSelectedIds(selectedIds.filter(i => i !== h.firebaseId));
+                      else setSelectedIds([...selectedIds, h.firebaseId]);
+                    }} /></td>
+                    <td className="px-4 py-3">
+                      <span className="font-bold text-primary block">{h.firebaseId?.slice(-6) || h.id}</span>
+                      <span className="text-xs text-muted-foreground font-semibold">{h.cliente}</span>
+                    </td>
+                    <td className="px-4 py-3">{new Date(h.data || h.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={cn(
+                        "px-2 py-1 rounded text-xs font-bold uppercase",
+                        h.status === 'Aberta' ? 'bg-orange-100 text-orange-700' :
+                        h.status === 'Em Separação' ? 'bg-blue-100 text-blue-700' :
+                        h.status === 'Finalizada' ? 'bg-green-100 text-green-700' :
+                        'bg-muted text-muted-foreground'
+                      )}>
+                        {h.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-black">{formatCurrency(h.total)}</td>
+                    <td className="px-4 py-3 text-center">
+                      {hasPermission('Acesso Requisições') ? (
+                        <select
+                          value={h.separador || ''}
+                          onChange={(e) => assignSeparador(h.firebaseId, e.target.value)}
+                          className="bg-background border border-border rounded px-2 py-1 text-xs"
+                        >
+                          <option value="">Não atribuído</option>
+                          {repositores.map(u => (
+                            <option key={u.firebaseId || u.usuario || u.nome} value={u.nome || u.usuario}>
+                              {u.nome || u.usuario} ({u.role || u.perfil || u.cargo})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs">{h.separador || 'N/A'}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          className="text-primary hover:bg-primary/10 p-2 rounded"
+                          title="Gerar PDF Profissional"
+                          onClick={() => generatePreVendaPDF(h)}
+                        >
+                          <FileText size={18} />
+                        </button>
+                        <button
+                          className="text-[#25D366] hover:bg-[#25D366]/10 p-2 rounded"
+                          title="Enviar WhatsApp"
+                          onClick={() => handleEnviarWhatsApp(h)}
+                        >
+                          <MessageSquare size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -303,7 +357,7 @@ export default function PreVenda() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <input
                     type="text"
-                    className="w-full pl-9 pr-4 py-3 rounded-lg border border-border bg-background"
+                    className="w-full pl-9 pr-4 py-3 rounded-lg border border-border bg-background text-base"
                     placeholder="Buscar Código ou Descrição..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -335,23 +389,38 @@ export default function PreVenda() {
                           <p className="font-bold text-sm text-primary">{item.codigo}</p>
                           <p className="text-xs line-clamp-1">{item.descricao}</p>
                         </div>
-                        <button onClick={() => updateCartQtd(item.id, 0)} className="text-muted-foreground hover:text-destructive"><Trash2 size={16} /></button>
+                        <button onClick={() => removeCartItem(item.id)} className="text-muted-foreground hover:text-destructive"><Trash2 size={16} /></button>
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-bold uppercase text-muted-foreground">Qtd:</span>
                           <input
                             type="number"
+                            inputMode="numeric"
                             min="0"
                             value={item.qtd}
-                            onChange={(e) => updateCartQtd(item.id, Number(e.target.value))}
-                            className="w-16 text-center border rounded p-1 font-bold text-sm bg-background"
+                            onChange={(e) => updateCartQtd(item.id, e.target.value)}
+                            className="w-16 text-center border rounded p-1 font-bold text-base bg-background"
+                            placeholder="0"
                           />
                           <span className="text-[10px] font-bold">{item.emb}</span>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase text-muted-foreground">Preço:</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min="0"
+                            step="0.01"
+                            value={item.preco}
+                            onChange={(e) => updateCartPreco(item.id, e.target.value)}
+                            className="w-20 text-center border rounded p-1 font-bold text-base bg-background"
+                            placeholder="0.00"
+                          />
+                        </div>
                         <div className="text-right">
                           <span className="text-[10px] font-bold uppercase text-muted-foreground block">Subtotal</span>
-                          <span className="font-black">{formatCurrency(item.qtd * item.preco)}</span>
+                          <span className="font-black">{formatCurrency((Number(item.qtd) || 0) * (Number(item.preco) || 0))}</span>
                         </div>
                       </div>
                     </div>

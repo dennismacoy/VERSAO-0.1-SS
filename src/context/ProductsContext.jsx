@@ -22,23 +22,23 @@ export const ProductsProvider = ({ children }) => {
     let isMounted = true;
     setLoading(true);
 
-    // TRAVA ABSOLUTA MÁXIMA: 12 segundos. Destrava a tela haja o que houver.
+    // TRAVA ABSOLUTA MÁXIMA: 20 segundos (aumentado de 12s).
     const safeTimeout = setTimeout(() => {
       if (isMounted) {
         setLoading(false);
         setHasLoaded(true);
-        console.warn("⚠️ Trava de Segurança MÁXIMA: Forçando liberação da tela.");
+        console.warn("⚠️ Trava de Segurança MÁXIMA (20s): Forçando liberação da tela.");
       }
-    }, 12000);
+    }, 20000);
 
     const loadData = async () => {
 
-      // 1. FUNÇÃO BLINDADA DE LEITURA DO CACHE (Máximo 1.5 segundos)
+      // 1. FUNÇÃO BLINDADA DE LEITURA DO CACHE (Máximo 2 segundos)
       const getCacheSafe = () => new Promise(resolve => {
         let isDone = false;
         const tmr = setTimeout(() => {
           if (!isDone) { isDone = true; resolve(null); }
-        }, 1500);
+        }, 2000);
 
         try {
           idbGet(CACHE_KEY).then(res => {
@@ -51,10 +51,10 @@ export const ProductsProvider = ({ children }) => {
         }
       });
 
-      console.log("📡 1. Lendo cache local (Aguardando max 1.5s)...");
+      console.log("📡 1. Lendo cache local (Aguardando max 2s)...");
       const cached = await getCacheSafe();
 
-      if (!isMounted) return; // Previne o erro do React Strict Mode
+      if (!isMounted) return;
 
       // SE ACHOU O CACHE
       if (cached && cached.length > 0) {
@@ -63,13 +63,18 @@ export const ProductsProvider = ({ children }) => {
         setLoading(false);
         setHasLoaded(true);
         clearTimeout(safeTimeout);
-        return; // PARA A EXECUÇÃO AQUI!
+        return;
       }
 
       // SE NÃO ACHOU O CACHE (Cai direto pro Firebase)
-      console.log("☁️ 2. Cache Vazio. Baixando do Firebase (REST API)...");
+      console.log("☁️ 2. Cache Vazio. Baixando do Firebase (REST API, timeout 20s)...");
       try {
-        const res = await fetch(FIREBASE_REST_URL);
+        const controller = new AbortController();
+        const fetchTimeout = setTimeout(() => controller.abort(), 20000);
+
+        const res = await fetch(FIREBASE_REST_URL, { signal: controller.signal });
+        clearTimeout(fetchTimeout);
+
         if (!res.ok) throw new Error("Erro na URL do Firebase.");
 
         const data = await res.json();
@@ -105,12 +110,17 @@ export const ProductsProvider = ({ children }) => {
       isMounted = false;
       clearTimeout(safeTimeout);
     };
-  }, [user, hasLoaded]); // Dependências corrigidas!
+  }, [user, hasLoaded]);
 
   const refreshProducts = async () => {
     setLoading(true);
     try {
-      const res = await fetch(FIREBASE_REST_URL);
+      const controller = new AbortController();
+      const fetchTimeout = setTimeout(() => controller.abort(), 20000);
+
+      const res = await fetch(FIREBASE_REST_URL, { signal: controller.signal });
+      clearTimeout(fetchTimeout);
+
       const data = await res.json();
       const items = data && typeof data === 'object' && !Array.isArray(data)
         ? Object.values(data)
