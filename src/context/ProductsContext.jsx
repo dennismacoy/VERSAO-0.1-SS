@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 
@@ -22,18 +22,20 @@ export const ProductsProvider = ({ children }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const initialized = useRef(false); // Trava para impedir dupla execução
 
   useEffect(() => {
-    if (!user || hasLoaded) return;
+    if (!user || initialized.current) return;
 
+    initialized.current = true;
     let isMounted = true;
     setLoading(true);
-    setHasLoaded(true);
 
     // TRAVA ABSOLUTA: Destrava a tela em 10 segundos, haja o que houver.
     const safeTimeout = setTimeout(() => {
       if (isMounted) {
         setLoading(false);
+        setHasLoaded(true);
         console.warn("⚠️ Trava de Segurança: Forçando a liberação da tela.");
       }
     }, 10000);
@@ -41,7 +43,7 @@ export const ProductsProvider = ({ children }) => {
     const loadData = async () => {
       let hasCache = false;
 
-      // 1. TENTA O CACHE COM LIMITE DE 2 SEGUNDOS (Evita o congelamento do Safari/Anônimo)
+      // 1. TENTA O CACHE COM LIMITE DE 2 SEGUNDOS
       try {
         console.log("📡 1. Lendo cache local...");
         const cached = await fetchWithTimeout(idbGet(CACHE_KEY), 2000);
@@ -49,6 +51,7 @@ export const ProductsProvider = ({ children }) => {
         if (cached && cached.length > 0 && isMounted) {
           setProducts(cached);
           setLoading(false);
+          setHasLoaded(true);
           clearTimeout(safeTimeout);
           hasCache = true;
           console.log(`✅ Cache lido com sucesso: ${cached.length} itens.`);
@@ -73,6 +76,7 @@ export const ProductsProvider = ({ children }) => {
           if (isMounted) {
             setProducts(items);
             setLoading(false);
+            setHasLoaded(true);
             clearTimeout(safeTimeout);
             console.log(`🚀 Download concluído! ${items.length} itens.`);
           }
@@ -83,6 +87,7 @@ export const ProductsProvider = ({ children }) => {
           console.error("❌ Falha crítica no download:", err);
           if (isMounted) {
             setLoading(false);
+            setHasLoaded(true);
             clearTimeout(safeTimeout);
           }
         }
@@ -95,7 +100,7 @@ export const ProductsProvider = ({ children }) => {
       isMounted = false;
       clearTimeout(safeTimeout);
     };
-  }, [user, hasLoaded]);
+  }, [user]); // Apenas o 'user' como dependência!
 
   const refreshProducts = async () => {
     setLoading(true);

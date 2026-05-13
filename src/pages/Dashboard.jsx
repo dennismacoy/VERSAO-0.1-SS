@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import { useProducts } from '../context/ProductsContext';
 import { useAuth } from '../context/AuthContext';
-import { 
-  Package, 
-  Inbox, 
-  AlertTriangle, 
-  Clock, 
-  Layers, 
+import {
+  Package,
+  Inbox,
+  AlertTriangle,
+  Clock,
+  Layers,
   DollarSign,
   TrendingUp,
   Activity
@@ -16,16 +16,17 @@ export default function Dashboard() {
   const { products, loading } = useProducts();
   const { hasPermission, role } = useAuth();
 
-  // Simulated metrics based on cache (In a real scenario, some might come from separate endpoints if too complex)
   const stats = useMemo(() => {
-    if (!products || products.length === 0) return null;
+    // Retorna sempre um objeto padrão. Desta forma o Dashboard NUNCA bloqueia, 
+    // mesmo que a base de dados esteja vazia ou demore a carregar.
+    let data = {
+      isvCount: 0, isvValue: 0,
+      ageCount: 0, ageValue: 0,
+      totalPallets: 0, totalValue: 0,
+      separacoes: 0, requisicoes: 0
+    };
 
-    let isvCount = 0;
-    let isvValue = 0;
-    let ageCount = 0;
-    let ageValue = 0;
-    let totalPallets = 0;
-    let totalValue = 0;
+    if (!products || products.length === 0) return data;
 
     products.forEach(p => {
       const qte = Number(p.ESTOQUE || p.QTE) || 0;
@@ -33,36 +34,34 @@ export default function Dashboard() {
       const val = qte * custo;
 
       if (qte > 0) {
-        totalValue += val;
-        // Mock data logic if the real fields are not present
-        const diasSemVenda = Number(p.ISV || Math.floor(Math.random() * 20)); 
+        data.totalValue += val;
+
+        const diasSemVenda = Number(p.ISV || Math.floor(Math.random() * 20));
         const idade = Number(p.IDADE || Math.floor(Math.random() * 400));
         const paletes = Number(p.PALETES || 0);
 
         if (diasSemVenda > 7) {
-          isvCount++;
-          isvValue += val;
+          data.isvCount++;
+          data.isvValue += val;
         }
         if (idade > 300) {
-          ageCount++;
-          ageValue += val;
+          data.ageCount++;
+          data.ageValue += val;
         }
-        totalPallets += paletes;
+        data.totalPallets += paletes;
       }
     });
 
-    return {
-      isvCount, isvValue,
-      ageCount, ageValue,
-      totalPallets, totalValue,
-      separacoes: 12, // Mocked
-      requisicoes: 5 // Mocked
-    };
+    data.separacoes = 12; // Mocked
+    data.requisicoes = 5; // Mocked
+
+    return data;
   }, [products]);
 
   const formatMoney = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
-  if (loading || !stats) {
+  // A condição de carregamento agora APENAS verifica o estado "loading"
+  if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
         <Activity className="animate-spin text-primary w-12 h-12" />
@@ -79,13 +78,15 @@ export default function Dashboard() {
           <p className="text-muted-foreground font-medium">Cockpit de Gestão ERP</p>
         </div>
         <div className="bg-card px-4 py-2 rounded-xl border border-border shadow-sm flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-          <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Cache Sincronizado</span>
+          <div className={`w-2 h-2 rounded-full ${products.length > 0 ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+          <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+            {products.length > 0 ? 'Cache Sincronizado' : 'Base Vazia'}
+          </span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        
+
         {hasPermission('Ver Separacoes Abertas') && (
           <div className="erp-card p-6 flex flex-col gap-4 border-l-4 border-l-primary hover:-translate-y-1">
             <div className="flex justify-between items-start">
