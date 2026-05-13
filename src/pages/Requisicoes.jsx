@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { Inbox, CheckCircle2, AlertCircle, X, Search, FileText } from 'lucide-react';
+import { Inbox, CheckCircle2, AlertCircle, X, Search, FileText, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { listenToNode } from '../lib/firebase';
@@ -15,6 +14,7 @@ export default function Requisicoes() {
 
   const [reqToConvert, setReqToConvert] = useState(null);
   const [precosManuais, setPrecosManuais] = useState({});
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (reqToConvert) document.body.style.overflow = 'hidden';
@@ -59,13 +59,17 @@ export default function Requisicoes() {
       atribuido: ""
     };
 
+    setSaving(true);
     try {
       await api.createPreVenda(payload);
-      await api.updatePedidoStatus(reqToConvert.firebaseId, 'Convertido');
+      await api.updateStatus(reqToConvert.firebaseId, 'Convertido', 'pedidos');
       alert("Pré-venda gerada com sucesso!");
       setReqToConvert(null);
     } catch (e) {
+      console.error('Erro na conversão:', e);
       alert("Erro ao converter: " + e.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -145,9 +149,9 @@ export default function Requisicoes() {
       </div>
 
       {/* MODAL DE CONVERSÃO */}
-      {reqToConvert && createPortal(
+      {reqToConvert && (
         <div className="fixed inset-0 z-[100] bg-background md:bg-black/80 md:backdrop-blur-sm flex flex-col md:items-center md:justify-center animate-in fade-in duration-200">
-          <div className="bg-surface w-full h-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-card w-full h-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
 
             <div className="pt-8 md:pt-4 p-4 border-b bg-primary/5 flex justify-between items-center shrink-0">
               <div>
@@ -193,39 +197,16 @@ export default function Requisicoes() {
                 </span>
               </div>
               <button
-                onClick={async () => {
-                  try {
-                    const itensComPreco = reqToConvert.itens.map(it => ({
-                      ...it,
-                      preco: precosManuais[it.codigo] || 0,
-                      subtotal: (precosManuais[it.codigo] || 0) * (Number(it.qtd) || 0)
-                    }));
-                    const total = itensComPreco.reduce((acc, curr) => acc + curr.subtotal, 0);
-                    const payload = {
-                      usuario: user.usuario || user.name,
-                      cliente: reqToConvert.cliente,
-                      itens: itensComPreco,
-                      total: total,
-                      status: 'Aberta',
-                      atribuido: ""
-                    };
-                    await api.createPreVenda(payload);
-                    await api.updatePedidoStatus(reqToConvert.firebaseId, 'Convertido');
-                    alert("Pré-venda gerada com sucesso!");
-                    setReqToConvert(null);
-                  } catch (e) {
-                    alert("Erro ao converter: " + e.message);
-                  }
-                }}
-                className="w-full bg-green-500 hover:bg-green-600 text-white font-black py-4 rounded-xl text-lg flex items-center justify-center gap-2 shadow-lg"
+                onClick={confirmarConversao}
+                disabled={saving}
+                className="w-full bg-green-500 hover:bg-green-600 text-white font-black py-4 rounded-xl text-lg flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
               >
-                Confirmar Conversão
+                {saving ? <Loader2 className="animate-spin" size={20} /> : 'Confirmar Conversão'}
               </button>
             </div>
 
           </div>
-        </div>,
-        document.getElementById('root') || document.body
+        </div>
       )}
     </div>
   );

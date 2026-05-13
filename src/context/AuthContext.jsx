@@ -33,6 +33,7 @@ const defaultPermissions = {
   'Botao Enviar WPP': ['admin', 'gerente', 'vendedor'],
   'Botao Ligar Comprador': ['admin', 'gerente'],
   'Botao Gerar PDF': ['admin', 'gerente', 'vendedor'],
+  'Criar Prevenda': ['admin', 'gerente', 'vendedor'],
 };
 
 export const AuthProvider = ({ children }) => {

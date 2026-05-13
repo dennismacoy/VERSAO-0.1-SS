@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { Plus, Search, Trash2, FileText, X, Package, Check, Loader2, Clock, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
@@ -235,7 +234,7 @@ export default function Pedidos() {
       </div>
 
       {/* MODAL: Novo Pedido — fullscreen no mobile */}
-      {isNovoPedido && createPortal(
+      {isNovoPedido && (
         <div className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center bg-background md:bg-background/95 md:backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-card w-full h-full md:max-w-5xl md:h-auto md:max-h-[90vh] md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
 
@@ -324,8 +323,7 @@ export default function Pedidos() {
               </div>
             </div>
           </div>
-        </div>,
-        document.getElementById('root') || document.body
+        </div>
       )}
     </div>
   );

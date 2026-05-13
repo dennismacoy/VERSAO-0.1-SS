@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Search, Info, Package, Phone, X, DollarSign, Activity, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
@@ -241,7 +240,7 @@ export default function Consulta() {
       </div>
 
       {/* PAINEL DETALHE — FULLSCREEN NO CELULAR / MODAL NO PC */}
-      {selectedProduct && createPortal(
+      {selectedProduct && (
         <div className="fixed inset-0 z-[100] flex flex-col md:justify-center md:items-center bg-background md:bg-background/80 md:backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-card w-full h-full md:h-auto md:max-h-[90vh] md:w-[600px] md:rounded-2xl shadow-2xl md:border border-border flex flex-col overflow-hidden animate-in slide-in-from-bottom-8 md:slide-in-from-bottom-0 md:zoom-in-95 duration-200">
 
@@ -363,8 +362,7 @@ export default function Consulta() {
               )}
             </div>
           </div>
-        </div>,
-        document.getElementById('root') || document.body
+        </div>
       )}
     </div>
   );
