@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -16,7 +16,8 @@ import {
   LayoutDashboard,
   ClipboardList,
   Inbox,
-  GripHorizontal
+  GripHorizontal,
+  X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -25,19 +26,8 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
-
-  // =========================================================================
-  // BOTTOM SHEET STATE & REFS
-  // =========================================================================
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetTranslateY, setSheetTranslateY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const sheetRef = useRef(null);
-  const handleRef = useRef(null);
-  const startYRef = useRef(0);
-  const currentYRef = useRef(0);
-  const sheetHeightRef = useRef(0);
 
   useEffect(() => {
     if (darkMode) {
@@ -54,21 +44,20 @@ export default function Layout({ children }) {
     window.scrollTo(0, 0);
   }, [location]);
 
-  // Close bottom sheet on route change
+  // Auto-close bottom sheet on route change
   useEffect(() => {
-    setSheetOpen(false);
-    setSheetTranslateY(0);
+    setIsMobileMenuOpen(false);
   }, [location]);
 
   // Lock body scroll when sheet is open
   useEffect(() => {
-    if (sheetOpen) {
+    if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [sheetOpen]);
+  }, [isMobileMenuOpen]);
 
   const handleLogout = () => {
     logout();
@@ -87,88 +76,6 @@ export default function Layout({ children }) {
   ];
 
   const filteredMenu = menuItems.filter(item => item.condition);
-
-  // =========================================================================
-  // TOUCH HANDLERS FOR BOTTOM SHEET (Swipe Up to Open, Swipe Down to Close)
-  // =========================================================================
-  const onTouchStart = useCallback((e) => {
-    const touch = e.touches[0];
-    startYRef.current = touch.clientY;
-    currentYRef.current = touch.clientY;
-    setIsDragging(true);
-
-    if (sheetRef.current) {
-      sheetHeightRef.current = sheetRef.current.offsetHeight;
-    }
-  }, []);
-
-  const onTouchMove = useCallback((e) => {
-    if (!isDragging) return;
-    const touch = e.touches[0];
-    currentYRef.current = touch.clientY;
-    const deltaY = currentYRef.current - startYRef.current;
-
-    if (sheetOpen) {
-      // When open: only allow dragging DOWN (positive deltaY)
-      if (deltaY > 0) {
-        setSheetTranslateY(deltaY);
-      }
-    } else {
-      // When closed: only allow dragging UP (negative deltaY)
-      if (deltaY < -10) {
-        // We'll use a visual hint but open on touchEnd
-        setSheetTranslateY(deltaY);
-      }
-    }
-  }, [isDragging, sheetOpen]);
-
-  const onTouchEnd = useCallback(() => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    const deltaY = currentYRef.current - startYRef.current;
-
-    if (sheetOpen) {
-      // If user dragged down more than 80px, close the sheet
-      if (deltaY > 80) {
-        setSheetOpen(false);
-      }
-    } else {
-      // If user dragged up more than 40px, open the sheet
-      if (deltaY < -40) {
-        setSheetOpen(true);
-      }
-    }
-    setSheetTranslateY(0);
-  }, [isDragging, sheetOpen]);
-
-  // Calculate the sheet's visual transform
-  const getSheetStyle = () => {
-    if (isDragging && sheetOpen && sheetTranslateY > 0) {
-      // Dragging down while open: translate the sheet down
-      return {
-        transform: `translateY(${sheetTranslateY}px)`,
-        transition: 'none',
-      };
-    }
-    if (isDragging && !sheetOpen && sheetTranslateY < 0) {
-      // Dragging up while closed: peek the sheet
-      const peek = Math.min(Math.abs(sheetTranslateY), 200);
-      return {
-        transform: `translateY(calc(100% - ${peek}px))`,
-        transition: 'none',
-      };
-    }
-    if (sheetOpen) {
-      return {
-        transform: 'translateY(0%)',
-        transition: 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
-      };
-    }
-    return {
-      transform: 'translateY(100%)',
-      transition: 'transform 300ms cubic-bezier(0.32, 0.72, 0, 1)',
-    };
-  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex overflow-hidden transition-colors duration-300">
@@ -298,76 +205,68 @@ export default function Layout({ children }) {
       </main>
 
       {/* ================================================================ */}
-      {/* MOBILE BOTTOM SHEET NAVIGATION                                   */}
+      {/* MOBILE: BOTTOM BAR (Always visible — quick access + "Mais")      */}
       {/* ================================================================ */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.25)]">
+        <div className="flex items-center justify-around px-2 py-2 pb-safe">
+          {filteredMenu.slice(0, 4).map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={({ isActive }) => cn(
+                "flex flex-col items-center gap-1 py-1.5 px-2 rounded-xl transition-all duration-200 min-w-0 flex-1",
+                isActive
+                  ? "text-primary font-bold"
+                  : "text-muted-foreground"
+              )}
+            >
+              <item.icon size={20} />
+              <span className="text-[9px] uppercase tracking-tight font-bold truncate max-w-[60px] text-center leading-tight">
+                {item.name}
+              </span>
+            </NavLink>
+          ))}
+          {/* "Mais" button — ONLY trigger to open the sheet */}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="flex flex-col items-center gap-1 py-1.5 px-2 rounded-xl text-muted-foreground active:text-primary transition-all min-w-0 flex-1"
+          >
+            <GripHorizontal size={20} />
+            <span className="text-[9px] uppercase tracking-tight font-bold">Mais</span>
+          </button>
+        </div>
+      </nav>
 
-      {/* Backdrop (visible when sheet is open) */}
+      {/* ================================================================ */}
+      {/* MOBILE: BACKDROP OVERLAY                                         */}
+      {/* ================================================================ */}
       <div
         className={cn(
-          "md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300",
-          sheetOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          "md:hidden fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm transition-opacity duration-300",
+          isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
-        onClick={() => setSheetOpen(false)}
+        onClick={() => setIsMobileMenuOpen(false)}
       />
 
-      {/* The Handle Bar — always visible at bottom of screen on mobile */}
+      {/* ================================================================ */}
+      {/* MOBILE: FULL BOTTOM SHEET PANEL (Click-only, no touch/swipe)     */}
+      {/* ================================================================ */}
       <div
-        ref={handleRef}
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onClick={() => setSheetOpen(true)}
-      >
-        <div className="w-full bg-card/95 backdrop-blur-lg border-t border-border rounded-t-2xl shadow-[0_-8px_30px_-12px_rgba(0,0,0,0.25)] px-6 py-3 flex flex-col items-center gap-2 cursor-pointer">
-          {/* Pill Handle */}
-          <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30" />
-
-          {/* Quick access icons row */}
-          <div className="w-full flex items-center justify-around pt-1 pb-1">
-            {filteredMenu.slice(0, 4).map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) => cn(
-                  "flex flex-col items-center gap-1 py-1 px-2 rounded-xl transition-all duration-200",
-                  isActive
-                    ? "text-primary font-bold"
-                    : "text-muted-foreground"
-                )}
-              >
-                <item.icon size={20} />
-                <span className="text-[9px] uppercase tracking-tight font-bold truncate max-w-[60px] text-center leading-tight">
-                  {item.name}
-                </span>
-              </NavLink>
-            ))}
-            {/* "More" button to open sheet */}
-            <button
-              onClick={(e) => { e.stopPropagation(); setSheetOpen(true); }}
-              className="flex flex-col items-center gap-1 py-1 px-2 rounded-xl text-muted-foreground active:text-primary transition-all"
-            >
-              <GripHorizontal size={20} />
-              <span className="text-[9px] uppercase tracking-tight font-bold">Mais</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* The Full Bottom Sheet Panel */}
-      <div
-        ref={sheetRef}
-        className="md:hidden fixed inset-x-0 bottom-0 z-50 flex flex-col"
-        style={getSheetStyle()}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
+        className={cn(
+          "md:hidden fixed inset-x-0 bottom-0 z-[70] flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]",
+          isMobileMenuOpen ? "translate-y-0" : "translate-y-full"
+        )}
       >
         <div className="bg-card rounded-t-3xl shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.3)] border-t border-border flex flex-col max-h-[85vh] overflow-hidden">
-          {/* Sheet Handle */}
-          <div className="flex flex-col items-center pt-4 pb-2 cursor-grab active:cursor-grabbing">
-            <div className="w-14 h-1.5 rounded-full bg-muted-foreground/30 mb-2" />
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Menu de Navegação</p>
+          {/* Sheet Header — Title + Close X Button */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Menu de Navegação</p>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-2 rounded-xl bg-muted hover:bg-destructive hover:text-destructive-foreground transition-all active:scale-90"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           {/* User Info Card */}
@@ -396,7 +295,7 @@ export default function Layout({ children }) {
                   <NavLink
                     key={item.path}
                     to={item.path}
-                    onClick={() => setSheetOpen(false)}
+                    onClick={() => setIsMobileMenuOpen(false)}
                     className={cn(
                       "flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-200 active:scale-[0.97] group",
                       isActive
@@ -436,7 +335,7 @@ export default function Layout({ children }) {
 
             {/* Logout Button */}
             <button
-              onClick={() => { setSheetOpen(false); handleLogout(); }}
+              onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }}
               className="w-full mt-4 flex items-center gap-4 px-4 py-4 rounded-2xl bg-destructive/5 border border-destructive/10 text-destructive hover:bg-destructive/10 transition-all active:scale-[0.97] group"
             >
               <div className="w-11 h-11 rounded-xl bg-destructive/10 flex items-center justify-center border border-destructive/20">

@@ -49,11 +49,11 @@ export default function Consulta() {
   };
 
   return (
-    <div className="flex flex-col h-full space-y-6">
+    <div className="flex flex-col h-full space-y-4 md:space-y-6">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black text-primary">Consulta</h1>
-          <p className="text-muted-foreground font-medium text-sm">Pesquisa offline no cache</p>
+          <h1 className="text-2xl md:text-3xl font-black text-primary">Consulta</h1>
+          <p className="text-muted-foreground font-medium text-xs md:text-sm">Pesquisa offline no cache</p>
         </div>
 
         <div className="relative w-full lg:w-[400px]">
@@ -81,7 +81,11 @@ export default function Consulta() {
           </div>
         ) : (
           <div className="h-full overflow-auto custom-scrollbar">
-            <table className="w-full text-left text-sm whitespace-nowrap">
+
+            {/* ============================================================ */}
+            {/* DESKTOP TABLE (hidden on mobile, visible from md)             */}
+            {/* ============================================================ */}
+            <table className="hidden md:table w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-muted sticky top-0 z-10 shadow-sm">
                 <tr>
                   <th className="px-4 py-3 font-bold text-muted-foreground uppercase text-xs">Código</th>
@@ -95,13 +99,13 @@ export default function Consulta() {
                 {visibleProducts.map((p, idx) => {
                   const estoque = Number(p.ESTOQUE || p.QTE || 0);
                   return (
-                    <tr 
-                      key={idx} 
+                    <tr
+                      key={idx}
                       className="hover:bg-primary/5 cursor-pointer transition-colors"
                       onClick={() => setSelectedProduct(p)}
                     >
                       <td className="px-4 py-3 font-bold text-primary">{p.CODIGO || p.codigo}</td>
-                      <td className="px-4 py-3 font-semibold truncate max-w-[200px] md:max-w-[400px]">
+                      <td className="px-4 py-3 font-semibold truncate max-w-[400px]">
                         {p.DESCRICAO || p.descricao}
                       </td>
                       <td className="px-4 py-3 text-center text-xs font-bold bg-muted/30">
@@ -126,6 +130,57 @@ export default function Consulta() {
                 })}
               </tbody>
             </table>
+
+            {/* ============================================================ */}
+            {/* MOBILE CARD LIST (visible only on small screens, < md)        */}
+            {/* ============================================================ */}
+            <div className="md:hidden divide-y divide-border">
+              {visibleProducts.map((p, idx) => {
+                const estoque = Number(p.ESTOQUE || p.QTE || 0);
+                const codigo = p.CODIGO || p.codigo;
+                const descricao = p.DESCRICAO || p.descricao;
+                const embalagem = p.EMBALAGEM || p.embalagem || p.emb || 'UN';
+                const precoAtacado = p.PRECO_ATACADO || p.preco_atacado;
+                const precoVarejo = p.PRECO_VAREJO || p.preco_unitario;
+
+                return (
+                  <div
+                    key={idx}
+                    className="px-3 py-3 active:bg-primary/5 transition-colors cursor-pointer"
+                    onClick={() => setSelectedProduct(p)}
+                  >
+                    {/* Row 1: Código + Estoque Badge */}
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[11px] font-black text-primary tracking-wide">{codigo}</span>
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                        estoque > 0
+                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                      )}>
+                        {estoque > 0 ? `Est: ${estoque}` : "Sem Est."}
+                      </span>
+                    </div>
+
+                    {/* Row 2: Descrição (truncated) */}
+                    <p className="text-sm font-semibold text-foreground leading-tight line-clamp-1">
+                      {descricao}
+                    </p>
+
+                    {/* Row 3: Embalagem + Preços (stacked horizontally) */}
+                    <div className="flex items-center gap-3 mt-1.5 text-[11px]">
+                      <span className="bg-muted px-2 py-0.5 rounded font-bold text-muted-foreground shrink-0">
+                        {embalagem}
+                      </span>
+                      <div className="flex items-center gap-2 text-[11px] font-bold">
+                        <span className="text-foreground">At: {formatCurrency(precoAtacado)}</span>
+                        <span className="text-muted-foreground">Vr: {formatCurrency(precoVarejo)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -133,24 +188,24 @@ export default function Consulta() {
       {/* BOTTOM SHEET / MODAL */}
       {selectedProduct && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end md:justify-center md:items-center bg-background/80 backdrop-blur-sm animate-in fade-in">
-          <div 
+          <div
             className="bg-card w-full md:w-[600px] md:rounded-2xl rounded-t-3xl shadow-2xl border border-border flex flex-col overflow-hidden max-h-[90vh] slide-in-from-bottom-full md:slide-in-from-bottom-0 md:zoom-in-95 duration-300"
           >
             <div className="p-4 border-b border-border flex items-start justify-between bg-primary/5">
-              <div>
+              <div className="flex-1 min-w-0 pr-3">
                 <span className="text-xs font-bold text-primary uppercase bg-primary/10 px-2 py-1 rounded">
                   {selectedProduct.CODIGO || selectedProduct.codigo}
                 </span>
-                <h2 className="text-xl font-black mt-2 leading-tight">
+                <h2 className="text-lg md:text-xl font-black mt-2 leading-tight line-clamp-2">
                   {selectedProduct.DESCRICAO || selectedProduct.descricao}
                 </h2>
-                <p className="text-sm font-bold text-muted-foreground mt-1 bg-muted inline-block px-2 rounded">
+                <p className="text-xs md:text-sm font-bold text-muted-foreground mt-1 bg-muted inline-block px-2 rounded">
                   Emb: {selectedProduct.EMBALAGEM || selectedProduct.embalagem || selectedProduct.emb || 'UN'}
                 </p>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedProduct(null)}
-                className="p-2 bg-muted hover:bg-destructive hover:text-destructive-foreground rounded-full transition-colors"
+                className="p-2 bg-muted hover:bg-destructive hover:text-destructive-foreground rounded-full transition-colors shrink-0"
               >
                 <X size={20} />
               </button>
@@ -170,7 +225,7 @@ export default function Consulta() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Preços (At/Var)</p>
-                      <p className="font-bold">{formatCurrency(selectedProduct.PRECO_ATACADO || selectedProduct.preco_atacado)} / {formatCurrency(selectedProduct.PRECO_VAREJO || selectedProduct.preco_unitario)}</p>
+                      <p className="font-bold text-xs md:text-sm">{formatCurrency(selectedProduct.PRECO_ATACADO || selectedProduct.preco_atacado)} / {formatCurrency(selectedProduct.PRECO_VAREJO || selectedProduct.preco_unitario)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Idade / Dias S/ Venda</p>
@@ -189,9 +244,9 @@ export default function Consulta() {
                       <p className="font-bold">{selectedProduct.ENTRADA || '-'}</p>
                     </div>
                   </div>
-                  
+
                   {hasPermission('Botao Enviar WPP') && (
-                    <button 
+                    <button
                       onClick={() => handleWppContact(buildWppMessage(selectedProduct))}
                       className="mt-4 w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white py-2 rounded-lg font-bold transition-colors"
                     >
@@ -230,7 +285,7 @@ export default function Consulta() {
                   </div>
 
                   {hasPermission('Botao Ligar Comprador') && (
-                    <button 
+                    <button
                       onClick={() => handleWppContact(`Atenção comprador, sobre o item ${selectedProduct.CODIGO || selectedProduct.codigo}.`)}
                       className="mt-4 w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent/90 text-accent-foreground py-2 rounded-lg font-bold transition-colors"
                     >
