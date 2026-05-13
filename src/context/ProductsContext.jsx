@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 
@@ -7,14 +7,6 @@ const ProductsContext = createContext({});
 
 const FIREBASE_REST_URL = "https://atacadao-ss-default-rtdb.firebaseio.com/baseProdutos.json";
 
-// Função para evitar que o Cache trave a tela infinitamente
-const fetchWithTimeout = (promise, ms) => {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout do Navegador')), ms))
-  ]);
-};
-
 export const useProducts = () => useContext(ProductsContext);
 
 export const ProductsProvider = ({ children }) => {
@@ -22,85 +14,98 @@ export const ProductsProvider = ({ children }) => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const initialized = useRef(false); // Trava para impedir dupla execução
 
   useEffect(() => {
-    if (!user || initialized.current) return;
+    // Se o usuário não está logado ou já carregou, não faz nada
+    if (!user || hasLoaded) return;
 
-    initialized.current = true;
     let isMounted = true;
     setLoading(true);
 
-    // TRAVA ABSOLUTA: Destrava a tela em 10 segundos, haja o que houver.
+    // TRAVA ABSOLUTA MÁXIMA: 12 segundos. Destrava a tela haja o que houver.
     const safeTimeout = setTimeout(() => {
       if (isMounted) {
         setLoading(false);
         setHasLoaded(true);
-        console.warn("⚠️ Trava de Segurança: Forçando a liberação da tela.");
+        console.warn("⚠️ Trava de Segurança MÁXIMA: Forçando liberação da tela.");
       }
-    }, 10000);
+    }, 12000);
 
     const loadData = async () => {
-      let hasCache = false;
 
-      // 1. TENTA O CACHE COM LIMITE DE 2 SEGUNDOS
+      // 1. FUNÇÃO BLINDADA DE LEITURA DO CACHE (Máximo 1.5 segundos)
+      const getCacheSafe = () => new Promise(resolve => {
+        let isDone = false;
+        const tmr = setTimeout(() => {
+          if (!isDone) { isDone = true; resolve(null); }
+        }, 1500);
+
+        try {
+          idbGet(CACHE_KEY).then(res => {
+            if (!isDone) { isDone = true; clearTimeout(tmr); resolve(res); }
+          }).catch(() => {
+            if (!isDone) { isDone = true; clearTimeout(tmr); resolve(null); }
+          });
+        } catch (e) {
+          if (!isDone) { isDone = true; clearTimeout(tmr); resolve(null); }
+        }
+      });
+
+      console.log("📡 1. Lendo cache local (Aguardando max 1.5s)...");
+      const cached = await getCacheSafe();
+
+      if (!isMounted) return; // Previne o erro do React Strict Mode
+
+      // SE ACHOU O CACHE
+      if (cached && cached.length > 0) {
+        console.log(`✅ 2. Cache lido com sucesso: ${cached.length} itens.`);
+        setProducts(cached);
+        setLoading(false);
+        setHasLoaded(true);
+        clearTimeout(safeTimeout);
+        return; // PARA A EXECUÇÃO AQUI!
+      }
+
+      // SE NÃO ACHOU O CACHE (Cai direto pro Firebase)
+      console.log("☁️ 2. Cache Vazio. Baixando do Firebase (REST API)...");
       try {
-        console.log("📡 1. Lendo cache local...");
-        const cached = await fetchWithTimeout(idbGet(CACHE_KEY), 2000);
+        const res = await fetch(FIREBASE_REST_URL);
+        if (!res.ok) throw new Error("Erro na URL do Firebase.");
 
-        if (cached && cached.length > 0 && isMounted) {
-          setProducts(cached);
+        const data = await res.json();
+        const items = data && typeof data === 'object' && !Array.isArray(data)
+          ? Object.values(data)
+          : (Array.isArray(data) ? data.filter(Boolean) : []);
+
+        if (!isMounted) return;
+
+        console.log(`🚀 3. Download concluído! ${items.length} itens.`);
+        setProducts(items);
+        setLoading(false);
+        setHasLoaded(true);
+        clearTimeout(safeTimeout);
+
+        // Salva silenciosamente pro futuro
+        try { await idbSet(CACHE_KEY, items); } catch (e) { }
+
+      } catch (err) {
+        console.error("❌ 3. Falha crítica no download:", err);
+        if (isMounted) {
           setLoading(false);
           setHasLoaded(true);
           clearTimeout(safeTimeout);
-          hasCache = true;
-          console.log(`✅ Cache lido com sucesso: ${cached.length} itens.`);
-        }
-      } catch (err) {
-        console.warn("🚫 Cache vazio ou bloqueado. Pulando para o Servidor.");
-      }
-
-      // 2. SE NÃO TEM CACHE, FAZ O DOWNLOAD DA REST API
-      if (!hasCache && isMounted) {
-        try {
-          console.log("☁️ 2. Baixando do Firebase (REST API)...");
-          const res = await fetch(FIREBASE_REST_URL);
-
-          if (!res.ok) throw new Error("Erro na URL do Firebase.");
-
-          const data = await res.json();
-          const items = data && typeof data === 'object' && !Array.isArray(data)
-            ? Object.values(data)
-            : (Array.isArray(data) ? data.filter(Boolean) : []);
-
-          if (isMounted) {
-            setProducts(items);
-            setLoading(false);
-            setHasLoaded(true);
-            clearTimeout(safeTimeout);
-            console.log(`🚀 Download concluído! ${items.length} itens.`);
-          }
-
-          try { await idbSet(CACHE_KEY, items); } catch (e) { }
-
-        } catch (err) {
-          console.error("❌ Falha crítica no download:", err);
-          if (isMounted) {
-            setLoading(false);
-            setHasLoaded(true);
-            clearTimeout(safeTimeout);
-          }
         }
       }
     };
 
     loadData();
 
+    // Limpeza ao desmontar
     return () => {
       isMounted = false;
       clearTimeout(safeTimeout);
     };
-  }, [user]); // Apenas o 'user' como dependência!
+  }, [user, hasLoaded]); // Dependências corrigidas!
 
   const refreshProducts = async () => {
     setLoading(true);
@@ -113,7 +118,7 @@ export const ProductsProvider = ({ children }) => {
 
       setProducts(items);
       await idbSet(CACHE_KEY, items);
-      console.log("✅ Atualizado com sucesso.");
+      console.log("✅ Atualizado manualmente com sucesso.");
     } catch (error) {
       console.error('❌ Erro no refresh:', error);
     } finally {
