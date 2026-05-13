@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { generatePreVendaPDF } from '../lib/pdfGenerator';
 import { listenToNode } from '../lib/firebase';
 import { cn, parseEstoque, getEstoqueNumerico, formatCurrency } from '../lib/utils';
+import { createPortal } from 'react-dom';
 
 export default function Pedidos() {
   const { user } = useAuth();
@@ -191,8 +192,8 @@ export default function Pedidos() {
                       <span className={cn(
                         "px-2 py-1 rounded text-xs font-bold uppercase",
                         p.status === 'Pendente' ? 'bg-orange-100 text-orange-700' :
-                        p.status === 'Convertido' ? 'bg-green-100 text-green-700' :
-                        'bg-blue-100 text-blue-700'
+                          p.status === 'Convertido' ? 'bg-green-100 text-green-700' :
+                            'bg-blue-100 text-blue-700'
                       )}>{p.status}</span>
                     </td>
                     <td className="px-4 py-3 text-center font-bold">{(p.itens || []).length}</td>
@@ -221,8 +222,8 @@ export default function Pedidos() {
                     <span className={cn(
                       "px-2 py-1 rounded text-[10px] font-bold uppercase",
                       p.status === 'Pendente' ? 'bg-orange-100 text-orange-700' :
-                      p.status === 'Convertido' ? 'bg-green-100 text-green-700' :
-                      'bg-blue-100 text-blue-700'
+                        p.status === 'Convertido' ? 'bg-green-100 text-green-700' :
+                          'bg-blue-100 text-blue-700'
                     )}>{p.status}</span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -330,7 +331,8 @@ export default function Pedidos() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

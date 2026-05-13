@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { generatePreVendaPDF } from '../lib/pdfGenerator';
 import { listenToNode, listenToUsers, updateRecordFirebase } from '../lib/firebase';
 import { cn, formatCurrency } from '../lib/utils';
+import { createPortal } from 'react-dom';
 
 export default function PreVenda() {
   const { user, hasPermission } = useAuth();
@@ -359,7 +360,8 @@ export default function PreVenda() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
