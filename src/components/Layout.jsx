@@ -166,7 +166,7 @@ export default function Layout({ children }) {
       {/* MAIN CONTENT AREA                                                */}
       {/* ================================================================ */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative z-0">
-        <header className="h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 z-20 shadow-sm sticky top-0">
+        <header className="h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 z-40 shadow-sm sticky top-0">
           <div className="flex items-center gap-4">
             <div className="md:hidden flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg transform rotate-3">

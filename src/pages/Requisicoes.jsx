@@ -32,6 +32,16 @@ export default function Requisicoes() {
     };
   }, []);
 
+  // Scroll Lock: trava o body quando o modal de conversão está aberto
+  useEffect(() => {
+    if (convertingReq) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [convertingReq]);
+
   const handleExcluir = async (firebaseId) => {
     if (window.confirm('Tem certeza que deseja excluir esta requisição?')) {
       try {

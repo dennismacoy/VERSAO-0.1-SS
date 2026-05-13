@@ -4,8 +4,6 @@ import {
   Search,
   FileText,
   Download,
-  TrendingDown,
-  AlertTriangle,
   Calendar,
   History as HistoryIcon,
   Filter,
@@ -182,30 +180,6 @@ export default function Relatorios() {
 
       {activeTab === 'geral' ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            <div className="erp-card p-4 md:p-6 bg-destructive/5 border-l-8 border-l-destructive flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black text-destructive uppercase tracking-widest mb-1">Total em Risco (IDW)</p>
-                <h3 className="text-3xl font-black tracking-tighter text-destructive">{formatCurrency(riskAnalysis.totalInRisk)}</h3>
-                <p className="text-[10px] text-muted-foreground mt-1">Soma do valor em estoque dos itens &gt;7 dias sem venda</p>
-              </div>
-              <div className="p-4 bg-destructive/10 rounded-2xl text-destructive">
-                <TrendingDown size={32} />
-              </div>
-            </div>
-
-            <div className="erp-card p-4 md:p-6 border-l-8 border-l-primary flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-1">Itens Críticos (+6 Dias)</p>
-                <h3 className="text-3xl font-black tracking-tighter text-foreground">{riskAnalysis.riskCount}</h3>
-                <p className="text-[10px] text-muted-foreground mt-1">Apenas itens com estoque</p>
-              </div>
-              <div className="p-4 bg-primary/10 rounded-2xl text-primary">
-                <AlertTriangle size={32} />
-              </div>
-            </div>
-          </div>
-
           <div className="erp-card p-4 flex flex-col md:flex-row gap-4 items-center">
             <div className="flex-1 flex gap-2 w-full">
               <div className="relative flex-1">

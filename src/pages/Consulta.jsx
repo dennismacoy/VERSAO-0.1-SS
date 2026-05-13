@@ -241,7 +241,7 @@ export default function Consulta() {
 
       {/* BOTTOM SHEET / MODAL — Detail Panel */}
       {selectedProduct && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end md:justify-center md:items-center bg-background/80 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-[100] flex flex-col justify-end md:justify-center md:items-center bg-background/80 backdrop-blur-sm animate-in fade-in">
           <div
             className="bg-card w-full md:w-[600px] md:rounded-2xl rounded-t-3xl shadow-2xl border border-border flex flex-col overflow-hidden max-h-[90vh] slide-in-from-bottom-full md:slide-in-from-bottom-0 md:zoom-in-95 duration-300"
           >
