@@ -3,9 +3,14 @@ import { useAuth } from './AuthContext';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 
 const CACHE_KEY = 'erp_products_cache';
+const CACHE_TIME_KEY = 'erp_products_time'; // Para guardar a data da última atualização
 const ProductsContext = createContext({});
 
-const FIREBASE_REST_URL = "https://atacadao-ss-default-rtdb.firebaseio.com/baseProdutos.json";
+// URL do GAS (Apps Script) extraída do seu api.js
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwGj3Zc_EnS2nCetZonIroEquK9kyl-k8uDwae7if6Ctpw2TSZIiVCXuZu2JdI6YqSE/exec";
+
+// Trava de cache no Firebase (Nó super leve apenas com a data de atualização)
+const FIREBASE_SISTEMA_URL = "https://atacadao-ss-default-rtdb.firebaseio.com/sistema.json";
 
 export const useProducts = () => useContext(ProductsContext);
 
@@ -16,13 +21,11 @@ export const ProductsProvider = ({ children }) => {
   const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
-    // Se o usuário não está logado ou já carregou, não faz nada
     if (!user || hasLoaded) return;
 
     let isMounted = true;
     setLoading(true);
 
-    // TRAVA ABSOLUTA MÁXIMA: 20 segundos (aumentado de 12s).
     const safeTimeout = setTimeout(() => {
       if (isMounted) {
         setLoading(false);
@@ -32,69 +35,95 @@ export const ProductsProvider = ({ children }) => {
     }, 20000);
 
     const loadData = async () => {
-
-      // 1. FUNÇÃO BLINDADA DE LEITURA DO CACHE (Máximo 2 segundos)
-      const getCacheSafe = () => new Promise(resolve => {
+      const getCacheSafe = (key) => new Promise(resolve => {
         let isDone = false;
-        const tmr = setTimeout(() => {
-          if (!isDone) { isDone = true; resolve(null); }
-        }, 2000);
-
+        const tmr = setTimeout(() => { if (!isDone) { isDone = true; resolve(null); } }, 2000);
         try {
-          idbGet(CACHE_KEY).then(res => {
-            if (!isDone) { isDone = true; clearTimeout(tmr); resolve(res); }
-          }).catch(() => {
-            if (!isDone) { isDone = true; clearTimeout(tmr); resolve(null); }
-          });
-        } catch (e) {
-          if (!isDone) { isDone = true; clearTimeout(tmr); resolve(null); }
-        }
+          idbGet(key).then(res => { if (!isDone) { isDone = true; clearTimeout(tmr); resolve(res); } }).catch(() => { if (!isDone) { isDone = true; clearTimeout(tmr); resolve(null); } });
+        } catch (e) { if (!isDone) { isDone = true; clearTimeout(tmr); resolve(null); } }
       });
 
-      console.log("📡 1. Lendo cache local (Aguardando max 2s)...");
-      const cached = await getCacheSafe();
+      console.log("📡 1. Lendo cache local...");
+      const cachedProducts = await getCacheSafe(CACHE_KEY);
+      const cachedTime = await getCacheSafe(CACHE_TIME_KEY) || 0;
 
       if (!isMounted) return;
 
-      // SE ACHOU O CACHE
-      if (cached && cached.length > 0) {
-        console.log(`✅ 2. Cache lido com sucesso: ${cached.length} itens.`);
-        setProducts(cached);
+      // 2. Verifica a trava de atualização no Firebase
+      let serverTime = 0;
+      try {
+        console.log("🔒 2. Checando trava de atualização no Firebase...");
+        const sysRes = await fetch(FIREBASE_SISTEMA_URL);
+        if (sysRes.ok) {
+          const sysData = await sysRes.json();
+          // Pega o tempo do servidor (se não existir, usaremos Date.now() para forçar download)
+          serverTime = sysData?.ultimaAtualizacao || Date.now();
+        } else {
+          serverTime = Date.now(); // Força baixar se a rota falhar
+        }
+      } catch (e) {
+        console.warn("⚠️ Falha ao checar a trava. Se houver cache, ele será usado.");
+      }
+
+      // Se temos cache E o cache está atualizado (tempo local >= tempo do servidor)
+      if (cachedProducts && cachedProducts.length > 0 && cachedTime >= serverTime) {
+        console.log(`✅ 3. Cache ATUALIZADO lido com sucesso: ${cachedProducts.length} itens.`);
+        setProducts(cachedProducts);
         setLoading(false);
         setHasLoaded(true);
         clearTimeout(safeTimeout);
         return;
       }
 
-      // SE NÃO ACHOU O CACHE (Cai direto pro Firebase)
-      console.log("☁️ 2. Cache Vazio. Baixando do Firebase (REST API, timeout 20s)...");
+      // Se não tem cache ou a trava indicou que o Google Sheets mudou
+      console.log("☁️ 3. Cache desatualizado ou vazio. Baixando direto do GOOGLE SHEETS (GAS)...");
       try {
         const controller = new AbortController();
         const fetchTimeout = setTimeout(() => controller.abort(), 20000);
 
-        const res = await fetch(FIREBASE_REST_URL, { signal: controller.signal });
+        // Faz um POST pro Google Apps Script exigindo a ação getProdutos
+        const res = await fetch(GAS_URL, {
+          method: "POST",
+          redirect: "follow",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: 'getProdutos' }),
+          signal: controller.signal
+        });
         clearTimeout(fetchTimeout);
 
-        if (!res.ok) throw new Error("Erro na URL do Firebase.");
+        const text = await res.text();
+        let data = [];
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error("Resposta inválida do Google Sheets (Provavelmente não retornou o JSON).");
+        }
 
-        const data = await res.json();
         const items = data && typeof data === 'object' && !Array.isArray(data)
           ? Object.values(data)
           : (Array.isArray(data) ? data.filter(Boolean) : []);
 
         if (!isMounted) return;
 
-        console.log(`🚀 3. Download concluído! ${items.length} itens.`);
+        console.log(`🚀 4. Download do Sheets concluído! ${items.length} itens.`);
         setProducts(items);
         setLoading(false);
         setHasLoaded(true);
         clearTimeout(safeTimeout);
 
-        // Salva silenciosamente pro futuro
-        try { await idbSet(CACHE_KEY, items); } catch (e) { }
+        // Salva os novos produtos e sincroniza a trava local com o tempo do servidor
+        try {
+          await idbSet(CACHE_KEY, items);
+          await idbSet(CACHE_TIME_KEY, serverTime === 0 ? Date.now() : serverTime);
+        } catch (e) { }
 
       } catch (err) {
-        console.error("❌ 3. Falha crítica no download:", err);
+        console.error("❌ 4. Falha crítica no download do Sheets:", err);
+        // Fallback de Emergência: se der erro (ex: offline), libera a tela com o cache velho se ele existir
+        if (cachedProducts && cachedProducts.length > 0 && isMounted) {
+          console.log("⚠️ Usando cache local como fallback de emergência.");
+          setProducts(cachedProducts);
+        }
         if (isMounted) {
           setLoading(false);
           setHasLoaded(true);
@@ -105,29 +134,39 @@ export const ProductsProvider = ({ children }) => {
 
     loadData();
 
-    // Limpeza ao desmontar
     return () => {
       isMounted = false;
       clearTimeout(safeTimeout);
     };
   }, [user, hasLoaded]);
 
+  // Função para forçar o download ignorando a Trava
   const refreshProducts = async () => {
     setLoading(true);
     try {
+      console.log("☁️ Forçando atualização manual a partir do GOOGLE SHEETS...");
       const controller = new AbortController();
       const fetchTimeout = setTimeout(() => controller.abort(), 20000);
 
-      const res = await fetch(FIREBASE_REST_URL, { signal: controller.signal });
+      const res = await fetch(GAS_URL, {
+        method: "POST",
+        redirect: "follow",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: 'getProdutos' }),
+        signal: controller.signal
+      });
       clearTimeout(fetchTimeout);
 
-      const data = await res.json();
+      const text = await res.text();
+      let data = JSON.parse(text);
+
       const items = data && typeof data === 'object' && !Array.isArray(data)
         ? Object.values(data)
         : (Array.isArray(data) ? data.filter(Boolean) : []);
 
       setProducts(items);
       await idbSet(CACHE_KEY, items);
+      await idbSet(CACHE_TIME_KEY, Date.now()); // Zera a trava pro momento atual
       console.log("✅ Atualizado manualmente com sucesso.");
     } catch (error) {
       console.error('❌ Erro no refresh:', error);
