@@ -239,3 +239,64 @@ export const generateB2BPDF = (pedido) => {
   // Redireciona para o layout de Pré-Venda
   return generatePreVendaPDF(pedido);
 };
+
+// =============================================
+// SEPARAÇÃO PDF — Enxuto: Código, Descrição, Embalagem, Quantidade
+// =============================================
+export const generateSeparacaoPDF = (pedido) => {
+  if (!pedido || !pedido.itens || pedido.itens.length === 0) return;
+
+  try {
+    const doc = new jsPDF();
+    const dataObj = new Date(pedido.data || pedido.createdAt);
+
+    drawHeader(doc, 'GUIA DE SEPARAÇÃO', `#${pedido.firebaseId?.slice(-6) || pedido.id} | ${dataObj.toLocaleDateString('pt-BR')}`);
+
+    const w = doc.internal.pageSize.getWidth();
+
+    // Info section
+    doc.setFillColor(248, 248, 250);
+    doc.roundedRect(14, 42, w - 28, 20, 2, 2, 'F');
+
+    doc.setFontSize(9);
+    doc.setTextColor(80);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Cliente:', 20, 51);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30);
+    doc.text(pedido.cliente || 'NÃO INFORMADO', 42, 51);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100);
+    doc.text(`Separador: ${pedido.atribuido || pedido.separador || 'Não atribuído'}`, 20, 57);
+    doc.text(`Total de itens: ${pedido.itens.length}`, w - 20, 57, { align: 'right' });
+
+    const tableData = pedido.itens.map(prod => [
+      prod.codigo || '',
+      prod.descricao || '',
+      prod.embalagem || prod.emb || 'UN',
+      prod.qtd?.toString() || '0',
+    ]);
+
+    autoTable(doc, {
+      ...baseTableStyles,
+      startY: 68,
+      head: [['Código', 'Descrição', 'Embalagem', 'Qtd']],
+      body: tableData,
+      styles: { ...baseTableStyles.styles, fontSize: 10, cellPadding: 5 },
+      columnStyles: {
+        0: { cellWidth: 30, fontStyle: 'bold' },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 25, halign: 'center' },
+        3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+      },
+    });
+
+    drawFooter(doc);
+    doc.save(`separacao_${pedido.firebaseId?.slice(-6) || pedido.id}.pdf`);
+  } catch (error) {
+    console.error('Erro ao gerar PDF de Separação:', error);
+    alert('Ocorreu um erro ao gerar o PDF de separação.');
+  }
+};

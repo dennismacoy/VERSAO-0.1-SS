@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Inbox, CheckCircle2, AlertCircle, X, Search, FileText, Loader2 } from 'lucide-react';
+import { Inbox, CheckCircle2, AlertCircle, X, Search, FileText, Loader2, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
 import { listenToNode } from '../lib/firebase';
@@ -73,6 +73,16 @@ export default function Requisicoes() {
     }
   };
 
+  const handleCancelarPedido = async (req) => {
+    if (!window.confirm(`Cancelar o pedido de "${req.cliente}"? Esta ação não pode ser desfeita.`)) return;
+    try {
+      await api.updateStatus(req.firebaseId, 'Cancelado', 'pedidos');
+    } catch (e) {
+      console.error('Erro ao cancelar:', e);
+      alert('Erro ao cancelar pedido: ' + e.message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -83,13 +93,13 @@ export default function Requisicoes() {
       <div className="grid grid-cols-1 gap-4">
         {loading ? (
           <div className="p-12 text-center text-primary">Carregando requisições...</div>
-        ) : requisicoes.length === 0 ? (
+        ) : requisicoes.filter(r => r.status === 'Pendente').length === 0 ? (
           <div className="erp-card p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
             <Inbox size={48} className="opacity-20 mb-4" />
-            <p>Não há requisições no momento.</p>
+            <p>Não há requisições pendentes.</p>
           </div>
         ) : (
-          requisicoes.map((req) => (
+          requisicoes.filter(r => r.status === 'Pendente').map((req) => (
             <div key={req.firebaseId} className="erp-card p-5 border-l-4 flex flex-col md:flex-row gap-4 md:items-center justify-between hover:-translate-y-1 transition-all"
               style={{ borderLeftColor: req.status === 'Pendente' ? '#f97316' : '#22c55e' }}>
 
@@ -135,12 +145,20 @@ export default function Requisicoes() {
                   <FileText size={16} /> Ver PDF
                 </button>
                 {req.status === 'Pendente' && (
-                  <button
-                    onClick={() => handleAbrirConversao(req)}
-                    className="flex-1 md:w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-xl transition-colors text-sm shadow-md"
-                  >
-                    Converter em PV
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleAbrirConversao(req)}
+                      className="flex-1 md:w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-xl transition-colors text-sm shadow-md"
+                    >
+                      Converter em PV
+                    </button>
+                    <button
+                      onClick={() => handleCancelarPedido(req)}
+                      className="flex-1 md:w-full flex items-center justify-center gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold py-2 px-4 rounded-xl transition-colors text-sm"
+                    >
+                      <XCircle size={16} /> Cancelar
+                    </button>
+                  </>
                 )}
               </div>
             </div>

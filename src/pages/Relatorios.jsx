@@ -126,6 +126,18 @@ export default function Relatorios() {
   };
 
   const handleSaveToHistory = async () => {
+    const apenasComEstoque = window.confirm(
+      'Deseja guardar o relatório apenas com itens COM ESTOQUE?\n\nClique OK para apenas com estoque, ou Cancelar para incluir todos os itens.'
+    );
+
+    let dadosParaSalvar = filteredData;
+    if (apenasComEstoque) {
+      dadosParaSalvar = filteredData.filter(item => {
+        const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
+        return parseEstoque(estoqueStr);
+      });
+    }
+
     try {
       const reportData = {
         nome: `REL-${Date.now().toString().slice(-6)}`,
@@ -135,10 +147,12 @@ export default function Relatorios() {
         riscoTotal: riskAnalysis.totalInRisk,
         geradoPor: user?.name || user?.usuario || 'Admin',
         valorTotal: riskAnalysis.totalInRisk,
+        totalItens: dadosParaSalvar.length,
+        filtro: apenasComEstoque ? 'Com Estoque' : 'Todos',
       };
 
       await api.saveReport(reportData);
-      alert("Relatório salvo no histórico com sucesso!");
+      alert(`Relatório salvo com ${dadosParaSalvar.length} itens (${apenasComEstoque ? 'Com Estoque' : 'Todos'})!`);
     } catch (e) {
       console.error(e);
       alert("Erro ao salvar relatório.");

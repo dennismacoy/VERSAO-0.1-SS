@@ -5,7 +5,7 @@ import { useProducts } from '../context/ProductsContext';
 import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 import { generatePreVendaPDF } from '../lib/pdfGenerator';
-import { listenToNode } from '../lib/firebase';
+import { listenToNode, listenToUsers } from '../lib/firebase';
 import { cn, formatCurrency } from '../lib/utils';
 
 export default function PreVenda() {
@@ -22,8 +22,10 @@ export default function PreVenda() {
   const [itens, setItens] = useState([]);
   const [saving, setSaving] = useState(false);
   const [repositores, setRepositores] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const unsubRef = useRef(null);
+  const unsubUsersRef = useRef(null);
 
   useEffect(() => {
     if (isNovaPreVenda) document.body.style.overflow = 'hidden';
@@ -56,18 +58,18 @@ export default function PreVenda() {
     };
   }, [user]);
 
+  // Listener em tempo real para usuários (separadores/repositores)
   useEffect(() => {
-    const fetchUsuarios = async () => {
-      try {
-        const users = await api.getUsuarios();
-        const separadores = users.filter(u =>
-          (u.Role || u.role || '').toLowerCase().includes('repositor') ||
-          (u.Role || u.role || '').toLowerCase().includes('lider')
-        );
-        setRepositores(separadores);
-      } catch (e) { }
+    unsubUsersRef.current = listenToUsers((users) => {
+      const separadores = users.filter(u => {
+        const userRole = (u.role || u.perfil || u.cargo || u.Role || '').toLowerCase();
+        return userRole.includes('repositor') || userRole.includes('lider') || userRole.includes('líder');
+      });
+      setRepositores(separadores);
+    });
+    return () => {
+      if (unsubUsersRef.current) unsubUsersRef.current();
     };
-    fetchUsuarios();
   }, []);
 
   const searchResults = searchLocal(query).slice(0, 30);
@@ -86,6 +88,7 @@ export default function PreVenda() {
         preco: Number(p.PRECO_ATACADO || p.preco_atacado || 0)
       }]);
     }
+    setQuery('');
   };
 
   const updateItem = (codigo, field, value) => {
@@ -144,6 +147,21 @@ export default function PreVenda() {
     }
   };
 
+  const handleToggleSelect = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const handleExcluirMassa = async () => {
+    if (window.confirm(`Excluir ${selectedIds.length} pré-venda(s) selecionada(s)?`)) {
+      try {
+        await api.deleteMultiple('prevendas', selectedIds);
+        setSelectedIds([]);
+      } catch (e) {
+        alert('Erro ao excluir.');
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
@@ -154,6 +172,11 @@ export default function PreVenda() {
         {hasPermission('Criar Prevenda') && (
           <button onClick={() => setIsNovaPreVenda(true)} className="btn-primary flex items-center gap-2 text-xs">
             <Plus size={16} /> Nova Pré-Venda
+          </button>
+        )}
+        {selectedIds.length > 0 && (
+          <button onClick={handleExcluirMassa} className="btn-primary bg-destructive text-destructive-foreground flex items-center gap-2 text-xs">
+            <Trash2 size={16} /> Excluir ({selectedIds.length})
           </button>
         )}
       </div>
@@ -171,6 +194,7 @@ export default function PreVenda() {
             <table className="hidden md:table w-full text-left text-sm">
               <thead className="bg-muted">
                 <tr>
+                  <th className="px-4 py-3"><input type="checkbox" onChange={(e) => setSelectedIds(e.target.checked ? historico.map(h => h.firebaseId) : [])} checked={selectedIds.length === historico.length && historico.length > 0} /></th>
                   <th className="px-4 py-3 font-bold">ID / Cliente</th>
                   <th className="px-4 py-3 font-bold">Data</th>
                   <th className="px-4 py-3 font-bold">Vendedor</th>
@@ -183,6 +207,7 @@ export default function PreVenda() {
               <tbody className="divide-y divide-border">
                 {historico.map(h => (
                   <tr key={h.firebaseId} className="hover:bg-muted/50">
+                    <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.includes(h.firebaseId)} onChange={() => handleToggleSelect(h.firebaseId)} /></td>
                     <td className="px-4 py-3">
                       <p className="font-bold text-primary">#{h.firebaseId?.slice(-6) || h.id}</p>
                       <p className="text-xs truncate max-w-[150px]">{h.cliente}</p>
@@ -229,10 +254,13 @@ export default function PreVenda() {
             <div className="md:hidden divide-y divide-border">
               {historico.map(h => (
                 <div key={h.firebaseId} className="p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-black text-primary text-sm">#{h.firebaseId?.slice(-6) || h.id}</span>
-                      <p className="text-xs text-muted-foreground">{new Date(h.data || h.createdAt).toLocaleDateString()}</p>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <input type="checkbox" checked={selectedIds.includes(h.firebaseId)} onChange={() => handleToggleSelect(h.firebaseId)} className="w-5 h-5" />
+                      <div>
+                        <span className="font-black text-primary text-sm">#{h.firebaseId?.slice(-6) || h.id}</span>
+                        <p className="text-xs text-muted-foreground">{new Date(h.data || h.createdAt).toLocaleDateString()}</p>
+                      </div>
                     </div>
                     <span className={cn(
                       "px-2 py-1 rounded text-[10px] font-bold uppercase",

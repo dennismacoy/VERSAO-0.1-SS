@@ -11,7 +11,7 @@ import {
   User,
 } from 'lucide-react';
 import { api } from '../lib/api';
-import { generatePickingPDF } from '../lib/pdfGenerator';
+import { generateSeparacaoPDF } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 import { listenToNode, listenToUsers } from '../lib/firebase';
 import { cn } from '../lib/utils';
@@ -203,7 +203,7 @@ export default function Separacao() {
 
               <div className="mt-8 pt-6 border-t border-dashed border-border flex gap-3">
                 <button
-                  onClick={() => generatePickingPDF(item)}
+                  onClick={() => generateSeparacaoPDF(item)}
                   className="min-h-[44px] p-4 bg-card border-2 border-border text-foreground hover:bg-muted rounded-2xl transition-all shadow-sm active:scale-90"
                   title="Imprimir Guia de Picking"
                 >

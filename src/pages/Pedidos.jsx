@@ -61,6 +61,7 @@ export default function Pedidos() {
         qtd: 1
       }]);
     }
+    setQuery('');
   };
 
   const updateQtd = (codigo, value) => {
