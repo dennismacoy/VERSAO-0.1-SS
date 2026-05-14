@@ -25,6 +25,15 @@ export default function Separacao() {
   const unsubRef = useRef(null);
   const unsubUsersRef = useRef(null);
 
+  // Debug de permissões para resolver o erro de "Acesso Negado"
+  useEffect(() => {
+    console.log('[DEBUG SEPARAÇÃO]', {
+      user: user?.usuario || user?.name,
+      role: role,
+      hasPermission: hasPermission('Acesso Separacao')
+    });
+  }, [user, role, hasPermission]);
+
   // Listener em tempo real para pré-vendas
   useEffect(() => {
     unsubRef.current = listenToNode('prevendas', (items) => {
@@ -81,8 +90,10 @@ export default function Separacao() {
     }
   };
 
-  // Verificação de permissão — usa a chave correta do AuthContext
-  if (!hasPermission('Acesso Separacao')) {
+  // Verificação de permissão com fallback por role
+  const canAccess = hasPermission('Acesso Separacao') || role === 'repositor' || role === 'lider';
+
+  if (!canAccess) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center space-y-4">

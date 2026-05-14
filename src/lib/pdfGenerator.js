@@ -6,8 +6,8 @@ const formatCurrency = (val) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 };
 
-const COMPANY_NAME = 'SmartStock ERP';
-const COMPANY_SUB = 'Gestão Logística & Comercial';
+const COMPANY_NAME = 'Atacadao';
+const COMPANY_SUB = 'Filial - 685 Franca';
 
 // Shared professional header — NEUTRAL tones (gray/white, no black bars)
 const drawHeader = (doc, title, subtitle) => {

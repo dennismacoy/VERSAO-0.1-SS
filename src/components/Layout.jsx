@@ -70,7 +70,12 @@ export default function Layout({ children }) {
     { name: 'Pedidos', path: '/pedidos', icon: ClipboardList, condition: hasPermission('Acesso Pedidos') },
     { name: 'Requisições', path: '/requisicoes', icon: Inbox, condition: hasPermission('Acesso Requisições') },
     { name: 'Pré-Venda', path: '/pre-venda', icon: ShoppingCart, condition: hasPermission('Acesso Pre-Venda') },
-    { name: 'Separação', path: '/separacao', icon: ListChecks, condition: hasPermission('Acesso Separacao') },
+    {
+      name: 'Separação',
+      path: '/separacao',
+      icon: ListChecks,
+      condition: hasPermission('Acesso Separacao') || role === 'repositor' || role === 'lider'
+    },
     { name: 'Relatórios', path: '/relatorios', icon: BarChart3, condition: hasPermission('Acesso Relatorios') },
     { name: 'Configurações', path: '/configuracoes', icon: Settings, condition: hasPermission('Acesso Configuracoes') },
   ];

@@ -20,6 +20,8 @@ export default function Configuracoes() {
     { id: 'Acesso Pre-Venda', label: 'Acesso Pré-Venda' },
     { id: 'Acesso Separacao', label: 'Acesso Separação' },
     { id: 'Acesso Relatorios', label: 'Acesso Relatórios' },
+    { id: 'Ver Aba Atual', label: 'Ver Aba Atual (Relatórios)' },
+    { id: 'Ver Aba Histórico', label: 'Ver Aba Histórico (Relatórios)' },
     { id: 'Acesso Configuracoes', label: 'Acesso Configurações' },
     { id: 'Ver Card Geral', label: 'Ver Info Gerais (Consulta)' },
     { id: 'Ver Card Extras', label: 'Ver Info Extras (Consulta)' },

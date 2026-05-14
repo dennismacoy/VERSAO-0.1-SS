@@ -21,6 +21,15 @@ import { cn, parseEstoque, getEstoqueNumerico, formatCurrency } from '../lib/uti
 export default function Relatorios() {
   const { hasPermission, user } = useAuth();
   const [activeTab, setActiveTab] = useState('geral');
+  const canSeeAtual = hasPermission('Ver Aba Atual');
+  const canSeeHistorico = hasPermission('Ver Aba Histórico');
+
+  // Ajusta a aba inicial caso a padrão não tenha permissão
+  useEffect(() => {
+    if (!canSeeAtual && canSeeHistorico) setActiveTab('historico');
+    if (canSeeAtual && !canSeeHistorico) setActiveTab('geral');
+  }, [canSeeAtual, canSeeHistorico]);
+
   const [query, setQuery] = useState('');
   const [selectedRazao, setSelectedRazao] = useState('');
   const { products: cacheProducts, loading: globalLoading, hasLoaded } = useProducts();
@@ -171,28 +180,32 @@ export default function Relatorios() {
           </p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={() => setActiveTab('geral')}
-            className={cn(
-              "px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border-2",
-              activeTab === 'geral' ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
-            )}
-          >
-            Relatório Atual
-          </button>
-          <button
-            onClick={() => setActiveTab('historico')}
-            className={cn(
-              "px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border-2",
-              activeTab === 'historico' ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
-            )}
-          >
-            Histórico
-          </button>
+          {canSeeAtual && (
+            <button
+              onClick={() => setActiveTab('geral')}
+              className={cn(
+                "px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border-2",
+                activeTab === 'geral' ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
+              )}
+            >
+              Relatório Atual
+            </button>
+          )}
+          {canSeeHistorico && (
+            <button
+              onClick={() => setActiveTab('historico')}
+              className={cn(
+                "px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border-2",
+                activeTab === 'historico' ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
+              )}
+            >
+              Histórico
+            </button>
+          )}
         </div>
       </div>
 
-      {activeTab === 'geral' ? (
+      {activeTab === 'geral' && canSeeAtual ? (
         <>
           <div className="erp-card p-4 flex flex-col md:flex-row gap-4 items-center">
             <div className="flex-1 flex gap-2 w-full">
@@ -332,7 +345,7 @@ export default function Relatorios() {
             })}
           </div>
         </>
-      ) : (
+      ) : activeTab === 'historico' && canSeeHistorico ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {reportHistory.length === 0 ? (
             <div className="col-span-full erp-card p-20 flex flex-col items-center justify-center text-muted-foreground/30 border-dashed border-4">
@@ -378,7 +391,7 @@ export default function Relatorios() {
             ))
           )}
         </div>
-      )}
+      ) : null}
 
       {/* Modal: Escolher "Com Estoque" ou "Todos" antes de gerar PDF */}
       {showPdfModal && (
