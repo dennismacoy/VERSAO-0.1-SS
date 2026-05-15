@@ -18,6 +18,7 @@ export default function Configuracoes() {
     { id: 'Acesso Pedidos', label: 'Acesso Pedidos' },
     { id: 'Acesso Requisições', label: 'Acesso Requisições' },
     { id: 'Acesso Pre-Venda', label: 'Acesso Pré-Venda' },
+    { id: 'Criar Prevenda', label: 'Criar Nova Pré-Venda' },
     { id: 'Acesso Separacao', label: 'Acesso Separação' },
     { id: 'Acesso Relatorios', label: 'Acesso Relatórios' },
     { id: 'Ver Aba Atual', label: 'Ver Aba Atual (Relatórios)' },
