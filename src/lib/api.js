@@ -14,7 +14,7 @@ import {
 // =============================================
 // Google Apps Script — SOMENTE para Sincronização Master (smg13/smg32)
 // =============================================
-const GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbz7iaKD5YEy3_Q9P5lhIu3IBM1tGsMSqXedttsLAx-JRJwA7R8vIKSn0XRjumC8g33-xg/exec";
+const GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbwNcUyH_6To70w7bEW0DUkkuvi9OQ_6TS-bnQ6SaPhzkDAkeLEXjh_RNpjH-LzhQJDZwg/exec";
 
 const fetchGAS = async (payload) => {
   try {
@@ -118,8 +118,8 @@ export const api = {
 
   // --- GAS: Sincronização Master (ÚNICO uso restante do GAS) ---
   // Dispara dados para as planilhas smg13 e smg32
-  async syncToSheet(targetBase, data) {
-    return await fetchGAS({ action: 'syncMaster', targetBase, data });
+  async syncMaster(target, payload) {
+    return await fetchGAS({ target, payload });
   },
 };
 

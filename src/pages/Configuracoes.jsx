@@ -7,7 +7,7 @@ import { cn } from '../lib/utils';
 import { fetchUsersFromFirebase, createUserFirebase, updateUserFirebase, deleteUserFirebase, changePasswordFirebase, listenToUsers } from '../lib/firebase';
 
 export default function Configuracoes() {
-  const { role, permissions, updatePermissions, isAdmin, user } = useAuth();
+  const { role, permissions, updatePermissions, isAdmin, user, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('permissoes');
 
   // ---- Permissões ----
@@ -24,6 +24,7 @@ export default function Configuracoes() {
     { id: 'Ver Aba Atual', label: 'Ver Aba Atual (Relatórios)' },
     { id: 'Ver Aba Histórico', label: 'Ver Aba Histórico (Relatórios)' },
     { id: 'Acesso Configuracoes', label: 'Acesso Configurações' },
+    { id: 'Acessar Sincronização Master', label: 'Acessar Sincronização Master' },
     { id: 'Ver Card Geral', label: 'Ver Info Gerais (Consulta)' },
     { id: 'Ver Card Extras', label: 'Ver Info Extras (Consulta)' },
     { id: 'Ver Itens ISV', label: 'Ver Itens ISV (Dashboard)' },
@@ -89,26 +90,36 @@ export default function Configuracoes() {
 
   // ---- Sincronização ----
   const [file, setFile] = useState(null);
-  const [targetBase, setTargetBase] = useState('smg13');
-  const [syncing, setSyncing] = useState(false);
+  const [syncingTarget, setSyncingTarget] = useState(null);
   const [syncStatus, setSyncStatus] = useState({ type: '', message: '' });
   const [dragActive, setDragActive] = useState(false);
 
-  const handleSync = async () => {
-    if (!file) return setSyncStatus({ type: 'error', message: 'Selecione um arquivo CSV.' });
-    setSyncing(true); setSyncStatus({ type: '', message: '' });
-    Papa.parse(file, {
-      header: true, skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          await api.syncToSheet(targetBase, results.data);
-          setSyncStatus({ type: 'success', message: `Base ${targetBase} sincronizada!` });
-          setFile(null);
-        } catch (err) { setSyncStatus({ type: 'error', message: 'Falha na sincronização.' }); }
-        finally { setSyncing(false); }
-      },
-      error: () => { setSyncStatus({ type: 'error', message: 'Erro ao processar CSV.' }); setSyncing(false); }
-    });
+  const handleSync = async (target) => {
+    setSyncingTarget(target); 
+    setSyncStatus({ type: '', message: '' });
+    
+    if (file) {
+      Papa.parse(file, {
+        header: true, skipEmptyLines: true,
+        complete: async (results) => {
+          try {
+            await api.syncMaster(target, results.data);
+            setSyncStatus({ type: 'success', message: `Base ${target.toUpperCase()} sincronizada com sucesso!` });
+            setFile(null);
+          } catch (err) { setSyncStatus({ type: 'error', message: `Falha na sincronização do ${target.toUpperCase()}.` }); }
+          finally { setSyncingTarget(null); }
+        },
+        error: () => { setSyncStatus({ type: 'error', message: 'Erro ao processar CSV.' }); setSyncingTarget(null); }
+      });
+    } else {
+      try {
+        await api.syncMaster(target, { action: "sync_trigger", timestamp: new Date().toISOString() });
+        setSyncStatus({ type: 'success', message: `Base ${target.toUpperCase()} sincronizada com sucesso!` });
+      } catch (err) { 
+        setSyncStatus({ type: 'error', message: `Falha na sincronização do ${target.toUpperCase()}.` }); 
+      }
+      finally { setSyncingTarget(null); }
+    }
   };
 
   // ---- Trocar Senha ----
@@ -132,14 +143,15 @@ export default function Configuracoes() {
 
   const tabs = [
     ...(isAdmin() ? [{ id: 'permissoes', label: 'Matriz de Permissões' }] : []),
-    ...(isAdmin() ? [{ id: 'sync', label: 'Sincronização Master' }] : []),
+    ...(hasPermission('Acessar Sincronização Master') ? [{ id: 'sync', label: 'Sincronização Master' }] : []),
     { id: 'senha', label: 'Trocar Senha' },
   ];
 
   // Se não é admin e tab atual é restrita, muda pra senha
   useEffect(() => {
-    if (!isAdmin() && (activeTab === 'permissoes' || activeTab === 'sync')) setActiveTab('senha');
-  }, [activeTab, isAdmin]);
+    if (!isAdmin() && activeTab === 'permissoes') setActiveTab('senha');
+    if (!hasPermission('Acessar Sincronização Master') && activeTab === 'sync') setActiveTab('senha');
+  }, [activeTab, isAdmin, hasPermission]);
 
   return (
     <div className="flex flex-col h-full space-y-6 pb-10">
@@ -244,19 +256,13 @@ export default function Configuracoes() {
       )}
 
       {/* TAB: Sincronização */}
-      {activeTab === 'sync' && isAdmin() && (
+      {activeTab === 'sync' && hasPermission('Acessar Sincronização Master') && (
         <div className="max-w-lg mx-auto erp-card p-8 border-t-8 border-t-primary space-y-6">
           <div className="flex items-center gap-3">
             <UploadCloud size={24} className="text-primary" />
             <h2 className="text-xl font-black uppercase">Sincronização Master</h2>
           </div>
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Base Destino</label>
-            <select className="w-full px-4 py-3 rounded-xl border-2 border-border bg-background font-bold" value={targetBase} onChange={(e) => setTargetBase(e.target.value)}>
-              <option value="smg13">SMG 13</option>
-              <option value="smg32">SMG 32</option>
-            </select>
-          </div>
+          
           <div
             className={cn("border-4 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer relative", dragActive ? "border-primary bg-primary/5" : "border-border", file ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "")}
             onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
@@ -265,19 +271,35 @@ export default function Configuracoes() {
             onDrop={(e) => { e.preventDefault(); setDragActive(false); if (e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]); }}
           >
             <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept=".csv" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
-            <p className="font-black text-sm uppercase">{file ? file.name : "Arraste o arquivo CSV"}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">{file ? `${(file.size / 1024).toFixed(1)} KB` : "Ou clique para selecionar"}</p>
+            <p className="font-black text-sm uppercase">{file ? file.name : "Arraste o arquivo CSV (Opcional)"}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{file ? `${(file.size / 1024).toFixed(1)} KB` : "Se não selecionado, fará a sincronização padrão."}</p>
           </div>
+          
           {syncStatus.message && (
             <div className={cn("p-4 rounded-xl flex items-center gap-3", syncStatus.type === 'success' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
               {syncStatus.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
               <p className="font-bold text-sm">{syncStatus.message}</p>
             </div>
           )}
-          <button onClick={handleSync} disabled={!file || syncing} className="w-full btn-primary py-4 flex items-center justify-center gap-2 uppercase tracking-widest text-sm disabled:opacity-50">
-            {syncing ? <Loader2 className="animate-spin" size={20} /> : <UploadCloud size={20} />}
-            {syncing ? 'Processando...' : 'Sincronizar'}
-          </button>
+          
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <button 
+              onClick={() => handleSync('smg13')} 
+              disabled={syncingTarget !== null} 
+              className="w-full btn-primary py-4 flex flex-col items-center justify-center gap-2 uppercase tracking-widest text-sm disabled:opacity-50 transition-transform active:scale-95"
+            >
+              {syncingTarget === 'smg13' ? <Loader2 className="animate-spin" size={24} /> : <UploadCloud size={24} />}
+              <span className="font-bold">{syncingTarget === 'smg13' ? 'Sincronizando...' : 'Sincronizar SMG13'}</span>
+            </button>
+            <button 
+              onClick={() => handleSync('smg32')} 
+              disabled={syncingTarget !== null} 
+              className="w-full btn-primary py-4 flex flex-col items-center justify-center gap-2 uppercase tracking-widest text-sm disabled:opacity-50 transition-transform active:scale-95 bg-blue-600 hover:bg-blue-700 border-blue-600"
+            >
+              {syncingTarget === 'smg32' ? <Loader2 className="animate-spin" size={24} /> : <UploadCloud size={24} />}
+              <span className="font-bold">{syncingTarget === 'smg32' ? 'Sincronizando...' : 'Sincronizar SMG32'}</span>
+            </button>
+          </div>
         </div>
       )}
 

@@ -16,6 +16,7 @@ const defaultPermissions = {
   'Acesso Separacao': ['admin', 'gerente', 'repositor'],
   'Acesso Relatorios': ['admin', 'gerente'],
   'Acesso Configuracoes': ['admin', 'gerente', 'repositor', 'vendedor', 'clientes'],
+  'Acessar Sincronização Master': ['admin'],
 
   // Dashboard Cards
   'Ver Separacoes Abertas': ['admin', 'gerente', 'repositor'],
