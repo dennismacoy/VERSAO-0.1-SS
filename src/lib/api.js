@@ -119,7 +119,13 @@ export const api = {
   // --- GAS: Sincronização Master (ÚNICO uso restante do GAS) ---
   // Dispara dados para as planilhas smg13 e smg32
   async syncMaster(target, payload) {
-    return await fetchGAS({ target, payload });
+    // Formatando o pacote EXATAMENTE como o code.gs exige
+    const bodyFormatado = {
+      action: 'syncMaster',
+      targetBase: target,
+      data: payload
+    };
+    return await fetchGAS(bodyFormatado);
   },
 };
 
