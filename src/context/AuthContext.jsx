@@ -47,10 +47,10 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     unsubPermsRef.current = listenToPermissions((fbPerms) => {
       if (fbPerms && typeof fbPerms === 'object') {
-        // Remove a chave interna 'updatedAt' para não poluir a matriz
         const { updatedAt, ...cleanPerms } = fbPerms;
         if (Object.keys(cleanPerms).length > 0) {
-          setPermissions(cleanPerms);
+          // CORREÇÃO: Mescla o padrão com o Firebase. Assim as permissões novas nunca somem!
+          setPermissions({ ...defaultPermissions, ...cleanPerms });
         }
       }
     });
@@ -59,6 +59,7 @@ export const AuthProvider = ({ children }) => {
       if (unsubPermsRef.current) unsubPermsRef.current();
     };
   }, []);
+
 
   const login = async (username, password) => {
     try {
