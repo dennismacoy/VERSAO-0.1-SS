@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UploadCloud, CheckCircle2, AlertCircle, Loader2, ShieldCheck, Settings2, Lock, Eye, FileText, Trash2, UserPlus, X, Save, Key } from 'lucide-react';
-import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
@@ -99,18 +99,22 @@ export default function Configuracoes() {
     setSyncStatus({ type: '', message: '' });
     
     if (file) {
-      Papa.parse(file, {
-        header: true, skipEmptyLines: true,
-        complete: async (results) => {
-          try {
-            await api.syncMaster(target, results.data);
-            setSyncStatus({ type: 'success', message: `Base ${target.toUpperCase()} sincronizada com sucesso!` });
-            setFile(null);
-          } catch (err) { setSyncStatus({ type: 'error', message: `Falha na sincronização do ${target.toUpperCase()}.` }); }
-          finally { setSyncingTarget(null); }
-        },
-        error: () => { setSyncStatus({ type: 'error', message: 'Erro ao processar CSV.' }); setSyncingTarget(null); }
-      });
+      try {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        await api.syncMaster(target, jsonData);
+        setSyncStatus({ type: 'success', message: `Base ${target.toUpperCase()} sincronizada com sucesso!` });
+        setFile(null);
+      } catch (err) {
+        console.error("Erro no processamento do arquivo:", err);
+        setSyncStatus({ type: 'error', message: `Falha na sincronização do ${target.toUpperCase()}.` });
+      } finally {
+        setSyncingTarget(null);
+      }
     } else {
       try {
         await api.syncMaster(target, { action: "sync_trigger", timestamp: new Date().toISOString() });
@@ -270,8 +274,8 @@ export default function Configuracoes() {
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); setDragActive(false); if (e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]); }}
           >
-            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept=".csv" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
-            <p className="font-black text-sm uppercase">{file ? file.name : "Arraste o arquivo CSV (Opcional)"}</p>
+            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept=".csv, .xlsx, .xls" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
+            <p className="font-black text-sm uppercase">{file ? file.name : "Arraste o arquivo Excel/CSV (Opcional)"}</p>
             <p className="text-[10px] text-muted-foreground mt-1">{file ? `${(file.size / 1024).toFixed(1)} KB` : "Se não selecionado, fará a sincronização padrão."}</p>
           </div>
           

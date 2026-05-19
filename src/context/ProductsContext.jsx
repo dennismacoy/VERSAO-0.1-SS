@@ -7,7 +7,7 @@ const CACHE_TIME_KEY = 'erp_products_time'; // Para guardar a data da última at
 const ProductsContext = createContext({});
 
 // URL do GAS (Apps Script) extraída do seu api.js
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwNcUyH_6To70w7bEW0DUkkuvi9OQ_6TS-bnQ6SaPhzkDAkeLEXjh_RNpjH-LzhQJDZwg/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyoBF6FSZsoYnAioDdrvkMM0Io2fd5-6E5OxS3Xza2o-5MowkpryFtKJvPMwmDcwcorFQ/exec";
 
 // Trava de cache no Firebase (Nó super leve apenas com a data de atualização)
 const FIREBASE_SISTEMA_URL = "https://atacadao-ss-default-rtdb.firebaseio.com/sistema.json";
