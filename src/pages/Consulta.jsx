@@ -282,7 +282,7 @@ export default function Consulta() {
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Preços (At/Var)</p>
                       <p className="font-bold text-sm">
-                        {formatCurrency(getVal(selectedProduct, 'PRECO_ATACADO', 'preco_atacado'))} <br /> <span className="text-xs text-muted-foreground">{formatCurrency(getVal(selectedProduct, 'PRECO_VAREJO', 'preco_unitario'))}</span>
+                        {formatCurrency(getVal(selectedProduct, 'preco_atacado', 'PRECO_ATACADO'))} <br /> <span className="text-xs text-muted-foreground">{formatCurrency(getVal(selectedProduct, 'preco_unitario', 'PRECO_VAREJO'))}</span>
                       </p>
                     </div>
                     <div>
@@ -325,19 +325,16 @@ export default function Consulta() {
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Valor em Estoque</p>
                       <p className="font-black text-primary">
-                        {formatCurrency(
-                          getEstoqueNumerico(getVal(selectedProduct, 'ESTOQUE', 'QTE', 'estoque') || 0) *
-                          Number(getVal(selectedProduct, 'CUSTO', 'PRECO', 'custo') || 0)
-                        )}
+                        {formatCurrency(getVal(selectedProduct, 'valor_estoque', 'VALOR_ESTOQUE') || 0)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Custo</p>
-                      <p className="font-bold text-destructive">{formatCurrency(getVal(selectedProduct, 'CUSTO', 'PRECO', 'custo'))}</p>
+                      <p className="font-bold text-destructive">{formatCurrency(getVal(selectedProduct, 'custo', 'CUSTO'))}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Autonomia</p>
-                      <p className="font-bold">{getVal(selectedProduct, 'AUTONOMIA', 'autonomia') || 0} dias</p>
+                      <p className="font-bold">{getVal(selectedProduct, 'autonomia_dias', 'AUTONOMIA_DIAS', 'autonomia') || 0} dias</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Rentabilidade</p>
@@ -345,7 +342,7 @@ export default function Consulta() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground font-semibold">Venda Mês</p>
-                      <p className="font-bold">{getVal(selectedProduct, 'VENDA_MES', 'venda_mes') || 0}</p>
+                      <p className="font-bold">{getVal(selectedProduct, 'venda_mes', 'VENDA_MES') || 0}</p>
                     </div>
                   </div>
 

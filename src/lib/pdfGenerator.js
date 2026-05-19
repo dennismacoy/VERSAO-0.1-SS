@@ -139,7 +139,8 @@ export const generatePreVendaPDF = (item) => {
           if (!prod) return;
           const canvas = document.createElement('canvas');
           try {
-            JsBarcode(canvas, prod.codigo, { format: 'CODE128', displayValue: false, height: 30, width: 1.5, margin: 0 });
+            const barcodeValue = `${prod.codigo || ''}${prod.codigo_interno || ''}`;
+            JsBarcode(canvas, barcodeValue, { format: 'CODE128', displayValue: false, height: 30, width: 1.5, margin: 0 });
             doc.addImage(canvas.toDataURL('image/png'), 'PNG', data.cell.x + 1, data.cell.y + 2, 28, 12);
           } catch (e) { /* skip invalid barcodes */ }
         }
