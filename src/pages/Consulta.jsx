@@ -66,16 +66,28 @@ export default function Consulta() {
     window.open(url, '_blank');
   };
 
-  // Helper para extrair valores do produto com fallback case-insensitive
+  // Helper blindado contra variações de cabeçalhos do banco/planilha (acentos, espaços, maiúsculas)
   const getVal = (p, ...keys) => {
+    if (!p) return null;
+    
+    // Normaliza a string: remove acentos, transforma espaços e hífens em underline e deixa minúsculo
+    const normalize = (str) => 
+      str.normalize('NFD')
+         .replace(/[\u0300-\u036f]/g, "")
+         .trim()
+         .toLowerCase()
+         .replace(/[\s\-]+/g, '_');
+         
+    const normalizedProduct = {};
+    for (const key in p) {
+      normalizedProduct[normalize(key)] = p[key];
+    }
+
     for (const k of keys) {
-      if (p[k] !== undefined && p[k] !== null && p[k] !== '') return p[k];
-      // Tenta lowercase
-      const lk = k.toLowerCase();
-      if (p[lk] !== undefined && p[lk] !== null && p[lk] !== '') return p[lk];
-      // Tenta uppercase
-      const uk = k.toUpperCase();
-      if (p[uk] !== undefined && p[uk] !== null && p[uk] !== '') return p[uk];
+      const searchKey = normalize(k);
+      if (normalizedProduct[searchKey] !== undefined && normalizedProduct[searchKey] !== null && normalizedProduct[searchKey] !== '') {
+        return normalizedProduct[searchKey];
+      }
     }
     return null;
   };
