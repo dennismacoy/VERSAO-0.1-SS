@@ -14,6 +14,20 @@ function doPost(e) {
       return handleSyncMaster(payload);
     }
 
+    if (action === 'triggerUpdate') {
+      try {
+        processarPlanilha();
+        updateCacheTrigger();
+        return ContentService
+          .createTextOutput(JSON.stringify({ success: true, message: 'Atualização mestre (processarPlanilha e updateCacheTrigger) concluída com sucesso!' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch (err) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ success: false, message: 'Erro ao executar atualização: ' + err.message }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
     // Ação legada de login (manter compatibilidade temporária)
     if (action === 'login') {
       return ContentService
@@ -75,7 +89,7 @@ function handleSyncMaster(payload) {
     // Escreve dados
     var rows = data.map(function(row) {
       return headers.map(function(h) {
-        return row[h] !== undefined ? row[h] : '';
+        return row[h] !== undefined && row[h] !== null ? row[h] : '';
       });
     });
 

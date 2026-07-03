@@ -19,7 +19,7 @@ const GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbxXJgrXliDUG1MAvqB
 const fetchGAS = async (payload) => {
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s timeout
 
     const response = await fetch(GAS_SYNC_URL, {
       method: "POST",
@@ -38,7 +38,7 @@ const fetchGAS = async (payload) => {
     }
   } catch (error) {
     if (error.name === 'AbortError') {
-      throw new Error('Timeout: A requisição demorou mais de 20 segundos.');
+      throw new Error('Timeout: A requisição demorou mais de 180 segundos.');
     }
     console.error(`[GAS] Erro (action: ${payload.action}):`, error);
     throw error;
@@ -124,6 +124,13 @@ export const api = {
       action: 'syncMaster',
       targetBase: target,
       data: payload
+    };
+    return await fetchGAS(bodyFormatado);
+  },
+
+  async triggerMasterUpdate() {
+    const bodyFormatado = {
+      action: 'triggerUpdate'
     };
     return await fetchGAS(bodyFormatado);
   },

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UploadCloud, CheckCircle2, AlertCircle, Loader2, ShieldCheck, Settings2, Lock, Eye, FileText, Trash2, UserPlus, X, Save, Key } from 'lucide-react';
+import { UploadCloud, CheckCircle2, AlertCircle, Loader2, ShieldCheck, Settings2, Lock, Eye, FileText, Trash2, UserPlus, X, Save, Key, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -123,6 +123,20 @@ export default function Configuracoes() {
         setSyncStatus({ type: 'error', message: `Falha na sincronização do ${target.toUpperCase()}.` }); 
       }
       finally { setSyncingTarget(null); }
+    }
+  };
+  const [updatingMaster, setUpdatingMaster] = useState(false);
+
+  const handleTriggerUpdate = async () => {
+    setUpdatingMaster(true);
+    setSyncStatus({ type: '', message: '' });
+    try {
+      await api.triggerMasterUpdate();
+      setSyncStatus({ type: 'success', message: 'Atualização mestre executada com sucesso!' });
+    } catch (err) {
+      setSyncStatus({ type: 'error', message: 'Falha na atualização mestre.' });
+    } finally {
+      setUpdatingMaster(false);
     }
   };
 
@@ -286,10 +300,10 @@ export default function Configuracoes() {
             </div>
           )}
           
-          <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
             <button 
               onClick={() => handleSync('smg13')} 
-              disabled={syncingTarget !== null} 
+              disabled={syncingTarget !== null || updatingMaster} 
               className="w-full btn-primary py-4 flex flex-col items-center justify-center gap-2 uppercase tracking-widest text-sm disabled:opacity-50 transition-transform active:scale-95"
             >
               {syncingTarget === 'smg13' ? <Loader2 className="animate-spin" size={24} /> : <UploadCloud size={24} />}
@@ -297,11 +311,19 @@ export default function Configuracoes() {
             </button>
             <button 
               onClick={() => handleSync('smg32')} 
-              disabled={syncingTarget !== null} 
+              disabled={syncingTarget !== null || updatingMaster} 
               className="w-full btn-primary py-4 flex flex-col items-center justify-center gap-2 uppercase tracking-widest text-sm disabled:opacity-50 transition-transform active:scale-95 bg-blue-600 hover:bg-blue-700 border-blue-600"
             >
               {syncingTarget === 'smg32' ? <Loader2 className="animate-spin" size={24} /> : <UploadCloud size={24} />}
               <span className="font-bold">{syncingTarget === 'smg32' ? 'Sincronizando...' : 'Sincronizar SMG32'}</span>
+            </button>
+            <button 
+              onClick={handleTriggerUpdate} 
+              disabled={syncingTarget !== null || updatingMaster} 
+              className="w-full btn-primary py-4 flex flex-col items-center justify-center gap-2 uppercase tracking-widest text-sm disabled:opacity-50 transition-transform active:scale-95 bg-orange-500 hover:bg-orange-600 border-orange-500"
+            >
+              {updatingMaster ? <Loader2 className="animate-spin" size={24} /> : <RefreshCw size={24} />}
+              <span className="font-bold">{updatingMaster ? 'Atualizando...' : 'Atualizar'}</span>
             </button>
           </div>
         </div>

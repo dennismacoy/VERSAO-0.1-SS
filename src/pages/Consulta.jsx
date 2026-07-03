@@ -86,7 +86,13 @@ export default function Consulta() {
     for (const k of keys) {
       const searchKey = normalize(k);
       if (normalizedProduct[searchKey] !== undefined && normalizedProduct[searchKey] !== null && normalizedProduct[searchKey] !== '') {
-        return normalizedProduct[searchKey];
+        let val = normalizedProduct[searchKey];
+        if (typeof val === 'string' && searchKey.match(/custo|atacado|varejo|preco_atacado|preco_varejo|preco_unitario|rentabilidade/)) {
+          val = val.replace(/\./g, '').replace(',', '.');
+          const parsed = parseFloat(val);
+          return isNaN(parsed) ? val : parsed;
+        }
+        return val;
       }
     }
     return null;
