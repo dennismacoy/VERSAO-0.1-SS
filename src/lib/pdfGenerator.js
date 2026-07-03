@@ -197,32 +197,71 @@ export const generatePickingPDF = (item) => {
 // RELATÓRIO PDF — Colunas: Código, Descrição, Embalagem, Entrada, Dias S/Venda, Estoque
 // =============================================
 export const generateRelatorioPDF = (batchInput, totalInRisk, selectedRazao) => {
+  if (!batchInput) {
+    console.warn("Nenhum dado fornecido para o relatório PDF.");
+    return;
+  }
+
   try {
     const doc = new jsPDF();
     const w = doc.internal.pageSize.getWidth();
 
     let batch = [];
-    if (Array.isArray(batchInput) && batchInput.length > 0 && typeof batchInput[0] === 'object' && ('filteredData' in batchInput[0] || 'data' in batchInput[0])) {
-      batch = batchInput.map(item => ({
-        filteredData: item.filteredData || item.data || [],
-        totalInRisk: item.totalInRisk !== undefined ? item.totalInRisk : 0,
-        selectedRazao: item.selectedRazao || item.razao || ''
-      }));
-    } else {
+    if (Array.isArray(batchInput)) {
+      if (batchInput.length === 0) {
+        console.warn("Array de dados para o relatório PDF está vazio.");
+        return;
+      }
+      
+      // Se for um array de objetos (lote)
+      if (typeof batchInput[0] === 'object' && batchInput[0] !== null) {
+        batch = batchInput.map(item => {
+          const dados = item.dados || item.filteredData || item.data;
+          return {
+            filteredData: Array.isArray(dados) ? dados : [],
+            totalInRisk: item.totalInRisk !== undefined ? item.totalInRisk : 0,
+            selectedRazao: item.cliente || item.selectedRazao || item.razao || ''
+          };
+        });
+      } else {
+        // Se for um array de produtos directamente (lote único simplificado)
+        batch = [{
+          filteredData: batchInput,
+          totalInRisk: totalInRisk || 0,
+          selectedRazao: selectedRazao || ''
+        }];
+      }
+    } else if (typeof batchInput === 'object' && batchInput !== null) {
+      // Se for um único objeto contendo os dados
+      const dados = batchInput.dados || batchInput.filteredData || batchInput.data;
       batch = [{
-        filteredData: batchInput || [],
-        totalInRisk: totalInRisk || 0,
-        selectedRazao: selectedRazao || ''
+        filteredData: Array.isArray(dados) ? dados : [],
+        totalInRisk: batchInput.totalInRisk !== undefined ? batchInput.totalInRisk : (totalInRisk || 0),
+        selectedRazao: batchInput.cliente || batchInput.selectedRazao || batchInput.razao || (selectedRazao || '')
       }];
+    } else {
+      console.warn("Formato inválido de batchInput fornecido para o relatório PDF.");
+      return;
     }
 
-    batch.forEach((report, index) => {
+    // Filtrar lotes que não têm dados ou onde o array está vazio para evitar quebras silenciosas da biblioteca
+    const validBatches = batch.filter(report => {
+      const dados = report.filteredData;
+      return dados && Array.isArray(dados) && dados.length > 0;
+    });
+
+    if (validBatches.length === 0) {
+      console.warn("Nenhum lote válido com dados de produtos foi encontrado para gerar o PDF.");
+      return;
+    }
+
+    validBatches.forEach((report, index) => {
       if (index > 0) {
         doc.addPage();
       }
 
       const currentRazao = report.selectedRazao || 'Relatório Geral';
-      const currentFilteredData = report.filteredData || [];
+      const currentFilteredData = report.filteredData;
       const currentTotalInRisk = report.totalInRisk || 0;
 
       drawHeader(doc, 'AUDITORIA DE ESTOQUE', currentRazao);
@@ -240,12 +279,12 @@ export const generateRelatorioPDF = (batchInput, totalInRisk, selectedRazao) => 
         startY: 60,
         head: [['Código', 'Descrição', 'Embalagem', 'Entrada', 'Dias S/ Venda', 'Estoque']],
         body: currentFilteredData.map(item => [
-          item.CODIGO || item.codigo || '',
-          item.DESCRICAO || item.descricao || '',
-          item.EMBALAGEM || item.embalagem || item.emb || 'UN',
-          item.ENTRADA || item.entrada || '-',
-          String(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || '0'),
-          String(item.ESTOQUE || item.QTE || item.estoque || '0'),
+          item?.CODIGO || item?.codigo || '',
+          item?.DESCRICAO || item?.descricao || '',
+          item?.EMBALAGEM || item?.embalagem || item?.emb || 'UN',
+          item?.ENTRADA || item?.entrada || '-',
+          String(item?.DIAS_SEM_VENDA || item?.ISV || item?.dias_sem_venda || '0'),
+          String(item?.ESTOQUE || item?.QTE || item?.estoque || '0'),
         ]),
       });
 
@@ -255,7 +294,7 @@ export const generateRelatorioPDF = (batchInput, totalInRisk, selectedRazao) => 
     doc.save(`relatorio_auditoria_${Date.now()}.pdf`);
   } catch (error) {
     console.error('Erro ao gerar PDF de Relatório:', error);
-    alert('Ocorreu um erro ao gerar o PDF.');
+    alert('Ocorreu um erro ao gerar o PDF de Relatório. Verifique o console para mais detalhes.');
   }
 };
 
