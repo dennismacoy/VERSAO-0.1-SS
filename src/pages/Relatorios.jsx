@@ -231,24 +231,27 @@ export default function Relatorios() {
             <div className="flex gap-2 w-full md:w-auto">
               <button
                 onClick={handleGuardarRazao}
-                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-muted text-foreground font-black px-6 py-3 md:py-4 rounded-2xl transition-all shadow-sm hover:bg-muted/80 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-muted text-foreground font-black px-4 py-3 md:px-6 md:py-4 rounded-2xl transition-all shadow-sm hover:bg-muted/80 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
+                title="Guardar Razão"
               >
                 <Plus size={18} />
-                Guardar
+                <span className="hidden md:inline">Guardar</span>
               </button>
               <button
                 onClick={handleGerarPDFClick}
-                className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-primary text-primary-foreground font-black px-8 py-3 md:py-4 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary text-primary-foreground font-black px-4 py-3 md:px-8 md:py-4 rounded-2xl transition-all shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
+                title="Gerar PDF"
               >
                 <Download size={18} />
-                Gerar PDF
+                <span className="hidden md:inline">Gerar PDF</span>
               </button>
               <button
                 onClick={handleGerarQRCode}
-                className="flex-none flex items-center justify-center bg-accent text-accent-foreground font-black p-3 md:p-4 rounded-2xl transition-all shadow-md hover:bg-accent/90 active:scale-95 min-h-[44px]"
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-accent text-accent-foreground font-black px-4 py-3 md:px-6 md:py-4 rounded-2xl transition-all shadow-md hover:bg-accent/90 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
                 title="Gerar QR Code"
               >
-                <QrCode size={20} />
+                <QrCode size={18} />
+                <span className="hidden md:inline">QR Code</span>
               </button>
             </div>
           </div>

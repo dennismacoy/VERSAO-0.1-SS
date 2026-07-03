@@ -213,8 +213,15 @@ export const generateRelatorioPDF = (batchInput, totalInRisk, selectedRazao) => 
         return;
       }
       
-      // Se for um array de objetos (lote)
-      if (typeof batchInput[0] === 'object' && batchInput[0] !== null) {
+      // Verifica se o primeiro item do array se comporta como um lote (contém um array de dados/produtos em si)
+      const firstItem = batchInput[0];
+      const isBatch = typeof firstItem === 'object' && firstItem !== null && (
+        Array.isArray(firstItem.dados) || 
+        Array.isArray(firstItem.filteredData) || 
+        Array.isArray(firstItem.data)
+      );
+
+      if (isBatch) {
         batch = batchInput.map(item => {
           const dados = item.dados || item.filteredData || item.data;
           return {
@@ -224,7 +231,7 @@ export const generateRelatorioPDF = (batchInput, totalInRisk, selectedRazao) => 
           };
         });
       } else {
-        // Se for um array de produtos directamente (lote único simplificado)
+        // Se for um array de produtos diretamente (lote único simplificado)
         batch = [{
           filteredData: batchInput,
           totalInRisk: totalInRisk || 0,

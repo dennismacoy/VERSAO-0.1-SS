@@ -21,9 +21,9 @@ export default function VisualizadorRelatorioPublico() {
     return razoesParam.split(',').map(r => r.trim()).filter(Boolean);
   }, [razoesParam]);
 
-  const isCurrentlyLoading = loading || !dadosPdf;
+  const isCurrentlyLoading = loading && !errorMsg;
 
-  // Busca e reconstrói os dados a partir do cache (idb-keyval) ou Firebase
+  // Busca e reconstrói os dados a partir do cache (idb-keyval) ou Firebase/Google Sheets
   useEffect(() => {
     let isMounted = true;
 
@@ -46,10 +46,37 @@ export default function VisualizadorRelatorioPublico() {
           console.warn('Erro ao ler cache do IndexedDB no Visualizador:', e);
         }
 
-        // 2. Se não houver dados no cache, buscar diretamente do Firebase
+        // 2. Se não houver dados no cache, tentar buscar do Google Sheets (GAS) ou Firebase
         if (!allProducts || allProducts.length === 0) {
-          console.log('Cache local vazio ou inexistente. Buscando produtos do Firebase...');
-          allProducts = await fetchProductsFromFirebase();
+          console.log('Cache local vazio ou inexistente. Tentando buscar produtos do Google Sheets...');
+          try {
+            const controller = new AbortController();
+            const fetchTimeout = setTimeout(() => controller.abort(), 20000);
+
+            const res = await fetch("https://script.google.com/macros/s/AKfycbxXJgrXliDUG1MAvqBa0wnmpbRfVMe4IhcgHCZNMo_trvSTFmJpl5Ih2Td-MYGL_ReS2w/exec", {
+              method: "POST",
+              redirect: "follow",
+              headers: { "Content-Type": "text/plain;charset=utf-8" },
+              body: JSON.stringify({ action: 'getProdutos' }),
+              signal: controller.signal
+            });
+            clearTimeout(fetchTimeout);
+
+            const text = await res.text();
+            let data = [];
+            try {
+              data = JSON.parse(text);
+            } catch (e) {
+              throw new Error("Resposta inválida do Google Sheets.");
+            }
+
+            allProducts = data && typeof data === 'object' && !Array.isArray(data)
+              ? Object.values(data)
+              : (Array.isArray(data) ? data.filter(Boolean) : []);
+          } catch (gasError) {
+            console.warn('Falha ao buscar do Google Sheets, tentando Firebase...', gasError);
+            allProducts = await fetchProductsFromFirebase();
+          }
         }
 
         if (!allProducts || allProducts.length === 0) {
