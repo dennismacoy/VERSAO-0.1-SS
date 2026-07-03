@@ -196,36 +196,62 @@ export const generatePickingPDF = (item) => {
 // =============================================
 // RELATÓRIO PDF — Colunas: Código, Descrição, Embalagem, Entrada, Dias S/Venda, Estoque
 // =============================================
-export const generateRelatorioPDF = (filteredData, totalInRisk, selectedRazao) => {
+export const generateRelatorioPDF = (batchInput, totalInRisk, selectedRazao) => {
   try {
     const doc = new jsPDF();
     const w = doc.internal.pageSize.getWidth();
 
-    drawHeader(doc, 'AUDITORIA DE ESTOQUE', selectedRazao || 'Relatório Geral');
+    let batch = [];
+    if (Array.isArray(batchInput) && batchInput.length > 0 && typeof batchInput[0] === 'object' && ('filteredData' in batchInput[0] || 'data' in batchInput[0])) {
+      batch = batchInput.map(item => ({
+        filteredData: item.filteredData || item.data || [],
+        totalInRisk: item.totalInRisk !== undefined ? item.totalInRisk : 0,
+        selectedRazao: item.selectedRazao || item.razao || ''
+      }));
+    } else {
+      batch = [{
+        filteredData: batchInput || [],
+        totalInRisk: totalInRisk || 0,
+        selectedRazao: selectedRazao || ''
+      }];
+    }
 
-    // Summary bar
-    doc.setFillColor(255, 240, 240);
-    doc.roundedRect(14, 42, w - 28, 12, 2, 2, 'F');
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(180, 30, 30);
-    doc.text(`TOTAL EM RISCO (IDW): ${formatCurrency(totalInRisk)}`, 20, 50);
+    batch.forEach((report, index) => {
+      if (index > 0) {
+        doc.addPage();
+      }
 
-    autoTable(doc, {
-      ...baseTableStyles,
-      startY: 60,
-      head: [['Código', 'Descrição', 'Embalagem', 'Entrada', 'Dias S/ Venda', 'Estoque']],
-      body: filteredData.map(item => [
-        item.CODIGO || item.codigo || '',
-        item.DESCRICAO || item.descricao || '',
-        item.EMBALAGEM || item.embalagem || item.emb || 'UN',
-        item.ENTRADA || item.entrada || '-',
-        String(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || '0'),
-        String(item.ESTOQUE || item.QTE || item.estoque || '0'),
-      ]),
+      const currentRazao = report.selectedRazao || 'Relatório Geral';
+      const currentFilteredData = report.filteredData || [];
+      const currentTotalInRisk = report.totalInRisk || 0;
+
+      drawHeader(doc, 'AUDITORIA DE ESTOQUE', currentRazao);
+
+      // Summary bar
+      doc.setFillColor(255, 240, 240);
+      doc.roundedRect(14, 42, w - 28, 12, 2, 2, 'F');
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(180, 30, 30);
+      doc.text(`TOTAL EM RISCO (IDW): ${formatCurrency(currentTotalInRisk)}`, 20, 50);
+
+      autoTable(doc, {
+        ...baseTableStyles,
+        startY: 60,
+        head: [['Código', 'Descrição', 'Embalagem', 'Entrada', 'Dias S/ Venda', 'Estoque']],
+        body: currentFilteredData.map(item => [
+          item.CODIGO || item.codigo || '',
+          item.DESCRICAO || item.descricao || '',
+          item.EMBALAGEM || item.embalagem || item.emb || 'UN',
+          item.ENTRADA || item.entrada || '-',
+          String(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || '0'),
+          String(item.ESTOQUE || item.QTE || item.estoque || '0'),
+        ]),
+      });
+
+      drawFooter(doc);
     });
 
-    drawFooter(doc);
     doc.save(`relatorio_auditoria_${Date.now()}.pdf`);
   } catch (error) {
     console.error('Erro ao gerar PDF de Relatório:', error);

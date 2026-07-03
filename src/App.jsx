@@ -11,6 +11,7 @@ import PreVenda from './pages/PreVenda';
 import Separacao from './pages/Separacao';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
+import VisualizadorRelatorioPublico from './pages/VisualizadorRelatorioPublico';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -81,6 +82,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/gerar-relatorio" element={<VisualizadorRelatorioPublico />} />
       <Route path="/" element={<PrivateRoute permissionName="Acesso Dashboard"><Dashboard /></PrivateRoute>} />
       <Route path="/consulta" element={<PrivateRoute permissionName="Acesso Consulta"><Consulta /></PrivateRoute>} />
       <Route path="/pedidos" element={<PrivateRoute permissionName="Acesso Pedidos"><Pedidos /></PrivateRoute>} />

@@ -5,59 +5,60 @@ import {
   FileText,
   Download,
   Calendar,
-  History as HistoryIcon,
   Filter,
   Loader2,
   DollarSign,
-  X
+  X,
+  QrCode,
+  Plus,
+  Trash2
 } from 'lucide-react';
-import { api } from '../lib/api';
+import QRCode from 'qrcode';
 import { generateRelatorioPDF } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
-import { listenToNode } from '../lib/firebase';
 import { cn, parseEstoque, getEstoqueNumerico, formatCurrency } from '../lib/utils';
 
 export default function Relatorios() {
-  const { hasPermission, user } = useAuth();
-  const [activeTab, setActiveTab] = useState('geral');
+  const { hasPermission } = useAuth();
   const canSeeAtual = hasPermission('Ver Aba Atual');
-  const canSeeHistorico = hasPermission('Ver Aba Histórico');
-
-  // Ajusta a aba inicial caso a padrão não tenha permissão
-  useEffect(() => {
-    if (!canSeeAtual && canSeeHistorico) setActiveTab('historico');
-    if (canSeeAtual && !canSeeHistorico) setActiveTab('geral');
-  }, [canSeeAtual, canSeeHistorico]);
 
   const [query, setQuery] = useState('');
   const [selectedRazao, setSelectedRazao] = useState('');
   const { products: cacheProducts, loading: globalLoading, hasLoaded } = useProducts();
   const [visibleCount, setVisibleCount] = useState(20);
 
-  const [reportHistory, setReportHistory] = useState([]);
+  const [razoesSelecionadas, setRazoesSelecionadas] = useState([]);
   const [showPdfModal, setShowPdfModal] = useState(false);
-  const unsubRef = useRef(null);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const qrCanvasRef = useRef(null);
 
-  // Listener em tempo real para histórico de relatórios
+  // Scroll Lock: trava o body quando o modal de PDF ou QR Code está aberto
   useEffect(() => {
-    unsubRef.current = listenToNode('relatorios_hist', (items) => {
-      setReportHistory(items);
-    });
-    return () => {
-      if (unsubRef.current) unsubRef.current();
-    };
-  }, []);
-
-  // Scroll Lock: trava o body quando o modal de PDF está aberto
-  useEffect(() => {
-    if (showPdfModal) {
+    if (showPdfModal || showQrModal) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [showPdfModal]);
+  }, [showPdfModal, showQrModal]);
+
+  // Renderiza o QR Code no canvas do modal
+  useEffect(() => {
+    if (showQrModal && qrCodeUrl && qrCanvasRef.current) {
+      QRCode.toCanvas(qrCanvasRef.current, qrCodeUrl, {
+        width: 250,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff'
+        }
+      }, (err) => {
+        if (err) console.error('Erro ao gerar QR Code:', err);
+      });
+    }
+  }, [showQrModal, qrCodeUrl]);
 
   const filteredData = React.useMemo(() => {
     return cacheProducts.filter(item => {
@@ -91,7 +92,7 @@ export default function Relatorios() {
     }
   };
 
-  // Total em Risco (IDW): (itens > 7 dias sem venda que TÊM estoque) + Valor em Estoque desses itens
+  // Total em Risco (IDW)
   const riskAnalysis = React.useMemo(() => {
     let totalInRisk = 0;
     let riskCount = 0;
@@ -104,10 +105,8 @@ export default function Relatorios() {
       const custo = Number(item.CUSTO || item.PRECO || item.custo || 0);
       const valorEstoque = estoqueNum * custo;
 
-      // Itens Críticos (+6 Dias): Filtrar APENAS itens que tenham estoque
       if (diasSemVenda > 6 && temEstoque) {
         riskCount++;
-        // Total em Risco (IDW): soma dos valores dos itens > 7 dias sem venda com estoque
         totalInRisk += valorEstoque;
       }
     });
@@ -115,57 +114,81 @@ export default function Relatorios() {
     return { totalInRisk, riskCount };
   }, [filteredData]);
 
-  // Modal: pergunta "Com estoque" ou "Todos" antes de gerar PDF
   const handleGerarPDFClick = () => {
     setShowPdfModal(true);
   };
 
   const handleGerarPDFConfirm = (filterType) => {
     setShowPdfModal(false);
-    let dataParaPDF = filteredData;
 
-    if (filterType === 'com_estoque') {
-      dataParaPDF = filteredData.filter(item => {
-        const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
-        return parseEstoque(estoqueStr);
+    if (razoesSelecionadas.length > 0) {
+      // Geração em Lote
+      const batch = razoesSelecionadas.map(rz => {
+        let rzData = cacheProducts.filter(item => (item.RAZAOSOCIAL || item.razaosocial) === rz);
+        if (filterType === 'com_estoque') {
+          rzData = rzData.filter(item => parseEstoque(item.ESTOQUE || item.QTE || item.estoque || 0));
+        }
+
+        let rzTotalInRisk = 0;
+        rzData.forEach(item => {
+          const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
+          const temEstoque = parseEstoque(estoqueStr);
+          const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
+          const estoqueNum = getEstoqueNumerico(estoqueStr);
+          const custo = Number(item.CUSTO || item.PRECO || item.custo || 0);
+          const valorEstoque = estoqueNum * custo;
+
+          if (diasSemVenda > 6 && temEstoque) {
+            rzTotalInRisk += valorEstoque;
+          }
+        });
+
+        return {
+          filteredData: rzData,
+          totalInRisk: rzTotalInRisk,
+          selectedRazao: rz
+        };
       });
-    }
 
-    generateRelatorioPDF(dataParaPDF, riskAnalysis.totalInRisk, selectedRazao);
+      generateRelatorioPDF(batch);
+    } else {
+      // Geração Única
+      let dataParaPDF = filteredData;
+      if (filterType === 'com_estoque') {
+        dataParaPDF = filteredData.filter(item => {
+          const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
+          return parseEstoque(estoqueStr);
+        });
+      }
+      generateRelatorioPDF(dataParaPDF, riskAnalysis.totalInRisk, selectedRazao);
+    }
   };
 
-  const handleSaveToHistory = async () => {
-    const apenasComEstoque = window.confirm(
-      'Deseja guardar o relatório apenas com itens COM ESTOQUE?\n\nClique OK para apenas com estoque, ou Cancelar para incluir todos os itens.'
-    );
+  const handleGuardarRazao = () => {
+    if (!selectedRazao) {
+      alert('Por favor, selecione uma Razão Social na tabela clicando em um item.');
+      return;
+    }
+    if (razoesSelecionadas.includes(selectedRazao)) {
+      alert('Esta Razão Social já foi adicionada à lista.');
+      return;
+    }
+    setRazoesSelecionadas([...razoesSelecionadas, selectedRazao]);
+  };
 
-    let dadosParaSalvar = filteredData;
-    if (apenasComEstoque) {
-      dadosParaSalvar = filteredData.filter(item => {
-        const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
-        return parseEstoque(estoqueStr);
-      });
+  const handleGerarQRCode = () => {
+    const razoes = razoesSelecionadas.length > 0 
+      ? razoesSelecionadas 
+      : (selectedRazao ? [selectedRazao] : []);
+
+    if (razoes.length === 0) {
+      alert('Por favor, adicione pelo menos uma Razão Social à lista ou selecione uma na tabela para gerar o QR Code.');
+      return;
     }
 
-    try {
-      const reportData = {
-        nome: `REL-${Date.now().toString().slice(-6)}`,
-        data: new Date().toISOString(),
-        razao: selectedRazao || 'Geral',
-        itensCriticos: riskAnalysis.riskCount,
-        riscoTotal: riskAnalysis.totalInRisk,
-        geradoPor: user?.name || user?.usuario || 'Admin',
-        valorTotal: riskAnalysis.totalInRisk,
-        totalItens: dadosParaSalvar.length,
-        filtro: apenasComEstoque ? 'Com Estoque' : 'Todos',
-      };
-
-      await api.saveReport(reportData);
-      alert(`Relatório salvo com ${dadosParaSalvar.length} itens (${apenasComEstoque ? 'Com Estoque' : 'Todos'})!`);
-    } catch (e) {
-      console.error(e);
-      alert("Erro ao salvar relatório.");
-    }
+    const url = `${window.location.origin}/gerar-relatorio?razoes=${encodeURIComponent(razoes.join(','))}`;
+    setQrCodeUrl(url);
+    setShowQrModal(true);
   };
 
   return (
@@ -179,33 +202,9 @@ export default function Relatorios() {
             Auditoria, Performance e Análise de Risco
           </p>
         </div>
-        <div className="flex gap-3">
-          {canSeeAtual && (
-            <button
-              onClick={() => setActiveTab('geral')}
-              className={cn(
-                "px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border-2",
-                activeTab === 'geral' ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
-              )}
-            >
-              Relatório Atual
-            </button>
-          )}
-          {canSeeHistorico && (
-            <button
-              onClick={() => setActiveTab('historico')}
-              className={cn(
-                "px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-sm border-2",
-                activeTab === 'historico' ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground"
-              )}
-            >
-              Histórico
-            </button>
-          )}
-        </div>
       </div>
 
-      {activeTab === 'geral' && canSeeAtual ? (
+      {canSeeAtual ? (
         <>
           <div className="erp-card p-4 flex flex-col md:flex-row gap-4 items-center">
             <div className="flex-1 flex gap-2 w-full">
@@ -231,10 +230,10 @@ export default function Relatorios() {
 
             <div className="flex gap-2 w-full md:w-auto">
               <button
-                onClick={handleSaveToHistory}
+                onClick={handleGuardarRazao}
                 className="flex-1 md:flex-none flex items-center justify-center gap-3 bg-muted text-foreground font-black px-6 py-3 md:py-4 rounded-2xl transition-all shadow-sm hover:bg-muted/80 active:scale-95 uppercase tracking-widest text-xs min-h-[44px]"
               >
-                <HistoryIcon size={18} />
+                <Plus size={18} />
                 Guardar
               </button>
               <button
@@ -244,8 +243,43 @@ export default function Relatorios() {
                 <Download size={18} />
                 Gerar PDF
               </button>
+              <button
+                onClick={handleGerarQRCode}
+                className="flex-none flex items-center justify-center bg-accent text-accent-foreground font-black p-3 md:p-4 rounded-2xl transition-all shadow-md hover:bg-accent/90 active:scale-95 min-h-[44px]"
+                title="Gerar QR Code"
+              >
+                <QrCode size={20} />
+              </button>
             </div>
           </div>
+
+          {/* Seção de Razões Sociais Selecionadas (Lote) */}
+          {razoesSelecionadas.length > 0 && (
+            <div className="erp-card p-5 border-l-4 border-l-primary space-y-3 bg-muted/10">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-black uppercase tracking-wider text-primary">Razões Sociais Selecionadas para Lote ({razoesSelecionadas.length})</h3>
+                <button
+                  onClick={() => setRazoesSelecionadas([])}
+                  className="text-xs font-black text-destructive hover:underline uppercase tracking-widest"
+                >
+                  Limpar Tudo
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {razoesSelecionadas.map((rz, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-card border border-border px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">
+                    <span className="text-foreground">{rz}</span>
+                    <button
+                      onClick={() => setRazoesSelecionadas(prev => prev.filter(item => item !== rz))}
+                      className="text-muted-foreground hover:text-destructive p-0.5 rounded transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* DESKTOP TABLE */}
           <div className="hidden md:block erp-card overflow-hidden">
@@ -254,7 +288,6 @@ export default function Relatorios() {
               onScroll={handleScroll}
             >
               <table className="w-full text-sm text-left border-collapse">
-                {/* Cabeçalho com cor opaca */}
                 <thead className="bg-zinc-200 dark:bg-zinc-800 border-b-2 border-border sticky top-0 z-10">
                   <tr>
                     <th className="px-6 py-5 font-black uppercase tracking-widest text-[10px] text-zinc-700 dark:text-zinc-300">Código</th>
@@ -345,52 +378,6 @@ export default function Relatorios() {
             })}
           </div>
         </>
-      ) : activeTab === 'historico' && canSeeHistorico ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {reportHistory.length === 0 ? (
-            <div className="col-span-full erp-card p-20 flex flex-col items-center justify-center text-muted-foreground/30 border-dashed border-4">
-              <HistoryIcon size={80} strokeWidth={1} />
-              <p className="mt-4 font-black uppercase tracking-widest">Nenhum histórico disponível</p>
-            </div>
-          ) : (
-            reportHistory.map((h, idx) => (
-              <div key={h.firebaseId || idx} className="erp-card p-6 flex flex-col gap-4 border-l-4 border-l-primary hover:scale-[1.02]">
-                <div className="flex justify-between items-start">
-                  <div className="p-3 bg-muted rounded-2xl">
-                    <FileText size={24} className="text-primary" />
-                  </div>
-                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                    {new Date(h.data || h.createdAt).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-black tracking-tight">{h.nome || h.id}</h3>
-                  <p className="text-xs font-bold text-muted-foreground uppercase mt-1">Gerado por: {h.geradoPor || h.responsavel}</p>
-                  <p className="text-xs font-bold text-muted-foreground mt-0.5">Razão: {h.razao || 'Geral'}</p>
-                </div>
-                <div className="pt-4 border-t border-border flex justify-between items-center">
-                  <div className="text-xs font-black text-primary uppercase">Risco: {formatCurrency(h.valorTotal || h.riscoTotal || h.total)}</div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        // Gera o PDF com os dados atuais filtrados pela razão do relatório
-                        const razao = h.razao || '';
-                        const dataParaPDF = razao && razao !== 'Geral'
-                          ? cacheProducts.filter(p => (p.RAZAOSOCIAL || p.razaosocial) === razao)
-                          : cacheProducts;
-                        generateRelatorioPDF(dataParaPDF, h.valorTotal || h.riscoTotal || 0, razao);
-                      }}
-                      className="p-2 bg-muted hover:bg-primary hover:text-primary-foreground rounded-xl transition-all"
-                      title="Gerar PDF"
-                    >
-                      <Download size={18} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
       ) : null}
 
       {/* Modal: Escolher "Com Estoque" ou "Todos" antes de gerar PDF */}
@@ -419,6 +406,35 @@ export default function Relatorios() {
                   <FileText size={18} /> Todos os Itens
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Visualizar QR Code */}
+      {showQrModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/90 backdrop-blur-sm">
+          <div className="bg-card w-full max-w-sm rounded-2xl shadow-2xl border border-border overflow-hidden">
+            <div className="p-5 border-b border-border bg-primary/5 flex justify-between items-center">
+              <h3 className="text-lg font-black">QR Code do Relatório</h3>
+              <button onClick={() => setShowQrModal(false)} className="p-1 hover:bg-destructive hover:text-destructive-foreground rounded-full">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col items-center justify-center space-y-4">
+              <canvas ref={qrCanvasRef} className="border border-border rounded-xl p-2 bg-white" />
+              <p className="text-xs text-muted-foreground font-bold text-center px-4">
+                Escaneie o QR Code acima para visualizar ou imprimir o PDF de auditoria de estoque em lote no dispositivo móvel.
+              </p>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(qrCodeUrl);
+                  alert('URL copiada para a área de transferência!');
+                }}
+                className="text-xs font-black text-primary hover:underline uppercase tracking-widest"
+              >
+                Copiar Link
+              </button>
             </div>
           </div>
         </div>
