@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import JsBarcode from 'jsbarcode';
+import { getEstoqueNumerico } from './utils';
 
 const formatCurrency = (val) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
@@ -373,3 +374,77 @@ export const generateSeparacaoPDF = (pedido) => {
     alert('Ocorreu um erro ao gerar o PDF de separação.');
   }
 };
+
+// =============================================
+// RELATÓRIO AVANÇADO PDF — Colunas: Descrição, Corredor, Dias S/Venda, Estoque, Valor Estoque
+// =============================================
+export const generateRelatorioAvancadoPDF = (data, subtitle = 'Relatório Avançado') => {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    console.warn("Nenhum dado fornecido para o relatório PDF avançado.");
+    alert("Nenhum dado encontrado para gerar o PDF Avançado.");
+    return;
+  }
+
+  try {
+    const doc = new jsPDF();
+    const w = doc.internal.pageSize.getWidth();
+
+    drawHeader(doc, 'RELATÓRIO AVANÇADO', subtitle);
+
+    let totalValorEstoque = 0;
+    data.forEach(item => {
+      const valEst = item._valorEstoqueCalculado !== undefined 
+        ? item._valorEstoqueCalculado 
+        : (() => {
+            const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || '0';
+            const estoqueNum = getEstoqueNumerico(estoqueStr);
+            return Number(item.VALOR_ESTOQUE || item.valor_estoque) || (estoqueNum * Number(item.CUSTO || item.PRECO || item.custo || 0));
+          })();
+      totalValorEstoque += valEst;
+    });
+
+    // Summary bar
+    doc.setFillColor(240, 244, 248);
+    doc.roundedRect(14, 42, w - 28, 12, 2, 2, 'F');
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(34, 120, 60);
+    doc.text(`TOTAL DE ITENS: ${data.length}   |   VALOR TOTAL DO ESTOQUE: ${formatCurrency(totalValorEstoque)}`, 20, 50);
+
+    const tableData = data.map(item => {
+      const desc = item.DESCRICAO || item.descricao || '';
+      const corredor = item.CORREDOR || item.corredor || '-';
+      const dias = String(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || '0');
+      const estoque = String(item.ESTOQUE || item.QTE || item.estoque || '0');
+      const valEst = item._valorEstoqueCalculado !== undefined 
+        ? item._valorEstoqueCalculado 
+        : (() => {
+            const estoqueNum = getEstoqueNumerico(estoque);
+            return Number(item.VALOR_ESTOQUE || item.valor_estoque) || (estoqueNum * Number(item.CUSTO || item.PRECO || item.custo || 0));
+          })();
+
+      return [desc, corredor, dias, estoque, formatCurrency(valEst)];
+    });
+
+    autoTable(doc, {
+      ...baseTableStyles,
+      startY: 60,
+      head: [['Descrição', 'Corredor', 'Dias S/ Venda', 'Estoque', 'Valor Estoque']],
+      body: tableData,
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 25, halign: 'center' },
+        2: { cellWidth: 25, halign: 'center' },
+        3: { cellWidth: 25, halign: 'center' },
+        4: { cellWidth: 35, halign: 'right' },
+      }
+    });
+
+    drawFooter(doc);
+    doc.save(`relatorio_avancado_${Date.now()}.pdf`);
+  } catch (error) {
+    console.error('Erro ao gerar PDF Avançado:', error);
+    alert('Ocorreu um erro ao gerar o PDF Avançado.');
+  }
+};
+
