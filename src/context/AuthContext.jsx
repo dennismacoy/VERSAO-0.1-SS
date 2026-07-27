@@ -14,6 +14,7 @@ const defaultPermissions = {
   'Acesso Requisições': ['admin', 'gerente'],
   'Acesso Pre-Venda': ['admin', 'gerente', 'vendedor'],
   'Acesso Separacao': ['admin', 'gerente', 'repositor'],
+  'Acesso Gestao Operacional': ['admin', 'gerente', 'vendedor', 'repositor'],
   'Acesso Relatorios': ['admin', 'gerente'],
   'Acesso Configuracoes': ['admin', 'gerente', 'repositor', 'vendedor', 'clientes'],
   'Acessar Sincronização Master': ['admin'],

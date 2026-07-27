@@ -17,6 +17,7 @@ import {
   ClipboardList,
   Inbox,
   GripHorizontal,
+  Wrench,
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -76,6 +77,7 @@ export default function Layout({ children }) {
       icon: ListChecks,
       condition: hasPermission('Acesso Separacao') || role === 'repositor' || role === 'lider'
     },
+    { name: 'Gestão Operacional', path: '/gestao-operacional', icon: Wrench, condition: hasPermission('Acesso Gestao Operacional') || role === 'admin' || role === 'gerente' || role === 'vendedor' || role === 'repositor' },
     { name: 'Relatórios', path: '/relatorios', icon: BarChart3, condition: hasPermission('Acesso Relatorios') },
     { name: 'Configurações', path: '/configuracoes', icon: Settings, condition: hasPermission('Acesso Configuracoes') },
   ];
