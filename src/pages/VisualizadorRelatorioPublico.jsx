@@ -1,10 +1,10 @@
+import { parseEstoque, getEstoqueNumerico, parseNumericValue } from '../lib/utils';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { FileText, Download, Loader2, CheckCircle2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { get as idbGet } from 'idb-keyval';
 import { fetchProductsFromFirebase } from '../lib/firebase';
 import { generateRelatorioPDF } from '../lib/pdfGenerator';
-import { parseEstoque, getEstoqueNumerico } from '../lib/utils';
 
 export default function VisualizadorRelatorioPublico() {
   const [searchParams] = useSearchParams();
@@ -94,6 +94,12 @@ export default function VisualizadorRelatorioPublico() {
 
           if (filtroParam === 'com_estoque') {
             rzData = rzData.filter(item => parseEstoque(item.ESTOQUE || item.QTE || item.estoque || 0));
+          } else if (filtroParam === 'isv') {
+            rzData = rzData.filter(item => {
+              const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
+              const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
+              return diasSemVenda > 6 && parseEstoque(estoqueStr);
+            });
           }
 
           let rzTotalInRisk = 0;
@@ -101,9 +107,7 @@ export default function VisualizadorRelatorioPublico() {
             const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
             const temEstoque = parseEstoque(estoqueStr);
             const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
-            const estoqueNum = getEstoqueNumerico(estoqueStr);
-            const custo = Number(item.CUSTO || item.PRECO || item.custo || 0);
-            const valorEstoque = estoqueNum * custo;
+            const valorEstoque = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
 
             if (diasSemVenda > 6 && temEstoque) {
               rzTotalInRisk += valorEstoque;

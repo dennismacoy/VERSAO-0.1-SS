@@ -140,9 +140,13 @@ export const generatePreVendaPDF = (item) => {
           if (!prod) return;
           const canvas = document.createElement('canvas');
           try {
-            const barcodeValue = `${prod.codigo || ''}${prod.codigo_interno || ''}`;
-            JsBarcode(canvas, barcodeValue, { format: 'CODE128', displayValue: false, height: 30, width: 1.5, margin: 0 });
-            doc.addImage(canvas.toDataURL('image/png'), 'PNG', data.cell.x + 1, data.cell.y + 2, 28, 12);
+            const codA = String(prod.codigo || prod.CODIGO || '').trim();
+            const codB = String(prod.codigo_interno || prod.CODIGO_INTERNO || prod.codigo_int || prod.CODIGO_INT || prod.cod_interno || prod.COD_INTERNO || '').trim();
+            const barcodeValue = `${codA}${codB}`;
+            if (barcodeValue) {
+              JsBarcode(canvas, barcodeValue, { format: 'CODE128', displayValue: false, height: 30, width: 1.5, margin: 0 });
+              doc.addImage(canvas.toDataURL('image/png'), 'PNG', data.cell.x + 1, data.cell.y + 2, 28, 12);
+            }
           } catch (e) { /* skip invalid barcodes */ }
         }
       }
@@ -395,16 +399,7 @@ export const gerarPdfRelatorioAvancado = (data, subtitle = 'Relatório Avançado
     data.forEach(item => {
       const valEst = item._valorEstoqueCalculado !== undefined 
         ? item._valorEstoqueCalculado 
-        : (() => {
-            let parsedVal = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
-            if (!parsedVal) {
-              const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || '0';
-              const estoqueNum = getEstoqueNumerico(estoqueStr);
-              const custo = parseNumericValue(item.CUSTO ?? item.PRECO ?? item.custo ?? item.preco);
-              parsedVal = estoqueNum * custo;
-            }
-            return parsedVal;
-          })();
+        : parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
       totalValorEstoque += valEst;
     });
 
@@ -425,15 +420,7 @@ export const gerarPdfRelatorioAvancado = (data, subtitle = 'Relatório Avançado
       const dias = String(item.DIAS_SEM_VENDA ?? item.ISV ?? item.dias_sem_venda ?? item._diasSemVendaNum ?? '0');
       const valEst = item._valorEstoqueCalculado !== undefined 
         ? item._valorEstoqueCalculado 
-        : (() => {
-            let parsedVal = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
-            if (!parsedVal) {
-              const estoqueNum = getEstoqueNumerico(estoque);
-              const custo = parseNumericValue(item.CUSTO ?? item.PRECO ?? item.custo ?? item.preco);
-              parsedVal = estoqueNum * custo;
-            }
-            return parsedVal;
-          })();
+        : parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
 
       return [codigo, desc, embalagem, estoque, entrada, dias, formatCurrency(valEst)];
     });

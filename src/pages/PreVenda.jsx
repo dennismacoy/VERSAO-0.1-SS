@@ -37,7 +37,11 @@ export default function PreVenda() {
     if (location.state?.pedidoParaConverter) {
       const p = location.state.pedidoParaConverter;
       setCliente(p.cliente);
-      setItens(p.itens.map(i => ({ ...i, preco: 0 })));
+      setItens(p.itens.map(i => ({
+        ...i,
+        codigo_interno: i.codigo_interno || i.CODIGO_INTERNO || i.codigo_int || '',
+        preco: 0
+      })));
       setIsNovaPreVenda(true);
     }
   }, [location]);
@@ -76,12 +80,14 @@ export default function PreVenda() {
 
   const handleAddItem = (p) => {
     const codigo = p.CODIGO || p.codigo;
+    const codigo_interno = p.CODIGO_INTERNO || p.codigo_interno || p.CODIGO_INT || p.codigo_int || p.COD_INTERNO || p.cod_interno || '';
     const exists = itens.find(i => i.codigo === codigo);
     if (exists) {
       setItens(itens.map(i => i.codigo === exists.codigo ? { ...i, qtd: i.qtd + 1 } : i));
     } else {
       setItens([...itens, {
         codigo,
+        codigo_interno,
         descricao: p.DESCRICAO || p.descricao,
         embalagem: p.EMBALAGEM || p.embalagem || p.emb || 'UN',
         qtd: 1,

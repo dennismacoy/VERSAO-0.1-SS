@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useProducts } from '../context/ProductsContext';
 import { useAuth } from '../context/AuthContext';
-import { parseEstoque, getEstoqueNumerico, formatCurrency } from '../lib/utils';
+import { parseEstoque, getEstoqueNumerico, parseNumericValue, formatCurrency } from '../lib/utils';
 import {
   Package,
   Inbox,
@@ -31,9 +31,7 @@ export default function Dashboard() {
       // Usar parseEstoque para determinar se tem estoque real
       const estoqueStr = p.ESTOQUE || p.QTE || p.estoque || 0;
       const temEstoque = parseEstoque(estoqueStr);
-      const estoqueNum = getEstoqueNumerico(estoqueStr);
-      const custo = Number(p.CUSTO || p.PRECO || p.custo || 0);
-      const val = estoqueNum * custo;
+      const val = parseNumericValue(p.VALOR_ESTOQUE ?? p.valor_estoque);
 
       if (temEstoque) {
         // Valor de Estoque: Somatório financeiro de TODOS os itens em estoque

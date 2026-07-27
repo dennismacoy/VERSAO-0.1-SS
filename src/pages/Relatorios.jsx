@@ -115,9 +115,7 @@ export default function Relatorios() {
       const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
       const temEstoque = parseEstoque(estoqueStr);
       const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
-      const estoqueNum = getEstoqueNumerico(estoqueStr);
-      const custo = Number(item.CUSTO || item.PRECO || item.custo || 0);
-      const valorEstoque = estoqueNum * custo;
+      const valorEstoque = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
 
       if (diasSemVenda > 6 && temEstoque) {
         riskCount++;
@@ -144,7 +142,8 @@ export default function Relatorios() {
         } else if (filterType === 'isv') {
           rzData = rzData.filter(item => {
             const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
-            return diasSemVenda > 6;
+            const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
+            return diasSemVenda > 6 && parseEstoque(estoqueStr);
           });
         }
 
@@ -153,9 +152,7 @@ export default function Relatorios() {
           const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
           const temEstoque = parseEstoque(estoqueStr);
           const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
-          const estoqueNum = getEstoqueNumerico(estoqueStr);
-          const custo = Number(item.CUSTO || item.PRECO || item.custo || 0);
-          const valorEstoque = estoqueNum * custo;
+          const valorEstoque = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
 
           if (diasSemVenda > 6 && temEstoque) {
             rzTotalInRisk += valorEstoque;
@@ -181,7 +178,8 @@ export default function Relatorios() {
       } else if (filterType === 'isv') {
         dataParaPDF = filteredData.filter(item => {
           const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
-          return diasSemVenda > 6;
+          const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
+          return diasSemVenda > 6 && parseEstoque(estoqueStr);
         });
       }
       generateRelatorioPDF(dataParaPDF, riskAnalysis.totalInRisk, selectedRazao);
@@ -263,13 +261,7 @@ export default function Relatorios() {
     // Calcular Valor do Estoque e mapear campos auxiliares
     const dataWithCalc = result.map(item => {
       const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || '0';
-      const estoqueNum = getEstoqueNumerico(estoqueStr);
-
-      let valEstoque = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
-      if (!valEstoque) {
-        const custo = parseNumericValue(item.CUSTO ?? item.PRECO ?? item.custo ?? item.preco);
-        valEstoque = estoqueNum * custo;
-      }
+      const valEstoque = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
 
       return {
         ...item,

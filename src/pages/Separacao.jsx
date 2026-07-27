@@ -78,11 +78,17 @@ export default function Separacao() {
     }
   };
 
-  const handleReatribuir = async (firebaseId, newSeparador) => {
+  const handleReatribuir = async (firebaseId, newUserId) => {
     try {
+      const targetUser = repositores.find(u => (u.firebaseId || u.id) === newUserId);
+      const targetName = targetUser ? (targetUser.nome || targetUser.usuario) : '';
+
       await api.updateRecord('prevendas', firebaseId, {
-        atribuido: newSeparador,
-        status: newSeparador ? 'Em Separação' : 'Aberta'
+        atribuidoId: newUserId || '',
+        atribuido: targetName,
+        separadorId: newUserId || '',
+        separador: targetName,
+        status: newUserId ? 'Em Separação' : 'Aberta'
       });
     } catch (e) {
       console.error('Erro ao reatribuir:', e);
@@ -90,8 +96,10 @@ export default function Separacao() {
     }
   };
 
-  // Verificação de permissão com fallback por role
-  const canAccess = hasPermission('Acesso Separacao') || role === 'repositor' || role === 'lider';
+  // Verificação de permissão de acesso à página
+  const canAccess = hasPermission('Acesso Separacao') || role === 'repositor' || role === 'lider' || role === 'admin' || role === 'gerente' || role === 'vendedor';
+  // Perfis com permissão para realizar designações/atribuições
+  const canAssign = role === 'admin' || role === 'gerente' || role === 'vendedor';
 
   if (!canAccess) {
     return (
@@ -106,16 +114,31 @@ export default function Separacao() {
     );
   }
 
-  // Filtra itens visíveis: admin/gerente vê tudo, repositor vê apenas os atribuídos a ele
+  // Filtra itens visíveis:
+  // Perfis com permissão de gestão (Admin, Gerente, Vendedor) visualizam todas as tarefas abertas para gestão.
+  // Usuários designados (Repositor, Líder) visualizam exclusivamente as tarefas a eles atribuídas.
   const visibleItems = items
     .filter(item => item.status !== 'Finalizada')
     .filter(item => {
-      if (role === 'admin' || role === 'gerente') return true;
-      const userName = (user?.name || user?.usuario || '').toLowerCase();
-      return (
-        (item.atribuido || '').toLowerCase() === userName ||
-        (item.separador || '').toLowerCase() === userName
+      if (canAssign) return true;
+
+      const currentUserId = user?.firebaseId || user?.id;
+      const currentUserName = (user?.usuario || user?.name || '').toLowerCase();
+
+      const isAssignedById = Boolean(
+        currentUserId && (
+          item.atribuidoId === currentUserId ||
+          item.separadorId === currentUserId
+        )
       );
+      const isAssignedByName = Boolean(
+        currentUserName && (
+          (item.atribuido || '').toLowerCase() === currentUserName ||
+          (item.separador || '').toLowerCase() === currentUserName
+        )
+      );
+
+      return isAssignedById || isAssignedByName;
     });
 
   return (
@@ -186,18 +209,21 @@ export default function Separacao() {
                   <div className="flex-1 overflow-hidden">
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">Separador</p>
                     <p className="font-bold truncate mt-1">{item.atribuido || item.separador || 'Não Atribuído'}</p>
-                    {(role === 'admin' || role === 'gerente') && (
+                    {canAssign && (
                       <select
                         className="mt-2 text-xs border border-border rounded-lg p-1.5 w-full bg-background"
-                        value={item.atribuido || item.separador || ''}
+                        value={item.atribuidoId || item.separadorId || ''}
                         onChange={(e) => handleReatribuir(item.firebaseId, e.target.value)}
                       >
                         <option value="">Não atribuído</option>
-                        {repositores.map(u => (
-                          <option key={u.firebaseId} value={u.usuario || u.nome}>
-                            {u.nome || u.usuario} ({u.role || u.perfil || 'Repositor'})
-                          </option>
-                        ))}
+                        {repositores.map(u => {
+                          const uId = u.firebaseId || u.id;
+                          return (
+                            <option key={uId} value={uId}>
+                              {u.nome || u.usuario} ({u.role || u.perfil || u.cargo || 'Repositor'})
+                            </option>
+                          );
+                        })}
                       </select>
                     )}
                   </div>
