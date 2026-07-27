@@ -52,6 +52,36 @@ export function parseEstoque(estoqueString) {
 }
 
 /**
+ * Extrai o valor de estoque bruto do objeto de produto sem que o operador || pule o número 0.
+ * @param {object} item
+ * @returns {string|number}
+ */
+export function getItemEstoqueVal(item) {
+  if (!item || typeof item !== 'object') return 0;
+  if (item.ESTOQUE !== undefined && item.ESTOQUE !== null && item.ESTOQUE !== '') return item.ESTOQUE;
+  if (item.estoque !== undefined && item.estoque !== null && item.estoque !== '') return item.estoque;
+  if (item.QTE !== undefined && item.QTE !== null && item.QTE !== '') return item.QTE;
+  return 0;
+}
+
+/**
+ * Determina estritamente se um produto possui estoque no sistema (maior que zero).
+ * Retorna false para estoque zero, nulo, vazio ou negativo.
+ * @param {object|string|number} itemOrString
+ * @returns {boolean}
+ */
+export function isEstoquePositivo(itemOrString) {
+  if (itemOrString === null || itemOrString === undefined || itemOrString === '') return false;
+  
+  const val = typeof itemOrString === 'object' ? getItemEstoqueVal(itemOrString) : itemOrString;
+  
+  const num = getEstoqueNumerico(val);
+  if (num <= 0) return false;
+
+  return parseEstoque(val);
+}
+
+/**
  * Extrai a quantidade numérica total de uma string de estoque.
  * "0 CXA (12) + 12" → 12 (0*12 + 12 = 12)
  * "1 FDO (32)"      → 32 (1*32 = 32)

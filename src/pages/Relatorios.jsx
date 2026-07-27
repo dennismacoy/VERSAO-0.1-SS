@@ -18,7 +18,7 @@ import QRCode from 'qrcode';
 import { generateRelatorioPDF, generateRelatorioAvancadoPDF, gerarPdfRelatorioAvancado } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
-import { cn, parseEstoque, getEstoqueNumerico, formatCurrency, parseNumericValue } from '../lib/utils';
+import { cn, parseEstoque, getEstoqueNumerico, formatCurrency, parseNumericValue, isEstoquePositivo, getItemEstoqueVal } from '../lib/utils';
 
 export default function Relatorios() {
   const { hasPermission } = useAuth();
@@ -112,12 +112,10 @@ export default function Relatorios() {
     let riskCount = 0;
 
     filteredData.forEach(item => {
-      const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
-      const temEstoque = parseEstoque(estoqueStr);
       const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
       const valorEstoque = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
 
-      if (diasSemVenda > 6 && temEstoque) {
+      if (diasSemVenda > 6 && isEstoquePositivo(item)) {
         riskCount++;
         totalInRisk += valorEstoque;
       }
@@ -138,23 +136,20 @@ export default function Relatorios() {
       const batch = razoesSelecionadas.map(rz => {
         let rzData = cacheProducts.filter(item => (item.RAZAOSOCIAL || item.razaosocial) === rz);
         if (filterType === 'com_estoque') {
-          rzData = rzData.filter(item => parseEstoque(item.ESTOQUE || item.QTE || item.estoque || 0));
+          rzData = rzData.filter(item => isEstoquePositivo(item));
         } else if (filterType === 'isv') {
           rzData = rzData.filter(item => {
             const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
-            const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
-            return diasSemVenda > 6 && parseEstoque(estoqueStr);
+            return diasSemVenda > 6 && isEstoquePositivo(item);
           });
         }
 
         let rzTotalInRisk = 0;
         rzData.forEach(item => {
-          const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
-          const temEstoque = parseEstoque(estoqueStr);
           const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
           const valorEstoque = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
 
-          if (diasSemVenda > 6 && temEstoque) {
+          if (diasSemVenda > 6 && isEstoquePositivo(item)) {
             rzTotalInRisk += valorEstoque;
           }
         });
@@ -168,21 +163,27 @@ export default function Relatorios() {
 
       generateRelatorioPDF(batch);
     } else {
-      // Geração Única
+      // Geração Única (Aba Geral)
       let dataParaPDF = filteredData;
       if (filterType === 'com_estoque') {
-        dataParaPDF = filteredData.filter(item => {
-          const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
-          return parseEstoque(estoqueStr);
-        });
+        dataParaPDF = filteredData.filter(item => isEstoquePositivo(item));
       } else if (filterType === 'isv') {
         dataParaPDF = filteredData.filter(item => {
           const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
-          const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || 0;
-          return diasSemVenda > 6 && parseEstoque(estoqueStr);
+          return diasSemVenda > 6 && isEstoquePositivo(item);
         });
       }
-      generateRelatorioPDF(dataParaPDF, riskAnalysis.totalInRisk, selectedRazao);
+
+      // Calcula o total em risco exclusivamente para os itens presentes no PDF gerado
+      const pdfTotalInRisk = dataParaPDF.reduce((acc, item) => {
+        const diasSemVenda = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
+        if (diasSemVenda > 6 && isEstoquePositivo(item)) {
+          return acc + parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
+        }
+        return acc;
+      }, 0);
+
+      generateRelatorioPDF(dataParaPDF, pdfTotalInRisk, selectedRazao);
     }
   };
 
@@ -452,7 +453,7 @@ export default function Relatorios() {
                         </tr>
                       ) : visibleData.map((item, idx) => {
                         const diasSV = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
-                        const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || '0';
+                        const estoqueStr = String(getItemEstoqueVal(item));
                         return (
                           <tr
                             key={idx}
@@ -486,7 +487,7 @@ export default function Relatorios() {
               >
                 {visibleData.map((item, idx) => {
                   const dias = Number(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || 0);
-                  const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || '0';
+                  const estoqueStr = String(getItemEstoqueVal(item));
                   return (
                     <div
                       key={idx}

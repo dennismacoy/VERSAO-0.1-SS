@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import JsBarcode from 'jsbarcode';
-import { getEstoqueNumerico, parseNumericValue } from './utils';
+import { getEstoqueNumerico, parseNumericValue, getItemEstoqueVal } from './utils';
 
 const formatCurrency = (val) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
@@ -296,7 +296,7 @@ export const generateRelatorioPDF = (batchInput, totalInRisk, selectedRazao) => 
           item?.EMBALAGEM || item?.embalagem || item?.emb || 'UN',
           item?.ENTRADA || item?.entrada || '-',
           String(item?.DIAS_SEM_VENDA || item?.ISV || item?.dias_sem_venda || '0'),
-          String(item?.ESTOQUE || item?.QTE || item?.estoque || '0'),
+          String(getItemEstoqueVal(item)),
         ]),
       });
 
@@ -415,7 +415,7 @@ export const gerarPdfRelatorioAvancado = (data, subtitle = 'Relatório Avançado
       const codigo = item.CODIGO || item.codigo || '';
       const desc = item.DESCRICAO || item.descricao || '';
       const embalagem = item.EMBALAGEM || item.embalagem || item.emb || 'UN';
-      const estoque = String(item.ESTOQUE || item.QTE || item.estoque || item._estoqueStr || '0');
+      const estoque = item._estoqueStr || String(getItemEstoqueVal(item));
       const entrada = item.ENTRADA || item.entrada || '-';
       const dias = String(item.DIAS_SEM_VENDA ?? item.ISV ?? item.dias_sem_venda ?? item._diasSemVendaNum ?? '0');
       const valEst = item._valorEstoqueCalculado !== undefined 
