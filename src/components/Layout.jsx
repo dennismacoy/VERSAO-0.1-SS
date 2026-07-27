@@ -78,7 +78,7 @@ export default function Layout({ children }) {
       icon: ListChecks,
       condition: hasPermission('Acesso Separacao') || role === 'repositor' || role === 'lider'
     },
-    { name: 'Gestão Administrativa', path: '/gestao-administrativa', icon: Building2, condition: hasPermission('Acesso Gestao Administrativa') || role === 'admin' || role === 'gerente' || role === 'vendedor' || role === 'repositor' },
+    { name: 'Gestão Administrativa', path: '/gestao-administrativa', icon: Building2, condition: hasPermission('Acesso Gestao Administrativa') || hasPermission('gestao_administrativa') },
     { name: 'Relatórios', path: '/relatorios', icon: BarChart3, condition: hasPermission('Acesso Relatorios') },
     { name: 'Configurações', path: '/configuracoes', icon: Settings, condition: hasPermission('Acesso Configuracoes') },
   ];
@@ -96,17 +96,17 @@ export default function Layout({ children }) {
           isSidebarOpen ? "w-64" : "w-20"
         )}
       >
-        <div className="h-20 flex items-center justify-between px-4 border-b border-border bg-primary/5">
+        <div className="h-20 flex items-center justify-between px-4 border-b border-border bg-green-50 dark:bg-green-950/20">
           {isSidebarOpen ? (
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg transform rotate-3">
-                <span className="font-black text-primary-foreground text-xl">SS</span>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-600/20 transform rotate-3">
+                <span className="font-black text-white text-xl">SS</span>
               </div>
-              <span className="font-black text-xl tracking-tighter text-foreground">SmartStock</span>
+              <span className="font-black text-2xl tracking-tighter text-green-600">Smart Stock</span>
             </div>
           ) : (
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg mx-auto transform rotate-3">
-              <span className="font-black text-primary-foreground text-lg">SS</span>
+            <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center shadow-lg mx-auto transform rotate-3">
+              <span className="font-black text-white text-lg">SS</span>
             </div>
           )}
         </div>
@@ -176,11 +176,11 @@ export default function Layout({ children }) {
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 z-40 shadow-sm sticky top-0">
           <div className="flex items-center gap-4">
-            <div className="md:hidden flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shadow-lg transform rotate-3">
-                <span className="font-black text-primary-foreground text-sm">SS</span>
+            <div className="flex items-center gap-2 md:hidden">
+              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shadow-lg transform rotate-3">
+                <span className="font-black text-white text-sm">SS</span>
               </div>
-              <span className="font-black text-lg tracking-tighter text-primary">SmartStock</span>
+              <span className="font-black text-lg tracking-tighter text-green-600">Smart Stock</span>
             </div>
             <h2 className="hidden md:block font-bold text-muted-foreground text-sm uppercase tracking-widest">
               {menuItems.find(i => i.path === location.pathname)?.name || 'Início'}

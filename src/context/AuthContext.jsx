@@ -15,6 +15,7 @@ const defaultPermissions = {
   'Acesso Pre-Venda': ['admin', 'gerente', 'vendedor'],
   'Acesso Separacao': ['admin', 'gerente', 'repositor'],
   'Acesso Gestao Administrativa': ['admin', 'gerente', 'vendedor', 'repositor'],
+  'gestao_administrativa': ['admin', 'gerente', 'vendedor', 'repositor'],
   'Acesso Relatorios': ['admin', 'gerente'],
   'Acesso Configuracoes': ['admin', 'gerente', 'repositor', 'vendedor', 'clientes'],
   'Acessar Sincronização Master': ['admin'],
@@ -100,7 +101,9 @@ export const AuthProvider = ({ children }) => {
     const currentRole = (role || '').toLowerCase();
     if (currentRole === 'admin') return true;
 
-    const allowedRoles = permissions[actionName] || [];
+    // Suporte tanto para 'Acesso Gestao Administrativa' quanto para 'gestao_administrativa'
+    const canonicalKey = actionName === 'gestao_administrativa' ? 'Acesso Gestao Administrativa' : actionName;
+    const allowedRoles = permissions[canonicalKey] || permissions[actionName] || [];
     return allowedRoles.some(r => r.toLowerCase() === currentRole);
   }, [role, permissions]);
 

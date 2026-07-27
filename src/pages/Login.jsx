@@ -17,7 +17,7 @@ export default function Login() {
     setErrorMsg('');
     try {
       await login(username, password);
-      navigate('/');
+      navigate('/consulta');
     } catch (error) {
       console.error(error);
       setErrorMsg(error?.message || 'Acesso Negado: Verifique suas credenciais.');
