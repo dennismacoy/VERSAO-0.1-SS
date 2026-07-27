@@ -100,3 +100,27 @@ export function formatCurrency(val) {
   if (isNaN(num)) return 'R$ 0,00';
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
 }
+
+/**
+ * Converte valores numéricos ou strings formatadas (ex: "R$ 1.500,00", "1.500,50", "25,00")
+ * em um número float válido em JavaScript para ordenações matemáticas e cálculos.
+ * @param {string|number} val
+ * @returns {number}
+ */
+export function parseNumericValue(val) {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+
+  let str = String(val).trim().replace(/R\$\s?/gi, '').replace(/\s+/g, '');
+  if (!str) return 0;
+
+  if (str.includes(',')) {
+    str = str.replace(/\./g, '').replace(',', '.');
+  } else if ((str.match(/\./g) || []).length > 1) {
+    str = str.replace(/\./g, '');
+  }
+
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
+}
+

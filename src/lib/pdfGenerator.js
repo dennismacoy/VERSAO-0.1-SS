@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import JsBarcode from 'jsbarcode';
-import { getEstoqueNumerico } from './utils';
+import { getEstoqueNumerico, parseNumericValue } from './utils';
 
 const formatCurrency = (val) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
@@ -376,9 +376,9 @@ export const generateSeparacaoPDF = (pedido) => {
 };
 
 // =============================================
-// RELATÓRIO AVANÇADO PDF — Colunas: Descrição, Corredor, Dias S/Venda, Estoque, Valor Estoque
+// RELATÓRIO AVANÇADO PDF — Colunas: Código, Descrição, Embalagem, Estoque, Entrada, Dias sem Venda
 // =============================================
-export const generateRelatorioAvancadoPDF = (data, subtitle = 'Relatório Avançado') => {
+export const gerarPdfRelatorioAvancado = (data, subtitle = 'Relatório Avançado') => {
   if (!data || !Array.isArray(data) || data.length === 0) {
     console.warn("Nenhum dado fornecido para o relatório PDF avançado.");
     alert("Nenhum dado encontrado para gerar o PDF Avançado.");
@@ -396,9 +396,14 @@ export const generateRelatorioAvancadoPDF = (data, subtitle = 'Relatório Avanç
       const valEst = item._valorEstoqueCalculado !== undefined 
         ? item._valorEstoqueCalculado 
         : (() => {
-            const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || '0';
-            const estoqueNum = getEstoqueNumerico(estoqueStr);
-            return Number(item.VALOR_ESTOQUE || item.valor_estoque) || (estoqueNum * Number(item.CUSTO || item.PRECO || item.custo || 0));
+            let parsedVal = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
+            if (!parsedVal) {
+              const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || '0';
+              const estoqueNum = getEstoqueNumerico(estoqueStr);
+              const custo = parseNumericValue(item.CUSTO ?? item.PRECO ?? item.custo ?? item.preco);
+              parsedVal = estoqueNum * custo;
+            }
+            return parsedVal;
           })();
       totalValorEstoque += valEst;
     });
@@ -412,31 +417,40 @@ export const generateRelatorioAvancadoPDF = (data, subtitle = 'Relatório Avanç
     doc.text(`TOTAL DE ITENS: ${data.length}   |   VALOR TOTAL DO ESTOQUE: ${formatCurrency(totalValorEstoque)}`, 20, 50);
 
     const tableData = data.map(item => {
+      const codigo = item.CODIGO || item.codigo || '';
       const desc = item.DESCRICAO || item.descricao || '';
-      const corredor = item.CORREDOR || item.corredor || '-';
-      const dias = String(item.DIAS_SEM_VENDA || item.ISV || item.dias_sem_venda || '0');
-      const estoque = String(item.ESTOQUE || item.QTE || item.estoque || '0');
+      const embalagem = item.EMBALAGEM || item.embalagem || item.emb || 'UN';
+      const estoque = String(item.ESTOQUE || item.QTE || item.estoque || item._estoqueStr || '0');
+      const entrada = item.ENTRADA || item.entrada || '-';
+      const dias = String(item.DIAS_SEM_VENDA ?? item.ISV ?? item.dias_sem_venda ?? item._diasSemVendaNum ?? '0');
       const valEst = item._valorEstoqueCalculado !== undefined 
         ? item._valorEstoqueCalculado 
         : (() => {
-            const estoqueNum = getEstoqueNumerico(estoque);
-            return Number(item.VALOR_ESTOQUE || item.valor_estoque) || (estoqueNum * Number(item.CUSTO || item.PRECO || item.custo || 0));
+            let parsedVal = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
+            if (!parsedVal) {
+              const estoqueNum = getEstoqueNumerico(estoque);
+              const custo = parseNumericValue(item.CUSTO ?? item.PRECO ?? item.custo ?? item.preco);
+              parsedVal = estoqueNum * custo;
+            }
+            return parsedVal;
           })();
 
-      return [desc, corredor, dias, estoque, formatCurrency(valEst)];
+      return [codigo, desc, embalagem, estoque, entrada, dias, formatCurrency(valEst)];
     });
 
     autoTable(doc, {
       ...baseTableStyles,
       startY: 60,
-      head: [['Descrição', 'Corredor', 'Dias S/ Venda', 'Estoque', 'Valor Estoque']],
+      head: [['Código', 'Descrição', 'Embalagem', 'Estoque', 'Entrada', 'Dias sem Venda', 'Valor do Estoque']],
       body: tableData,
       columnStyles: {
-        0: { cellWidth: 'auto' },
-        1: { cellWidth: 25, halign: 'center' },
-        2: { cellWidth: 25, halign: 'center' },
-        3: { cellWidth: 25, halign: 'center' },
-        4: { cellWidth: 35, halign: 'right' },
+        0: { cellWidth: 20 },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 18, halign: 'center' },
+        3: { cellWidth: 18, halign: 'center' },
+        4: { cellWidth: 22, halign: 'center' },
+        5: { cellWidth: 22, halign: 'center' },
+        6: { cellWidth: 28, halign: 'right' },
       }
     });
 
@@ -447,4 +461,7 @@ export const generateRelatorioAvancadoPDF = (data, subtitle = 'Relatório Avanç
     alert('Ocorreu um erro ao gerar o PDF Avançado.');
   }
 };
+
+export const generateRelatorioAvancadoPDF = gerarPdfRelatorioAvancado;
+
 

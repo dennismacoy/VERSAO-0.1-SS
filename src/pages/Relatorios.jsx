@@ -15,10 +15,10 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { generateRelatorioPDF, generateRelatorioAvancadoPDF } from '../lib/pdfGenerator';
+import { generateRelatorioPDF, generateRelatorioAvancadoPDF, gerarPdfRelatorioAvancado } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
-import { cn, parseEstoque, getEstoqueNumerico, formatCurrency } from '../lib/utils';
+import { cn, parseEstoque, getEstoqueNumerico, formatCurrency, parseNumericValue } from '../lib/utils';
 
 export default function Relatorios() {
   const { hasPermission } = useAuth();
@@ -264,18 +264,10 @@ export default function Relatorios() {
     const dataWithCalc = result.map(item => {
       const estoqueStr = item.ESTOQUE || item.QTE || item.estoque || '0';
       const estoqueNum = getEstoqueNumerico(estoqueStr);
-      let valEstoque = 0;
 
-      if (item.VALOR_ESTOQUE !== undefined && item.VALOR_ESTOQUE !== null && item.VALOR_ESTOQUE !== '') {
-        const parsed = typeof item.VALOR_ESTOQUE === 'string' ? parseFloat(item.VALOR_ESTOQUE.replace(/\./g, '').replace(',', '.')) : Number(item.VALOR_ESTOQUE);
-        if (!isNaN(parsed) && parsed > 0) valEstoque = parsed;
-      }
-      if (!valEstoque && item.valor_estoque !== undefined && item.valor_estoque !== null && item.valor_estoque !== '') {
-        const parsed = typeof item.valor_estoque === 'string' ? parseFloat(item.valor_estoque.replace(/\./g, '').replace(',', '.')) : Number(item.valor_estoque);
-        if (!isNaN(parsed) && parsed > 0) valEstoque = parsed;
-      }
+      let valEstoque = parseNumericValue(item.VALOR_ESTOQUE ?? item.valor_estoque);
       if (!valEstoque) {
-        const custo = Number(item.CUSTO || item.PRECO || item.custo || 0);
+        const custo = parseNumericValue(item.CUSTO ?? item.PRECO ?? item.custo ?? item.preco);
         valEstoque = estoqueNum * custo;
       }
 
@@ -296,7 +288,7 @@ export default function Relatorios() {
       } else if (advSort === 'dias_desc') {
         return b._diasSemVendaNum - a._diasSemVendaNum;
       } else if (advSort === 'valor_desc') {
-        return b._valorEstoqueCalculado - a._valorEstoqueCalculado;
+        return (b._valorEstoqueCalculado || 0) - (a._valorEstoqueCalculado || 0);
       }
       return 0;
     });
@@ -730,7 +722,7 @@ export default function Relatorios() {
                       alert('Nenhum item para gerar relatório PDF.');
                       return;
                     }
-                    generateRelatorioAvancadoPDF(advancedFilteredData);
+                    gerarPdfRelatorioAvancado(advancedFilteredData);
                   }}
                   className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary text-primary-foreground font-black px-6 py-3 rounded-2xl shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-xs min-h-[44px] transition-all"
                 >
@@ -849,7 +841,7 @@ export default function Relatorios() {
                       alert('Nenhum item para gerar relatório PDF.');
                       return;
                     }
-                    generateRelatorioAvancadoPDF(advancedFilteredData);
+                    gerarPdfRelatorioAvancado(advancedFilteredData);
                   }}
                   className="flex items-center justify-center gap-2 bg-primary text-primary-foreground font-black px-8 py-4 rounded-2xl shadow-xl hover:shadow-primary/20 active:scale-95 uppercase tracking-widest text-xs min-h-[44px] transition-all"
                 >
