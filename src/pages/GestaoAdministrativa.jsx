@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Wrench,
+  Building2,
   CheckCircle2,
   Clock,
   AlertTriangle,
@@ -9,7 +9,6 @@ import {
   Filter,
   Trash2,
   Edit2,
-  Building2,
   Users,
   Laptop,
   Calendar,
@@ -20,14 +19,14 @@ import {
   Phone,
   MapPin,
   Tag,
-  ArrowUpDown,
+  Wrench,
   CheckSquare,
   Square
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 // URL da API do Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbxXJgrXliDUG1MAvqBa0wnmpbRfVMe4IhcgHCZNMo_trvSTFmJpl5Ih2Td-MYGL_ReS2w/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec";
 
 // Função utilitária para requisições ao GAS
 const fetchGAS = async (payload) => {
@@ -125,7 +124,7 @@ const getDaysRemaining = (targetDate) => {
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-export default function GestaoOperacional() {
+export default function GestaoAdministrativa() {
   const { hasPermission } = useAuth();
 
   // Abas de navegação: 'tasks' | 'preventive' | 'it'
@@ -395,8 +394,7 @@ export default function GestaoOperacional() {
   const handleSubmitIT = (e) => {
     e.preventDefault();
     if (!itForm.device.trim()) return alert('Informe o equipamento.');
-    
-    // Buscar nome do fornecedor pelo ID selecionado se não estiver preenchido
+
     let supName = itForm.supplierName;
     if (itForm.supplierId && (!supName || supName === 'N/A')) {
       const foundSup = fornecedores.find(f => String(f.id) === String(itForm.supplierId));
@@ -468,7 +466,7 @@ export default function GestaoOperacional() {
   const filteredTarefas = useMemo(() => {
     return tarefas.filter(t => {
       const term = searchQuery.toLowerCase();
-      const matchSearch = !term || 
+      const matchSearch = !term ||
         (t.name || '').toLowerCase().includes(term) ||
         (t.sector || '').toLowerCase().includes(term) ||
         (t.notes || '').toLowerCase().includes(term);
@@ -512,12 +510,12 @@ export default function GestaoOperacional() {
         </div>
       )}
 
-      {/* Cabeçalho do Painel */}
+      {/* Cabeçalho do Painel - Identidade Verde e Laranja */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 dark:border-zinc-800 pb-6">
         <div>
           <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-            <Wrench className="text-indigo-600 w-8 h-8" />
-            Gestão <span className="text-indigo-600">Operacional</span>
+            <Building2 className="text-green-600 w-8 h-8" />
+            Gestão <span className="text-green-600">Administrativa</span>
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">
             Controle de Tarefas, Manutenções Preventivas e Suporte de TI em tempo real
@@ -529,20 +527,20 @@ export default function GestaoOperacional() {
             onClick={() => openCreateModal('sector')}
             className="flex items-center gap-2 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-800 px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all"
           >
-            <Building2 size={16} className="text-indigo-600" />
+            <Building2 size={16} className="text-green-600" />
             + Setor
           </button>
           <button
             onClick={() => openCreateModal('supplier')}
             className="flex items-center gap-2 bg-white dark:bg-zinc-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-800 px-4 py-2.5 rounded-xl font-bold text-xs shadow-sm transition-all"
           >
-            <Users size={16} className="text-indigo-600" />
+            <Users size={16} className="text-orange-500" />
             + Fornecedor
           </button>
           <button
             onClick={loadAllData}
             disabled={isLoading}
-            className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 px-4 py-2.5 rounded-xl font-bold text-xs transition-all disabled:opacity-50"
+            className="flex items-center gap-2 bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/60 px-4 py-2.5 rounded-xl font-bold text-xs transition-all disabled:opacity-50"
             title="Atualizar dados"
           >
             <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
@@ -558,18 +556,18 @@ export default function GestaoOperacional() {
             <div className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Tarefas</p>
-                <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">{taskKPIs.total}</h3>
+                <h3 className="text-3xl font-extrabold text-green-600 mt-1">{taskKPIs.total}</h3>
               </div>
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 rounded-xl">
+              <div className="p-3 bg-green-50 dark:bg-green-950/50 text-green-600 rounded-xl">
                 <FileText size={24} />
               </div>
             </div>
             <div className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Pendentes</p>
-                <h3 className="text-3xl font-extrabold text-amber-600 mt-1">{taskKPIs.pending}</h3>
+                <h3 className="text-3xl font-extrabold text-orange-500 mt-1">{taskKPIs.pending}</h3>
               </div>
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/50 text-amber-600 rounded-xl">
+              <div className="p-3 bg-orange-50 dark:bg-orange-950/50 text-orange-500 rounded-xl">
                 <Clock size={24} />
               </div>
             </div>
@@ -599,18 +597,18 @@ export default function GestaoOperacional() {
             <div className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Preventivas</p>
-                <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">{preventiveKPIs.total}</h3>
+                <h3 className="text-3xl font-extrabold text-green-600 mt-1">{preventiveKPIs.total}</h3>
               </div>
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 rounded-xl">
+              <div className="p-3 bg-green-50 dark:bg-green-950/50 text-green-600 rounded-xl">
                 <Wrench size={24} />
               </div>
             </div>
             <div className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Atenção / Vencendo</p>
-                <h3 className="text-3xl font-extrabold text-rose-600 mt-1">{preventiveKPIs.urgentCount}</h3>
+                <h3 className="text-3xl font-extrabold text-orange-500 mt-1">{preventiveKPIs.urgentCount}</h3>
               </div>
-              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 text-rose-600 rounded-xl">
+              <div className="p-3 bg-orange-50 dark:bg-orange-950/50 text-orange-500 rounded-xl">
                 <AlertTriangle size={24} />
               </div>
             </div>
@@ -626,9 +624,9 @@ export default function GestaoOperacional() {
             <div className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Categorias</p>
-                <h3 className="text-3xl font-extrabold text-indigo-600 mt-1">{PREVENTIVE_CATEGORY_OPTIONS.length}</h3>
+                <h3 className="text-3xl font-extrabold text-green-600 mt-1">{PREVENTIVE_CATEGORY_OPTIONS.length}</h3>
               </div>
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 rounded-xl">
+              <div className="p-3 bg-green-50 dark:bg-green-950/50 text-green-600 rounded-xl">
                 <Tag size={24} />
               </div>
             </div>
@@ -640,18 +638,18 @@ export default function GestaoOperacional() {
             <div className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Equipamentos TI</p>
-                <h3 className="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">{itKPIs.total}</h3>
+                <h3 className="text-3xl font-extrabold text-green-600 mt-1">{itKPIs.total}</h3>
               </div>
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 rounded-xl">
+              <div className="p-3 bg-green-50 dark:bg-green-950/50 text-green-600 rounded-xl">
                 <Laptop size={24} />
               </div>
             </div>
             <div className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Em Manutenção</p>
-                <h3 className="text-3xl font-extrabold text-amber-600 mt-1">{itKPIs.inProgress}</h3>
+                <h3 className="text-3xl font-extrabold text-orange-500 mt-1">{itKPIs.inProgress}</h3>
               </div>
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/50 text-amber-600 rounded-xl">
+              <div className="p-3 bg-orange-50 dark:bg-orange-950/50 text-orange-500 rounded-xl">
                 <Clock size={24} />
               </div>
             </div>
@@ -667,9 +665,9 @@ export default function GestaoOperacional() {
             <div className="bg-white dark:bg-zinc-900 p-5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Fornecedores TI</p>
-                <h3 className="text-3xl font-extrabold text-indigo-600 mt-1">{fornecedores.length}</h3>
+                <h3 className="text-3xl font-extrabold text-green-600 mt-1">{fornecedores.length}</h3>
               </div>
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 rounded-xl">
+              <div className="p-3 bg-green-50 dark:bg-green-950/50 text-green-600 rounded-xl">
                 <Users size={24} />
               </div>
             </div>
@@ -683,7 +681,7 @@ export default function GestaoOperacional() {
           onClick={() => { setActiveTab('tasks'); setSearchQuery(''); setStatusFilter(''); setSectorFilter(''); }}
           className={`px-6 py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'tasks'
-              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 rounded-t-xl'
+              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
@@ -695,7 +693,7 @@ export default function GestaoOperacional() {
           onClick={() => { setActiveTab('preventive'); setSearchQuery(''); setCategoryFilter(''); }}
           className={`px-6 py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'preventive'
-              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 rounded-t-xl'
+              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
@@ -707,7 +705,7 @@ export default function GestaoOperacional() {
           onClick={() => { setActiveTab('it'); setSearchQuery(''); setStatusFilter(''); }}
           className={`px-6 py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'it'
-              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 rounded-t-xl'
+              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
           }`}
         >
@@ -719,7 +717,7 @@ export default function GestaoOperacional() {
       {/* ÁREA PRINCIPAL DE CONTEÚDO */}
       {isLoading ? (
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-16 flex flex-col items-center justify-center space-y-4 shadow-sm">
-          <Loader2 className="animate-spin text-indigo-600 w-12 h-12" />
+          <Loader2 className="animate-spin text-green-600 w-12 h-12" />
           <p className="text-slate-500 dark:text-slate-400 font-bold text-sm uppercase tracking-wider">
             Sincronizando dados com o Google Apps Script...
           </p>
@@ -736,7 +734,7 @@ export default function GestaoOperacional() {
                   placeholder="Pesquisar..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600 transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600 transition-all"
                 />
               </div>
 
@@ -745,7 +743,7 @@ export default function GestaoOperacional() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-indigo-600"
+                    className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-green-600"
                   >
                     <option value="">Todos os Status</option>
                     {TASK_STATUS_OPTIONS.map((st, i) => (
@@ -756,7 +754,7 @@ export default function GestaoOperacional() {
                   <select
                     value={sectorFilter}
                     onChange={(e) => setSectorFilter(e.target.value)}
-                    className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-indigo-600"
+                    className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-green-600"
                   >
                     <option value="">Todos os Setores</option>
                     {setores.map(s => (
@@ -770,7 +768,7 @@ export default function GestaoOperacional() {
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-indigo-600"
+                  className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-green-600"
                 >
                   <option value="">Todas as Categorias</option>
                   {PREVENTIVE_CATEGORY_OPTIONS.map((cat, i) => (
@@ -783,7 +781,7 @@ export default function GestaoOperacional() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-indigo-600"
+                  className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none focus:border-green-600"
                 >
                   <option value="">Todos os Status</option>
                   {IT_STATUS_OPTIONS.map((st, i) => (
@@ -793,12 +791,12 @@ export default function GestaoOperacional() {
               )}
             </div>
 
-            {/* Botão Principal de Adicionar da Aba */}
+            {/* Botão Principal de Adicionar da Aba - Verde / Laranja */}
             <div>
               {activeTab === 'tasks' && (
                 <button
                   onClick={() => openCreateModal('task')}
-                  className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all text-xs uppercase tracking-wider"
+                  className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all text-xs uppercase tracking-wider"
                 >
                   <Plus size={16} /> Nova Tarefa
                 </button>
@@ -806,7 +804,7 @@ export default function GestaoOperacional() {
               {activeTab === 'preventive' && (
                 <button
                   onClick={() => openCreateModal('preventive')}
-                  className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all text-xs uppercase tracking-wider"
+                  className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all text-xs uppercase tracking-wider"
                 >
                   <Plus size={16} /> Nova Preventiva
                 </button>
@@ -814,7 +812,7 @@ export default function GestaoOperacional() {
               {activeTab === 'it' && (
                 <button
                   onClick={() => openCreateModal('it')}
-                  className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all text-xs uppercase tracking-wider"
+                  className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md transition-all text-xs uppercase tracking-wider"
                 >
                   <Plus size={16} /> Novo Registro TI
                 </button>
@@ -858,7 +856,7 @@ export default function GestaoOperacional() {
                             <td className="px-6 py-4 text-center">
                               <button
                                 onClick={() => handleToggleTaskCompleted(t)}
-                                className="text-slate-400 hover:text-indigo-600 transition-colors"
+                                className="text-slate-400 hover:text-green-600 transition-colors"
                                 title={isCompleted ? "Marcar como pendente" : "Marcar como concluída"}
                               >
                                 {isCompleted ? (
@@ -879,14 +877,14 @@ export default function GestaoOperacional() {
                             </td>
 
                             <td className="px-6 py-4">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300">
-                                <Building2 size={13} className="text-indigo-600" />
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300">
+                                <Building2 size={13} className="text-green-600" />
                                 {t.sector || 'Geral'}
                               </span>
                             </td>
 
                             <td className="px-6 py-4">
-                              <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                              <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
                                 {t.status}
                               </span>
                             </td>
@@ -914,7 +912,7 @@ export default function GestaoOperacional() {
                             <td className="px-6 py-4 text-right space-x-2">
                               <button
                                 onClick={() => openEditModal('task', t)}
-                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                                className="p-2 text-slate-400 hover:text-green-600 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                                 title="Editar"
                               >
                                 <Edit2 size={16} />
@@ -964,7 +962,6 @@ export default function GestaoOperacional() {
                       filteredPreventivas.map((p) => {
                         const nextDate = calculateNextDate(p.lastDate, p.periodicity);
                         const daysRemaining = getDaysRemaining(nextDate);
-                        const isUrgent = daysRemaining !== null && daysRemaining <= 15;
 
                         return (
                           <tr key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-zinc-800/50 transition-all">
@@ -996,7 +993,7 @@ export default function GestaoOperacional() {
                                   daysRemaining < 0
                                     ? 'bg-rose-100 text-rose-800 border border-rose-300'
                                     : daysRemaining <= 15
-                                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                      ? 'bg-orange-100 text-orange-800 border border-orange-300'
                                       : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                 }`}>
                                   {daysRemaining < 0 ? `Vencido (${Math.abs(daysRemaining)}d)` : `${daysRemaining} dias`}
@@ -1009,7 +1006,7 @@ export default function GestaoOperacional() {
                             <td className="px-6 py-4 text-right space-x-2">
                               <button
                                 onClick={() => openEditModal('preventive', p)}
-                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                                className="p-2 text-slate-400 hover:text-green-600 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                                 title="Editar"
                               >
                                 <Edit2 size={16} />
@@ -1066,7 +1063,7 @@ export default function GestaoOperacional() {
                             <td className="px-6 py-4 text-center">
                               <button
                                 onClick={() => handleToggleITCompleted(i)}
-                                className="text-slate-400 hover:text-indigo-600 transition-colors"
+                                className="text-slate-400 hover:text-green-600 transition-colors"
                                 title={isCompleted ? "Marcar em aberto" : "Marcar como retornado / concluído"}
                               >
                                 {isCompleted ? (
@@ -1087,14 +1084,14 @@ export default function GestaoOperacional() {
                             </td>
 
                             <td className="px-6 py-4">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300">
                                 <Users size={13} />
                                 {i.supplierName || 'Não Informado'}
                               </span>
                             </td>
 
                             <td className="px-6 py-4">
-                              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                              <span className="px-3 py-1 rounded-full text-xs font-bold bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
                                 {i.status}
                               </span>
                             </td>
@@ -1110,7 +1107,7 @@ export default function GestaoOperacional() {
                             <td className="px-6 py-4 text-right space-x-2">
                               <button
                                 onClick={() => openEditModal('it', i)}
-                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                                className="p-2 text-slate-400 hover:text-green-600 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
                                 title="Editar"
                               >
                                 <Edit2 size={16} />
@@ -1145,7 +1142,7 @@ export default function GestaoOperacional() {
           <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-5 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex justify-between items-center">
               <h3 className="font-extrabold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <FileText className="text-indigo-600" size={20} />
+                <FileText className="text-green-600" size={20} />
                 {editingItem ? 'Editar Tarefa' : 'Nova Tarefa'}
               </h3>
               <button onClick={() => setModalType(null)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg">
@@ -1164,7 +1161,7 @@ export default function GestaoOperacional() {
                   placeholder="Ex: Cotação de manutenção do ar condicionado"
                   value={taskForm.name}
                   onChange={(e) => setTaskForm({ ...taskForm, name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                 />
               </div>
 
@@ -1176,7 +1173,7 @@ export default function GestaoOperacional() {
                   <select
                     value={taskForm.sector}
                     onChange={(e) => setTaskForm({ ...taskForm, sector: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   >
                     <option value="">Selecione um setor...</option>
                     {setores.map(s => (
@@ -1192,7 +1189,7 @@ export default function GestaoOperacional() {
                   <select
                     value={taskForm.status}
                     onChange={(e) => setTaskForm({ ...taskForm, status: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   >
                     {TASK_STATUS_OPTIONS.map((st, i) => (
                       <option key={i} value={st}>{st}</option>
@@ -1210,7 +1207,7 @@ export default function GestaoOperacional() {
                     type="date"
                     value={taskForm.entryDate}
                     onChange={(e) => setTaskForm({ ...taskForm, entryDate: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   />
                 </div>
 
@@ -1222,7 +1219,7 @@ export default function GestaoOperacional() {
                     type="date"
                     value={taskForm.dueDate}
                     onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   />
                 </div>
               </div>
@@ -1236,7 +1233,7 @@ export default function GestaoOperacional() {
                   placeholder="Informações adicionais sobre o orçamento ou fornecedor..."
                   value={taskForm.notes}
                   onChange={(e) => setTaskForm({ ...taskForm, notes: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                 ></textarea>
               </div>
 
@@ -1251,7 +1248,7 @@ export default function GestaoOperacional() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white shadow-md flex items-center gap-2 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 disabled:opacity-50"
                 >
                   {isSaving ? <Loader2 size={16} className="animate-spin" /> : null}
                   {editingItem ? 'Salvar Alterações' : 'Criar Tarefa'}
@@ -1268,7 +1265,7 @@ export default function GestaoOperacional() {
           <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-5 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex justify-between items-center">
               <h3 className="font-extrabold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <Wrench className="text-indigo-600" size={20} />
+                <Wrench className="text-green-600" size={20} />
                 {editingItem ? 'Editar Preventiva' : 'Nova Manutenção Preventiva'}
               </h3>
               <button onClick={() => setModalType(null)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg">
@@ -1287,7 +1284,7 @@ export default function GestaoOperacional() {
                   placeholder="Ex: Empilhadeira Elétrica Toyota #02 ou Alvará de Bombeiros"
                   value={prevForm.name}
                   onChange={(e) => setPrevForm({ ...prevForm, name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                 />
               </div>
 
@@ -1299,7 +1296,7 @@ export default function GestaoOperacional() {
                   <select
                     value={prevForm.category}
                     onChange={(e) => setPrevForm({ ...prevForm, category: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   >
                     {PREVENTIVE_CATEGORY_OPTIONS.map((cat, i) => (
                       <option key={i} value={cat}>{cat}</option>
@@ -1314,7 +1311,7 @@ export default function GestaoOperacional() {
                   <select
                     value={prevForm.periodicity}
                     onChange={(e) => setPrevForm({ ...prevForm, periodicity: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   >
                     {PERIODICITY_OPTIONS.map((p, i) => (
                       <option key={i} value={p}>{p}</option>
@@ -1332,7 +1329,7 @@ export default function GestaoOperacional() {
                   required
                   value={prevForm.lastDate}
                   onChange={(e) => setPrevForm({ ...prevForm, lastDate: e.target.value })}
-                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                 />
               </div>
 
@@ -1347,7 +1344,7 @@ export default function GestaoOperacional() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white shadow-md flex items-center gap-2 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 disabled:opacity-50"
                 >
                   {isSaving ? <Loader2 size={16} className="animate-spin" /> : null}
                   {editingItem ? 'Salvar Alterações' : 'Criar Preventiva'}
@@ -1364,7 +1361,7 @@ export default function GestaoOperacional() {
           <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-5 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex justify-between items-center">
               <h3 className="font-extrabold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <Laptop className="text-indigo-600" size={20} />
+                <Laptop className="text-green-600" size={20} />
                 {editingItem ? 'Editar Equipamento TI' : 'Enviar Equipamento TI'}
               </h3>
               <button onClick={() => setModalType(null)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg">
@@ -1383,7 +1380,7 @@ export default function GestaoOperacional() {
                   placeholder="Ex: Coletor de Dados Zebra TC21 / Leitor de Código de Barras"
                   value={itForm.device}
                   onChange={(e) => setItForm({ ...itForm, device: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                 />
               </div>
 
@@ -1402,7 +1399,7 @@ export default function GestaoOperacional() {
                         supplierName: selectedSup ? selectedSup.name : ''
                       });
                     }}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   >
                     <option value="">Selecione um fornecedor...</option>
                     {fornecedores.map(f => (
@@ -1418,7 +1415,7 @@ export default function GestaoOperacional() {
                   <select
                     value={itForm.status}
                     onChange={(e) => setItForm({ ...itForm, status: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   >
                     {IT_STATUS_OPTIONS.map((st, i) => (
                       <option key={i} value={st}>{st}</option>
@@ -1436,7 +1433,7 @@ export default function GestaoOperacional() {
                     type="date"
                     value={itForm.sendDate}
                     onChange={(e) => setItForm({ ...itForm, sendDate: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   />
                 </div>
 
@@ -1448,7 +1445,7 @@ export default function GestaoOperacional() {
                     type="date"
                     value={itForm.expectedDate}
                     onChange={(e) => setItForm({ ...itForm, expectedDate: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   />
                 </div>
               </div>
@@ -1462,7 +1459,7 @@ export default function GestaoOperacional() {
                   placeholder="Número de série, modelo, problema apresentado..."
                   value={itForm.notes}
                   onChange={(e) => setItForm({ ...itForm, notes: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                 ></textarea>
               </div>
 
@@ -1477,7 +1474,7 @@ export default function GestaoOperacional() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white shadow-md flex items-center gap-2 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 disabled:opacity-50"
                 >
                   {isSaving ? <Loader2 size={16} className="animate-spin" /> : null}
                   {editingItem ? 'Salvar Alterações' : 'Registrar Envio'}
@@ -1494,7 +1491,7 @@ export default function GestaoOperacional() {
           <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-5 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex justify-between items-center">
               <h3 className="font-extrabold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <Building2 className="text-indigo-600" size={20} />
+                <Building2 className="text-green-600" size={20} />
                 Cadastrar Novo Setor
               </h3>
               <button onClick={() => setModalType(null)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg">
@@ -1513,7 +1510,7 @@ export default function GestaoOperacional() {
                   placeholder="Ex: Manutenção, Frios, Logística, Depósito"
                   value={sectorForm.nome}
                   onChange={(e) => setSectorForm({ nome: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                 />
               </div>
 
@@ -1528,7 +1525,7 @@ export default function GestaoOperacional() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white shadow-md flex items-center gap-2 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 disabled:opacity-50"
                 >
                   {isSaving ? <Loader2 size={16} className="animate-spin" /> : null}
                   Salvar Setor
@@ -1545,7 +1542,7 @@ export default function GestaoOperacional() {
           <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-5 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex justify-between items-center">
               <h3 className="font-extrabold text-lg text-slate-900 dark:text-white flex items-center gap-2">
-                <Users className="text-indigo-600" size={20} />
+                <Users className="text-orange-500" size={20} />
                 Cadastrar Fornecedor / Assistência
               </h3>
               <button onClick={() => setModalType(null)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg">
@@ -1564,7 +1561,7 @@ export default function GestaoOperacional() {
                   placeholder="Ex: Assistência Técnica Zebra Brasil Ltd"
                   value={supplierForm.name}
                   onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                 />
               </div>
 
@@ -1578,7 +1575,7 @@ export default function GestaoOperacional() {
                     placeholder="Ex: Carlos Oliveira"
                     value={supplierForm.contact}
                     onChange={(e) => setSupplierForm({ ...supplierForm, contact: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   />
                 </div>
 
@@ -1591,7 +1588,7 @@ export default function GestaoOperacional() {
                     placeholder="(16) 99999-9999"
                     value={supplierForm.phone}
                     onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   />
                 </div>
               </div>
@@ -1606,7 +1603,7 @@ export default function GestaoOperacional() {
                     placeholder="14400-000"
                     value={supplierForm.cep}
                     onChange={(e) => setSupplierForm({ ...supplierForm, cep: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   />
                 </div>
 
@@ -1619,7 +1616,7 @@ export default function GestaoOperacional() {
                     placeholder="Franca"
                     value={supplierForm.city}
                     onChange={(e) => setSupplierForm({ ...supplierForm, city: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   />
                 </div>
 
@@ -1633,7 +1630,7 @@ export default function GestaoOperacional() {
                     maxLength={2}
                     value={supplierForm.state}
                     onChange={(e) => setSupplierForm({ ...supplierForm, state: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-indigo-600"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:border-green-600"
                   />
                 </div>
               </div>
@@ -1649,7 +1646,7 @@ export default function GestaoOperacional() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-indigo-600 hover:bg-indigo-700 text-white shadow-md flex items-center gap-2 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider bg-green-600 hover:bg-green-700 text-white shadow-md flex items-center gap-2 disabled:opacity-50"
                 >
                   {isSaving ? <Loader2 size={16} className="animate-spin" /> : null}
                   Salvar Fornecedor
@@ -1670,7 +1667,7 @@ export default function GestaoOperacional() {
               </div>
               <h3 className="font-extrabold text-lg text-slate-900 dark:text-white">Confirmar Exclusão</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Tem certeza que deseja excluir o registro <strong className="text-slate-800 dark:text-slate-200">"{deleteConfirm.name}"</strong> da aba <strong className="text-indigo-600">{deleteConfirm.sheetName}</strong>?
+                Tem certeza que deseja excluir o registro <strong className="text-slate-800 dark:text-slate-200">"{deleteConfirm.name}"</strong> da aba <strong className="text-green-600">{deleteConfirm.sheetName}</strong>?
               </p>
               <div className="pt-2 flex justify-center gap-3">
                 <button

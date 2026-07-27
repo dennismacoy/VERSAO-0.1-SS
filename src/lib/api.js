@@ -14,7 +14,7 @@ import {
 // =============================================
 // Google Apps Script — SOMENTE para Sincronização Master (smg13/smg32)
 // =============================================
-const GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbxXJgrXliDUG1MAvqBa0wnmpbRfVMe4IhcgHCZNMo_trvSTFmJpl5Ih2Td-MYGL_ReS2w/exec";
+const GAS_SYNC_URL = "https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec";
 
 const fetchGAS = async (payload) => {
   try {

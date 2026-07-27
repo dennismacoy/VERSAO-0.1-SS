@@ -11,7 +11,7 @@ import PreVenda from './pages/PreVenda';
 import Separacao from './pages/Separacao';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
-import GestaoOperacional from './pages/GestaoOperacional';
+import GestaoAdministrativa from './pages/GestaoAdministrativa';
 import VisualizadorRelatorioPublico from './pages/VisualizadorRelatorioPublico';
 
 class ErrorBoundary extends React.Component {
@@ -90,7 +90,7 @@ function AppRoutes() {
       <Route path="/requisicoes" element={<PrivateRoute permissionName="Acesso Requisições"><Requisicoes /></PrivateRoute>} />
       <Route path="/pre-venda" element={<PrivateRoute permissionName="Acesso Pre-Venda"><PreVenda /></PrivateRoute>} />
       <Route path="/separacao" element={<PrivateRoute permissionName="Acesso Separacao"><Separacao /></PrivateRoute>} />
-      <Route path="/gestao-operacional" element={<PrivateRoute permissionName="Acesso Gestao Operacional"><GestaoOperacional /></PrivateRoute>} />
+      <Route path="/gestao-administrativa" element={<PrivateRoute permissionName="Acesso Gestao Administrativa"><GestaoAdministrativa /></PrivateRoute>} />
       <Route path="/relatorios" element={<PrivateRoute permissionName="Acesso Relatorios"><Relatorios /></PrivateRoute>} />
       <Route path="/configuracoes" element={<PrivateRoute permissionName="Acesso Configuracoes"><Configuracoes /></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />

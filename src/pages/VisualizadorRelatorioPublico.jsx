@@ -53,7 +53,7 @@ export default function VisualizadorRelatorioPublico() {
             const controller = new AbortController();
             const fetchTimeout = setTimeout(() => controller.abort(), 20000);
 
-            const res = await fetch("https://script.google.com/macros/s/AKfycbxXJgrXliDUG1MAvqBa0wnmpbRfVMe4IhcgHCZNMo_trvSTFmJpl5Ih2Td-MYGL_ReS2w/exec", {
+            const res = await fetch("https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec", {
               method: "POST",
               redirect: "follow",
               headers: { "Content-Type": "text/plain;charset=utf-8" },
