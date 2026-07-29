@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api';
 import { listenToPermissions, fetchPermissionsFromFirebase, savePermissionsToFirebase } from '../lib/firebase';
+import { hasRolePermission } from '../lib/permissions';
 
 const AuthContext = createContext({});
 
@@ -97,14 +98,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const hasPermission = React.useCallback((actionName) => {
-    // Admin sempre tem acesso total
-    const currentRole = (role || '').toLowerCase();
-    if (currentRole === 'admin') return true;
-
-    // Suporte tanto para 'Acesso Gestao Administrativa' quanto para 'gestao_administrativa'
-    const canonicalKey = actionName === 'gestao_administrativa' ? 'Acesso Gestao Administrativa' : actionName;
-    const allowedRoles = permissions[canonicalKey] || permissions[actionName] || [];
-    return allowedRoles.some(r => r.toLowerCase() === currentRole);
+    return hasRolePermission(role, actionName, permissions);
   }, [role, permissions]);
 
   const isAdmin = React.useCallback(() => {

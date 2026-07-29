@@ -451,4 +451,48 @@ export const gerarPdfRelatorioAvancado = (data, subtitle = 'Relatório Avançado
 
 export const generateRelatorioAvancadoPDF = gerarPdfRelatorioAvancado;
 
+// =============================================
+// GESTÃO ADMINISTRATIVA PDF — Genérico para Tarefas, Preventivas e TI
+// =============================================
+export const generateGestaoAdministrativaPDF = (title, subtitle, headers, dataRows, filename = 'gestao_administrativa.pdf') => {
+  if (!dataRows || !Array.isArray(dataRows) || dataRows.length === 0) {
+    alert('Nenhum dado para exportar em PDF.');
+    return;
+  }
+
+  try {
+    const doc = new jsPDF();
+    const w = doc.internal.pageSize.getWidth();
+
+    drawHeader(doc, title.toUpperCase(), subtitle || `Total de Registros: ${dataRows.length}`);
+
+    // Bar summary info
+    doc.setFillColor(240, 244, 248);
+    doc.roundedRect(14, 40, w - 28, 10, 2, 2, 'F');
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(34, 120, 60);
+    doc.text(`TOTAL EXPORTADO: ${dataRows.length} REGISTRO(S)`, 20, 46.5);
+
+    autoTable(doc, {
+      ...baseTableStyles,
+      startY: 54,
+      head: [headers],
+      body: dataRows,
+      styles: {
+        ...baseTableStyles.styles,
+        fontSize: 7.5,
+        cellPadding: 3,
+      },
+    });
+
+    drawFooter(doc);
+    doc.save(filename);
+  } catch (error) {
+    console.error('Erro ao gerar PDF da Gestão Administrativa:', error);
+    alert('Ocorreu um erro ao gerar o PDF. Verifique o console para detalhes.');
+  }
+};
+
+
 

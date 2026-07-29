@@ -52,47 +52,23 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const PrivateRoute = ({ children, permissionName }) => {
-  const { user, loading, hasPermission } = useAuth();
-  
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-primary font-bold">Carregando...</div>;
-  }
-  
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (permissionName && !hasPermission(permissionName)) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-[80vh]">
-          <div className="text-center p-8 bg-card rounded-xl border">
-            <h2 className="text-xl font-bold text-destructive mb-2">Acesso Negado</h2>
-            <p className="text-muted-foreground">Você não tem permissão para visualizar esta página.</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-  
-  return <Layout>{children}</Layout>;
-};
+import ProtectedRoute from './components/ProtectedRoute';
+import { PERMISSIONS } from './lib/permissions';
 
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/gerar-relatorio" element={<VisualizadorRelatorioPublico />} />
-      <Route path="/" element={<PrivateRoute permissionName="Acesso Dashboard"><Dashboard /></PrivateRoute>} />
-      <Route path="/consulta" element={<PrivateRoute permissionName="Acesso Consulta"><Consulta /></PrivateRoute>} />
-      <Route path="/pedidos" element={<PrivateRoute permissionName="Acesso Pedidos"><Pedidos /></PrivateRoute>} />
-      <Route path="/requisicoes" element={<PrivateRoute permissionName="Acesso Requisições"><Requisicoes /></PrivateRoute>} />
-      <Route path="/pre-venda" element={<PrivateRoute permissionName="Acesso Pre-Venda"><PreVenda /></PrivateRoute>} />
-      <Route path="/separacao" element={<PrivateRoute permissionName="Acesso Separacao"><Separacao /></PrivateRoute>} />
-      <Route path="/gestao-administrativa" element={<PrivateRoute permissionName="Acesso Gestao Administrativa"><GestaoAdministrativa /></PrivateRoute>} />
-      <Route path="/relatorios" element={<PrivateRoute permissionName="Acesso Relatorios"><Relatorios /></PrivateRoute>} />
-      <Route path="/configuracoes" element={<PrivateRoute permissionName="Acesso Configuracoes"><Configuracoes /></PrivateRoute>} />
+      <Route path="/" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_DASHBOARD}><Dashboard /></ProtectedRoute>} />
+      <Route path="/consulta" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_CONSULTA}><Consulta /></ProtectedRoute>} />
+      <Route path="/pedidos" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_PEDIDOS}><Pedidos /></ProtectedRoute>} />
+      <Route path="/requisicoes" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_REQUISICOES}><Requisicoes /></ProtectedRoute>} />
+      <Route path="/pre-venda" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_PREVENDA}><PreVenda /></ProtectedRoute>} />
+      <Route path="/separacao" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_SEPARACAO}><Separacao /></ProtectedRoute>} />
+      <Route path="/gestao-administrativa" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_GESTAO_ADMIN}><GestaoAdministrativa /></ProtectedRoute>} />
+      <Route path="/relatorios" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_RELATORIOS}><Relatorios /></ProtectedRoute>} />
+      <Route path="/configuracoes" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_CONFIGURACOES}><Configuracoes /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

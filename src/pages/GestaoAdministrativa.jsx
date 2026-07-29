@@ -5,8 +5,6 @@ import {
   Clock,
   AlertTriangle,
   Plus,
-  Search,
-  Filter,
   Trash2,
   Edit2,
   Users,
@@ -17,19 +15,20 @@ import {
   RefreshCw,
   X,
   Phone,
-  MapPin,
-  Tag,
   Wrench,
   CheckSquare,
   Square,
-  Eye,
   Settings,
-  ArrowRight,
-  ExternalLink,
-  RotateCcw,
-  ListFilter
+  RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import usePermission from '../hooks/usePermission';
+import { PERMISSIONS } from '../lib/permissions';
+import ContadorDias, { calculateDaysRemaining } from '../components/ContadorDias';
+import ModalConfirmarExclusao from '../components/ModalConfirmarExclusao';
+import ModalEditarDatas from '../components/ModalEditarDatas';
+import FiltroEExportacao from '../components/FiltroEExportacao';
+import { generateGestaoAdministrativaPDF } from '../lib/pdfGenerator';
 
 // URL da API do Google Apps Script
 const API_URL = "https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec";
@@ -94,7 +93,7 @@ const IT_STATUS_OPTIONS = [
   'Aguardando Retorno'
 ];
 
-// Utilitário estrito para verificar se um item está concluído (trata strings 'false', '0', etc.)
+// Utilitário estrito para verificar se um item está concluído
 const isItemCompleted = (item) => {
   if (!item) return false;
   const val = item.completed;
@@ -106,10 +105,10 @@ const isItemCompleted = (item) => {
   return false;
 };
 
-// Utilitário centralizado para calcular a próxima data da preventiva com base na periodicidade
+// Utilitário centralizado para calcular a próxima data da preventiva
 const calculateNextDate = (lastDateStr, periodicity) => {
   if (!lastDateStr) return null;
-  const date = new Date(lastDateStr);
+  const date = new Date(lastDateStr + 'T00:00:00');
   if (isNaN(date.getTime())) return null;
 
   switch (periodicity) {
@@ -131,19 +130,32 @@ const calculateNextDate = (lastDateStr, periodicity) => {
   return date;
 };
 
-// Utilitário para calcular dias restantes
-const getDaysRemaining = (targetDate) => {
-  if (!targetDate) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(targetDate);
-  target.setHours(0, 0, 0, 0);
-  const diffTime = target.getTime() - today.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+// Utilitário para exportar CSV com BOM UTF-8
+const downloadCSV = (filename, headers, rows) => {
+  const csvContent = '\uFEFF' + [
+    headers.join(';'),
+    ...rows.map(row => row.map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';'))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 };
 
 export default function GestaoAdministrativa() {
   const { hasPermission } = useAuth();
+
+  // Permissões dinâmicas da Matriz de Permissões
+  const canDelete = usePermission(PERMISSIONS.DELETE_ITEMS);
+  const canEdit = usePermission(PERMISSIONS.EDIT_ITEMS);
+  const canEditDates = usePermission(PERMISSIONS.EDIT_DATES);
+  const canExport = usePermission(PERMISSIONS.EXPORT_REPORTS);
+  const canCreate = usePermission(PERMISSIONS.CREATE_ITEMS);
 
   // Abas de navegação: 'tasks' | 'preventive' | 'it' | 'config'
   const [activeTab, setActiveTab] = useState('tasks');
@@ -163,16 +175,21 @@ export default function GestaoAdministrativa() {
   const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState(null);
 
-  // Filtros globais de busca
+  // Filtros globais e de período
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [sectorFilter, setSectorFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   // Modais de Criação Rápida / Cadastros
   const [modalType, setModalType] = useState(null); // 'task' | 'preventive' | 'it' | 'sector' | 'supplier' | null
   const [editingItem, setEditingItem] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // { sheetName, id, name }
+
+  // Modais de Ação Específica (Exclusão e Edição de Datas)
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, sheetName: '', id: null, name: '' });
+  const [dateEditModal, setDateEditModal] = useState({ isOpen: false, item: null, type: 'task' });
 
   // Modal / Slide-Over de Detalhes e Edição ao Clicar na Linha
   const [selectedDetail, setSelectedDetail] = useState(null); // { item, type: 'task'|'preventive'|'it' }
@@ -218,7 +235,7 @@ export default function GestaoAdministrativa() {
     state: ''
   });
 
-  // Função para exibir notificações temporárias
+  // Notificações temporárias
   const showToast = (message, type = 'success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
@@ -277,29 +294,50 @@ export default function GestaoAdministrativa() {
     }
   };
 
-  // Handler genérico de exclusão de registros
-  const handleDeleteRecord = async () => {
-    if (!deleteConfirm) return;
-    const { sheetName, id } = deleteConfirm;
+  // Handler genérico de exclusão com confirmação
+  const handleConfirmDelete = async () => {
+    if (!deleteModal.id || !deleteModal.sheetName) return;
     setIsSaving(true);
     try {
       await fetchGAS({
         action: 'deleteData',
-        sheetName,
-        id
+        sheetName: deleteModal.sheetName,
+        id: deleteModal.id
       });
       showToast('Registro excluído com sucesso!', 'success');
       await loadAllData();
-      setDeleteConfirm(null);
-      if (selectedDetail && selectedDetail.item.id === id) {
+      setDeleteModal({ isOpen: false, sheetName: '', id: null, name: '' });
+      if (selectedDetail && selectedDetail.item.id === deleteModal.id) {
         setSelectedDetail(null);
       }
     } catch (error) {
-      console.error(`Erro ao deletar de ${sheetName}:`, error);
+      console.error(`Erro ao deletar de ${deleteModal.sheetName}:`, error);
       showToast('Erro ao excluir registro.', 'error');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Salvar alteração direta de datas (ModalEditarDatas)
+  const handleSaveDates = async (updatedDates) => {
+    if (!dateEditModal.item) return;
+    const { item, type } = dateEditModal;
+    let sheetName = 'Tarefas';
+    if (type === 'preventive') sheetName = 'Preventivas';
+    if (type === 'it') sheetName = 'TI';
+
+    const dataObj = {
+      ...item,
+      ...updatedDates
+    };
+
+    await handleSaveRecord(sheetName, dataObj, () => {
+      showToast('Datas atualizadas com sucesso!', 'success');
+      setDateEditModal({ isOpen: false, item: null, type: 'task' });
+      if (selectedDetail && selectedDetail.item.id === item.id) {
+        setSelectedDetail({ ...selectedDetail, item: dataObj });
+      }
+    });
   };
 
   // Toggle Conclusão de Tarefa
@@ -323,7 +361,7 @@ export default function GestaoAdministrativa() {
     }
   };
 
-  // Toggle Conclusão de Manutenção de TI
+  // Toggle Conclusão de TI
   const handleToggleITCompleted = async (itItem, e) => {
     if (e) e.stopPropagation();
     const currentlyCompleted = isItemCompleted(itItem);
@@ -344,7 +382,7 @@ export default function GestaoAdministrativa() {
     }
   };
 
-  // REGRA ESPECIAL DE PREVENTIVAS: Renovação Automática do Ciclo
+  // Renovação de Preventiva
   const handleCompletePreventiveCycle = async (preventiveItem, e) => {
     if (e) e.stopPropagation();
     const todayStr = new Date().toISOString().split('T')[0];
@@ -358,7 +396,7 @@ export default function GestaoAdministrativa() {
 
     await handleSaveRecord('Preventivas', updatedPreventive, () => {
       showToast(
-        `Preventiva "${preventiveItem.name}" renovada com sucesso! Nova realização: ${new Date(todayStr + 'T00:00:00').toLocaleDateString('pt-BR')}. Próximo vencimento: ${nextFormatted}.`,
+        `Preventiva "${preventiveItem.name}" renovada! Próximo vencimento: ${nextFormatted}.`,
         'success'
       );
     });
@@ -371,14 +409,13 @@ export default function GestaoAdministrativa() {
     }
   };
 
-  // Abertura do Modal de Detalhes / Edição ao clicar em uma linha
+  // Detalhes e Edição ao clicar na linha
   const openRowDetail = (item, type, editDirectly = false) => {
     setSelectedDetail({ item, type });
     setIsEditingModal(editDirectly);
     setDetailForm({ ...item });
   };
 
-  // Submissão do Modal de Edição (Visualização & Edição)
   const handleSaveDetailModal = async (e) => {
     e.preventDefault();
     if (!selectedDetail) return;
@@ -445,7 +482,6 @@ export default function GestaoAdministrativa() {
     }
   };
 
-  // Editar Setor / Fornecedor na Aba 4
   const openEditBaseModal = (type, item) => {
     setEditingItem(item);
     setModalType(type);
@@ -463,7 +499,7 @@ export default function GestaoAdministrativa() {
     }
   };
 
-  // Submissão do Formulário de Tarefa
+  // Form Submissions
   const handleSubmitTask = (e) => {
     e.preventDefault();
     if (!taskForm.name.trim()) return alert('Informe a descrição da tarefa.');
@@ -475,11 +511,10 @@ export default function GestaoAdministrativa() {
       completedDate: isEdit && isItemCompleted(taskForm) ? (taskForm.completedDate || new Date().toISOString().split('T')[0]) : ''
     };
     handleSaveRecord('Tarefas', dataObj, () => {
-      showToast(isEdit ? 'Tarefa atualizada com sucesso!' : 'Nova tarefa criada com sucesso!', 'success');
+      showToast(isEdit ? 'Tarefa atualizada!' : 'Nova tarefa criada!', 'success');
     });
   };
 
-  // Submissão do Formulário de Preventiva
   const handleSubmitPreventive = (e) => {
     e.preventDefault();
     if (!prevForm.name.trim()) return alert('Informe o equipamento ou documento.');
@@ -492,7 +527,6 @@ export default function GestaoAdministrativa() {
     });
   };
 
-  // Submissão do Formulário de TI
   const handleSubmitIT = (e) => {
     e.preventDefault();
     if (!itForm.device.trim()) return alert('Informe o equipamento.');
@@ -516,7 +550,6 @@ export default function GestaoAdministrativa() {
     });
   };
 
-  // Submissão de Novo Setor
   const handleSubmitSector = (e) => {
     e.preventDefault();
     if (!sectorForm.nome.trim()) return alert('Informe o nome do setor.');
@@ -529,7 +562,6 @@ export default function GestaoAdministrativa() {
     });
   };
 
-  // Submissão de Novo Fornecedor
   const handleSubmitSupplier = (e) => {
     e.preventDefault();
     if (!supplierForm.name.trim()) return alert('Informe o nome do fornecedor.');
@@ -560,7 +592,7 @@ export default function GestaoAdministrativa() {
 
     preventivas.forEach(p => {
       const nextDate = calculateNextDate(p.lastDate, p.periodicity);
-      const days = getDaysRemaining(nextDate);
+      const days = calculateDaysRemaining(nextDate);
       if (days !== null && days <= 15) {
         urgentCount++;
       } else {
@@ -578,6 +610,8 @@ export default function GestaoAdministrativa() {
     return { total, inProgress, completed };
   }, [tiItems]);
 
+  // FILTRAGEM COMBINADA (BUSCA, PERÍODO, STATUS, SETOR/CATEGORIA, CONCLUSÃO)
+
   const filteredTarefas = useMemo(() => {
     return tarefas.filter(t => {
       const completed = isItemCompleted(t);
@@ -589,28 +623,43 @@ export default function GestaoAdministrativa() {
         (t.name || '').toLowerCase().includes(term) ||
         (t.sector || '').toLowerCase().includes(term) ||
         (t.notes || '').toLowerCase().includes(term);
+
       const matchStatus = !statusFilter || t.status === statusFilter;
       const matchSector = !sectorFilter || t.sector === sectorFilter;
-      return matchSearch && matchStatus && matchSector;
+
+      // Filtro por intervalo de data (entryDate ou dueDate)
+      let matchDate = true;
+      const dateToCheck = t.dueDate || t.entryDate;
+      if (startDate && dateToCheck && dateToCheck < startDate) matchDate = false;
+      if (endDate && dateToCheck && dateToCheck > endDate) matchDate = false;
+
+      return matchSearch && matchStatus && matchSector && matchDate;
     });
-  }, [tarefas, completionFilter, searchQuery, statusFilter, sectorFilter]);
+  }, [tarefas, completionFilter, searchQuery, statusFilter, sectorFilter, startDate, endDate]);
 
   const filteredPreventivas = useMemo(() => {
     return preventivas.filter(p => {
-      const nextDate = calculateNextDate(p.lastDate, p.periodicity);
-      const daysRemaining = getDaysRemaining(nextDate);
+      const nextDateObj = calculateNextDate(p.lastDate, p.periodicity);
+      const nextDateStr = nextDateObj ? nextDateObj.toISOString().split('T')[0] : '';
+      const daysRemaining = calculateDaysRemaining(nextDateObj);
       const isUrgent = daysRemaining !== null && daysRemaining <= 15;
 
       if (completionFilter === 'active' && !isUrgent && completionFilter !== 'all') {
-        // no-op for preventivas
+        // no-op para manter preventivas visíveis se não for apenas urgentes
       }
 
       const term = searchQuery.toLowerCase();
       const matchSearch = !term || (p.name || '').toLowerCase().includes(term);
       const matchCategory = !categoryFilter || p.category === categoryFilter;
-      return matchSearch && matchCategory;
+
+      let matchDate = true;
+      const dateToCheck = nextDateStr || p.lastDate;
+      if (startDate && dateToCheck && dateToCheck < startDate) matchDate = false;
+      if (endDate && dateToCheck && dateToCheck > endDate) matchDate = false;
+
+      return matchSearch && matchCategory && matchDate;
     });
-  }, [preventivas, completionFilter, searchQuery, categoryFilter]);
+  }, [preventivas, completionFilter, searchQuery, categoryFilter, startDate, endDate]);
 
   const filteredTI = useMemo(() => {
     return tiItems.filter(i => {
@@ -621,17 +670,144 @@ export default function GestaoAdministrativa() {
       const term = searchQuery.toLowerCase();
       const matchSearch = !term ||
         (i.device || '').toLowerCase().includes(term) ||
-        (i.supplierName || '').toLowerCase().includes(term);
+        (i.supplierName || '').toLowerCase().includes(term) ||
+        (i.notes || '').toLowerCase().includes(term);
+
       const matchStatus = !statusFilter || i.status === statusFilter;
-      return matchSearch && matchStatus;
+
+      let matchDate = true;
+      const dateToCheck = i.expectedDate || i.sendDate;
+      if (startDate && dateToCheck && dateToCheck < startDate) matchDate = false;
+      if (endDate && dateToCheck && dateToCheck > endDate) matchDate = false;
+
+      return matchSearch && matchStatus && matchDate;
     });
-  }, [tiItems, completionFilter, searchQuery, statusFilter]);
+  }, [tiItems, completionFilter, searchQuery, statusFilter, startDate, endDate]);
+
+  // EXPORTAÇÕES (PDF E CSV) QUE RESPEITAM OS FILTROS DA TELA
+
+  const handleExportPDF = () => {
+    if (activeTab === 'tasks') {
+      const headers = ['Conclusão', 'Descrição da Tarefa', 'Setor', 'Status Processo', 'Data Entrada', 'Prazo', 'Dias Restantes'];
+      const rows = filteredTarefas.map(t => {
+        const isComp = isItemCompleted(t);
+        const days = calculateDaysRemaining(t.dueDate);
+        let daysStr = isComp ? 'Concluída' : days === null ? '-' : days < 0 ? `Atrasado (${Math.abs(days)}d)` : `${days}d`;
+        return [
+          isComp ? 'Concluída' : 'Pendente',
+          t.name || '',
+          t.sector || 'Geral',
+          t.status || '',
+          t.entryDate ? new Date(t.entryDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-',
+          t.dueDate ? new Date(t.dueDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-',
+          daysStr
+        ];
+      });
+      generateGestaoAdministrativaPDF('Relatório de Tarefas Administrativas', `Filtro: ${filteredTarefas.length} item(ns)`, headers, rows, 'tarefas_administrativas.pdf');
+    } else if (activeTab === 'preventive') {
+      const headers = ['Equipamento / Documento', 'Categoria', 'Periodicidade', 'Última Realização', 'Próximo Vencimento', 'Status / Dias'];
+      const rows = filteredPreventivas.map(p => {
+        const nextDate = calculateNextDate(p.lastDate, p.periodicity);
+        const days = calculateDaysRemaining(nextDate);
+        let daysStr = days === null ? '-' : days < 0 ? `Vencido (${Math.abs(days)}d)` : `${days}d`;
+        return [
+          p.name || '',
+          p.category || '',
+          p.periodicity || '',
+          p.lastDate ? new Date(p.lastDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-',
+          nextDate ? nextDate.toLocaleDateString('pt-BR') : '-',
+          daysStr
+        ];
+      });
+      generateGestaoAdministrativaPDF('Relatório de Manutenções Preventivas', `Filtro: ${filteredPreventivas.length} item(ns)`, headers, rows, 'manutencoes_preventivas.pdf');
+    } else if (activeTab === 'it') {
+      const headers = ['Status', 'Equipamento TI', 'Fornecedor / Assistência', 'Status Envio', 'Data Envio', 'Previsão Retorno', 'Dias Restantes'];
+      const rows = filteredTI.map(i => {
+        const isComp = isItemCompleted(i);
+        const days = calculateDaysRemaining(i.expectedDate);
+        let daysStr = isComp ? 'Retornado' : days === null ? '-' : days < 0 ? `Atrasado (${Math.abs(days)}d)` : `${days}d`;
+        return [
+          isComp ? 'Retornado' : 'Em Manutenção',
+          i.device || '',
+          i.supplierName || 'Não Informado',
+          i.status || '',
+          i.sendDate ? new Date(i.sendDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-',
+          i.expectedDate ? new Date(i.expectedDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-',
+          daysStr
+        ];
+      });
+      generateGestaoAdministrativaPDF('Relatório de Manutenções de TI', `Filtro: ${filteredTI.length} item(ns)`, headers, rows, 'manutencoes_ti.pdf');
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (activeTab === 'tasks') {
+      const headers = ['Status Conclusão', 'Descrição', 'Setor', 'Status Processo', 'Data Entrada', 'Data Prazo', 'Dias Restantes', 'Observações'];
+      const rows = filteredTarefas.map(t => {
+        const isComp = isItemCompleted(t);
+        const days = calculateDaysRemaining(t.dueDate);
+        return [
+          isComp ? 'Concluída' : 'Pendente',
+          t.name || '',
+          t.sector || 'Geral',
+          t.status || '',
+          t.entryDate || '',
+          t.dueDate || '',
+          isComp ? 'Concluída' : days ?? '',
+          t.notes || ''
+        ];
+      });
+      downloadCSV('tarefas_administrativas.csv', headers, rows);
+    } else if (activeTab === 'preventive') {
+      const headers = ['Equipamento/Documento', 'Categoria', 'Periodicidade', 'Última Realização', 'Próxima Realização', 'Dias Restantes'];
+      const rows = filteredPreventivas.map(p => {
+        const nextDate = calculateNextDate(p.lastDate, p.periodicity);
+        const days = calculateDaysRemaining(nextDate);
+        return [
+          p.name || '',
+          p.category || '',
+          p.periodicity || '',
+          p.lastDate || '',
+          nextDate ? nextDate.toISOString().split('T')[0] : '',
+          days ?? ''
+        ];
+      });
+      downloadCSV('manutencoes_preventivas.csv', headers, rows);
+    } else if (activeTab === 'it') {
+      const headers = ['Status Conclusão', 'Equipamento', 'Fornecedor', 'Status Envio', 'Data Envio', 'Previsão Retorno', 'Dias Restantes', 'Observações'];
+      const rows = filteredTI.map(i => {
+        const isComp = isItemCompleted(i);
+        const days = calculateDaysRemaining(i.expectedDate);
+        return [
+          isComp ? 'Retornado' : 'Em Manutenção',
+          i.device || '',
+          i.supplierName || '',
+          i.status || '',
+          i.sendDate || '',
+          i.expectedDate || '',
+          isComp ? 'Retornado' : days ?? '',
+          i.notes || ''
+        ];
+      });
+      downloadCSV('manutencoes_ti.csv', headers, rows);
+    }
+  };
+
+  const resetFiltersForTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setSearchQuery('');
+    setStatusFilter('');
+    setSectorFilter('');
+    setCategoryFilter('');
+    setStartDate('');
+    setEndDate('');
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-slate-100 p-2 sm:p-4 md:p-8 space-y-4 md:space-y-8">
-      {/* Toast Notification */}
+    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-800 dark:text-slate-100 p-2 sm:p-4 md:p-8 space-y-4 md:space-y-6">
+      {/* TOAST NOTIFICATION */}
       {notification && (
-        <div className={`fixed top-4 right-4 left-4 sm:left-auto sm:max-w-md z-[200] px-4 py-3 rounded-xl shadow-2xl font-bold text-xs sm:text-sm flex items-center gap-3 transition-all animate-bounce ${
+        <div className={`fixed top-4 right-4 left-4 sm:left-auto sm:max-w-md z-[250] px-4 py-3 rounded-xl shadow-2xl font-bold text-xs sm:text-sm flex items-center gap-3 transition-all animate-bounce ${
           notification.type === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'
         }`}>
           {notification.type === 'error' ? <AlertTriangle size={18} className="flex-shrink-0" /> : <CheckCircle2 size={18} className="flex-shrink-0" />}
@@ -639,8 +815,8 @@ export default function GestaoAdministrativa() {
         </div>
       )}
 
-      {/* CABEÇALHO DA PÁGINA (COMPACTO NO MOBILE) */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200 dark:border-zinc-800 pb-4 md:pb-6">
+      {/* CABEÇALHO DA PÁGINA */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200 dark:border-zinc-800 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 md:gap-3">
             <Building2 className="text-green-600 w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" />
@@ -662,7 +838,58 @@ export default function GestaoAdministrativa() {
         </button>
       </div>
 
-      {/* CARDS DE KPI DE TOPO (2 COLUNAS NO MOBILE, 4 NO DESKTOP) */}
+      {/* 1. REPOSICIONAMENTO DO LAYOUT: ABAS POSICIONADAS ACIMA DO DASHBOARD */}
+      <div className="flex items-center overflow-x-auto whitespace-nowrap pb-2 gap-2 hide-scrollbar border-b border-slate-200 dark:border-zinc-800">
+        <button
+          onClick={() => resetFiltersForTabChange('tasks')}
+          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
+            activeTab === 'tasks'
+              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <FileText size={16} />
+          Tarefas ({tarefas.length})
+        </button>
+
+        <button
+          onClick={() => resetFiltersForTabChange('preventive')}
+          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
+            activeTab === 'preventive'
+              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <Wrench size={16} />
+          Preventivas ({preventivas.length})
+        </button>
+
+        <button
+          onClick={() => resetFiltersForTabChange('it')}
+          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
+            activeTab === 'it'
+              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <Laptop size={16} />
+          Informática & TI ({tiItems.length})
+        </button>
+
+        <button
+          onClick={() => resetFiltersForTabChange('config')}
+          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
+            activeTab === 'config'
+              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+          }`}
+        >
+          <Settings size={16} />
+          ⚙️ Configurações
+        </button>
+      </div>
+
+      {/* DASHBOARD CARDS DE KPI (VISÍVEIS PARA ABAS 1, 2 E 3 ABAIXO DAS TABS) */}
       {activeTab !== 'config' && (
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           {activeTab === 'tasks' && (
@@ -741,7 +968,7 @@ export default function GestaoAdministrativa() {
                   <h3 className="text-xl sm:text-3xl font-extrabold text-green-600 mt-0.5">{PREVENTIVE_CATEGORY_OPTIONS.length}</h3>
                 </div>
                 <div className="p-2 sm:p-3 bg-green-50 dark:bg-green-950/50 text-green-600 rounded-xl">
-                  <Tag size={18} className="sm:w-6 sm:h-6" />
+                  <Wrench size={18} className="sm:w-6 sm:h-6" />
                 </div>
               </div>
             </>
@@ -790,58 +1017,7 @@ export default function GestaoAdministrativa() {
         </div>
       )}
 
-      {/* TABS DE NAVEGAÇÃO SUPERIOR (SLIDE HORIZONTAL SUAVE NO MOBILE) */}
-      <div className="flex items-center overflow-x-auto whitespace-nowrap pb-2 gap-2 hide-scrollbar border-b border-slate-200 dark:border-zinc-800">
-        <button
-          onClick={() => { setActiveTab('tasks'); setSearchQuery(''); setStatusFilter(''); setSectorFilter(''); }}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
-            activeTab === 'tasks'
-              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <FileText size={16} />
-          Tarefas ({tarefas.length})
-        </button>
-
-        <button
-          onClick={() => { setActiveTab('preventive'); setSearchQuery(''); setCategoryFilter(''); }}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
-            activeTab === 'preventive'
-              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Wrench size={16} />
-          Preventivas ({preventivas.length})
-        </button>
-
-        <button
-          onClick={() => { setActiveTab('it'); setSearchQuery(''); setStatusFilter(''); }}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
-            activeTab === 'it'
-              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Laptop size={16} />
-          Informática & TI ({tiItems.length})
-        </button>
-
-        <button
-          onClick={() => { setActiveTab('config'); setSearchQuery(''); }}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
-            activeTab === 'config'
-              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Settings size={16} />
-          ⚙️ Configurações
-        </button>
-      </div>
-
-      {/* CONTEÚDO DA ABA SELECIONADA */}
+      {/* CONTEÚDO PRINCIPAL DA ABA SELECIONADA */}
       {isLoading ? (
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-slate-200 dark:border-zinc-800 p-8 md:p-16 flex flex-col items-center justify-center space-y-3 shadow-xs">
           <Loader2 className="animate-spin text-green-600 w-10 h-10 md:w-12 md:h-12" />
@@ -851,145 +1027,42 @@ export default function GestaoAdministrativa() {
         </div>
       ) : (
         <div className="space-y-4 md:space-y-6">
-          {/* BARRA DE FILTROS E PESQUISA RESPONSIVA (ABAS 1, 2 E 3) */}
+          {/* COMPONENTE DE FILTRO E EXPORTAÇÃO (ABAS 1, 2 E 3) */}
           {activeTab !== 'config' && (
-            <div className="space-y-3">
-              <div className="bg-white dark:bg-zinc-900 p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-                <div className="flex flex-1 flex-col sm:flex-row gap-2.5 w-full">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <input
-                      type="text"
-                      placeholder="Pesquisar..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 h-10 text-xs md:h-11 md:text-sm bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium focus:outline-none focus:border-green-600"
-                    />
-                  </div>
-
-                  {activeTab === 'tasks' && (
-                    <div className="grid grid-cols-2 sm:flex gap-2">
-                      <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="h-10 text-xs md:h-11 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2.5 font-semibold focus:outline-none focus:border-green-600 truncate"
-                      >
-                        <option value="">Status (Todos)</option>
-                        {TASK_STATUS_OPTIONS.map((st, i) => (
-                          <option key={i} value={st}>{st}</option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={sectorFilter}
-                        onChange={(e) => setSectorFilter(e.target.value)}
-                        className="h-10 text-xs md:h-11 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2.5 font-semibold focus:outline-none focus:border-green-600 truncate"
-                      >
-                        <option value="">Setores (Todos)</option>
-                        {setores.map(s => (
-                          <option key={s.id} value={s.nome}>{s.nome}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {activeTab === 'preventive' && (
-                    <select
-                      value={categoryFilter}
-                      onChange={(e) => setCategoryFilter(e.target.value)}
-                      className="h-10 text-xs md:h-11 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 font-semibold focus:outline-none focus:border-green-600"
-                    >
-                      <option value="">Categorias (Todas)</option>
-                      {PREVENTIVE_CATEGORY_OPTIONS.map((cat, i) => (
-                        <option key={i} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  )}
-
-                  {activeTab === 'it' && (
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="h-10 text-xs md:h-11 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 font-semibold focus:outline-none focus:border-green-600"
-                    >
-                      <option value="">Status (Todos)</option>
-                      {IT_STATUS_OPTIONS.map((st, i) => (
-                        <option key={i} value={st}>{st}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                {/* BOTÃO ADICIONAR */}
-                <div>
-                  {activeTab === 'tasks' && (
-                    <button
-                      onClick={() => openCreateModal('task')}
-                      className="w-full sm:w-auto h-10 md:h-11 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-4 rounded-xl shadow-md transition-all text-xs uppercase tracking-wider"
-                    >
-                      <Plus size={16} /> Nova Tarefa
-                    </button>
-                  )}
-                  {activeTab === 'preventive' && (
-                    <button
-                      onClick={() => openCreateModal('preventive')}
-                      className="w-full sm:w-auto h-10 md:h-11 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-4 rounded-xl shadow-md transition-all text-xs uppercase tracking-wider"
-                    >
-                      <Plus size={16} /> Nova Preventiva
-                    </button>
-                  )}
-                  {activeTab === 'it' && (
-                    <button
-                      onClick={() => openCreateModal('it')}
-                      className="w-full sm:w-auto h-10 md:h-11 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-4 rounded-xl shadow-md transition-all text-xs uppercase tracking-wider"
-                    >
-                      <Plus size={16} /> Novo Envio TI
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* SELETOR DE PENDENTES / CONCLUÍDOS / TODOS */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 mr-1 flex-shrink-0">
-                  <ListFilter size={13} /> Exibir:
-                </span>
-                <button
-                  onClick={() => setCompletionFilter('active')}
-                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex-shrink-0 ${
-                    completionFilter === 'active'
-                      ? 'bg-orange-500 text-white shadow-xs'
-                      : 'bg-white dark:bg-zinc-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-zinc-800'
-                  }`}
-                >
-                  Pendentes ({activeTab === 'tasks' ? taskKPIs.pending : activeTab === 'it' ? itKPIs.inProgress : preventiveKPIs.total})
-                </button>
-                <button
-                  onClick={() => setCompletionFilter('completed')}
-                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex-shrink-0 ${
-                    completionFilter === 'completed'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-white dark:bg-zinc-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-zinc-800'
-                  }`}
-                >
-                  Concluídos ({activeTab === 'tasks' ? taskKPIs.completed : activeTab === 'it' ? itKPIs.completed : preventiveKPIs.okCount})
-                </button>
-                <button
-                  onClick={() => setCompletionFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all flex-shrink-0 ${
-                    completionFilter === 'all'
-                      ? 'bg-green-600 text-white shadow-xs'
-                      : 'bg-white dark:bg-zinc-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-zinc-800'
-                  }`}
-                >
-                  Todos
-                </button>
-              </div>
-            </div>
+            <FiltroEExportacao
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              startDate={startDate}
+              setStartDate={setStartDate}
+              endDate={endDate}
+              setEndDate={setEndDate}
+              statusFilter={statusFilter}
+              setStatusFilter={activeTab === 'preventive' ? setCategoryFilter : setStatusFilter}
+              statusOptions={activeTab === 'tasks' ? TASK_STATUS_OPTIONS : activeTab === 'it' ? IT_STATUS_OPTIONS : PREVENTIVE_CATEGORY_OPTIONS}
+              sectorFilter={sectorFilter}
+              setSectorFilter={setSectorFilter}
+              sectorOptions={activeTab === 'tasks' ? setores : []}
+              completionFilter={completionFilter}
+              setCompletionFilter={setCompletionFilter}
+              counts={
+                activeTab === 'tasks'
+                  ? { pending: taskKPIs.pending, completed: taskKPIs.completed, total: taskKPIs.total }
+                  : activeTab === 'it'
+                    ? { pending: itKPIs.inProgress, completed: itKPIs.completed, total: itKPIs.total }
+                    : { pending: preventiveKPIs.urgentCount, completed: preventiveKPIs.okCount, total: preventiveKPIs.total }
+              }
+              onExportPDF={handleExportPDF}
+              onExportCSV={handleExportCSV}
+              onAddClick={() => openCreateModal(activeTab === 'tasks' ? 'task' : activeTab === 'preventive' ? 'preventive' : 'it')}
+              addBtnText={activeTab === 'tasks' ? 'Nova Tarefa' : activeTab === 'preventive' ? 'Nova Preventiva' : 'Novo Envio TI'}
+              activeTab={activeTab}
+              canExport={canExport}
+              canCreate={canCreate}
+            />
           )}
 
           {/* ================================================================ */}
-          {/* TABELA RESPONSIVA: ABA 1 (TAREFAS) - CARDS NO MOBILE, TABLE NO DESKTOP */}
+          {/* TABELA RESPONSIVA: ABA 1 (TAREFAS) */}
           {/* ================================================================ */}
           {activeTab === 'tasks' && (
             <div className="bg-transparent md:bg-white dark:md:bg-zinc-900 md:rounded-xl md:border md:border-slate-200 dark:md:border-zinc-800 md:shadow-xs overflow-hidden">
@@ -1001,7 +1074,7 @@ export default function GestaoAdministrativa() {
                     <th className="px-4 py-3.5">Setor</th>
                     <th className="px-4 py-3.5">Status Processo</th>
                     <th className="px-4 py-3.5 text-center">Data Entrada</th>
-                    <th className="px-4 py-3.5 text-center">Data Prazo</th>
+                    <th className="px-4 py-3.5 text-center">Prazo / Dias</th>
                     <th className="px-4 py-3.5 text-right">Ações Rápidas</th>
                   </tr>
                 </thead>
@@ -1010,14 +1083,12 @@ export default function GestaoAdministrativa() {
                   {filteredTarefas.length === 0 ? (
                     <tr className="block md:table-row bg-white dark:bg-zinc-900 rounded-xl p-8 border border-slate-200 dark:border-zinc-800 text-center">
                       <td colSpan="7" className="block md:table-cell text-slate-400 font-medium text-center">
-                        Nenhuma tarefa encontrada.
+                        Nenhuma tarefa encontrada com os filtros aplicados.
                       </td>
                     </tr>
                   ) : (
                     filteredTarefas.map((t) => {
                       const isCompleted = isItemCompleted(t);
-                      const todayStr = new Date().toISOString().split('T')[0];
-                      const isOverdue = !isCompleted && t.dueDate && t.dueDate < todayStr;
 
                       return (
                         <tr
@@ -1042,7 +1113,7 @@ export default function GestaoAdministrativa() {
                           {/* DESCRIÇÃO DA TAREFA */}
                           <td className="flex flex-col py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4">
                             <span className="md:hidden font-bold text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Descrição:</span>
-                            <p className={`font-bold text-slate-800 dark:text-slate-100 text-sm md:text-sm ${isCompleted ? 'line-through text-slate-400' : ''}`}>
+                            <p className={`font-bold text-slate-800 dark:text-slate-100 text-sm ${isCompleted ? 'line-through text-slate-400' : ''}`}>
                               {t.name}
                             </p>
                             {t.notes && <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{t.notes}</p>}
@@ -1071,44 +1142,70 @@ export default function GestaoAdministrativa() {
                             <span>{t.entryDate ? new Date(t.entryDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
                           </td>
 
-                          {/* DATA PRAZO */}
+                          {/* PRAZO E CONTADOR DE DIAS */}
                           <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center">
-                            <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Prazo:</span>
-                            {t.dueDate ? (
-                              <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
-                                isCompleted
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : isOverdue
-                                    ? 'bg-rose-100 text-rose-800 border border-rose-200 animate-pulse'
-                                    : 'bg-slate-100 text-slate-700'
-                              }`}>
-                                {new Date(t.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-                              </span>
-                            ) : '-'}
+                            <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Prazo / Dias:</span>
+                            <div className="flex flex-col md:items-center gap-1">
+                              {t.dueDate && (
+                                <span className="text-[11px] font-semibold text-slate-500">
+                                  {new Date(t.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                </span>
+                              )}
+                              <ContadorDias targetDate={t.dueDate} isCompleted={isCompleted} />
+                            </div>
                           </td>
 
-                          {/* AÇÕES RÁPIDAS */}
+                          {/* AÇÕES RÁPIDAS (EXCLUSÃO E EDIÇÃO DE DATAS INCLUÍDAS DIRECTAMENTE) */}
                           <td className="flex justify-end items-center pt-3 md:pt-0 md:table-cell md:py-3.5 md:px-4 md:text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openRowDetail(t, 'task', true);
-                                }}
-                                className="flex-1 sm:flex-none h-9 px-3 rounded-lg text-xs font-bold bg-orange-50 dark:bg-orange-950/50 text-orange-600 hover:bg-orange-100 transition-colors flex items-center justify-center gap-1"
-                              >
-                                <Edit2 size={13} /> Editar
-                              </button>
-                              <button
-                                onClick={(e) => handleToggleTaskCompleted(t, e)}
-                                className={`flex-1 sm:flex-none h-9 px-3 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1 ${
-                                  isCompleted
-                                    ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
-                                }`}
-                              >
-                                <CheckCircle2 size={13} /> {isCompleted ? 'Desfazer' : 'Concluir'}
-                              </button>
+                            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                              {canEditDates && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDateEditModal({ isOpen: true, item: t, type: 'task' });
+                                  }}
+                                  className="p-2 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors"
+                                  title="Editar Datas"
+                                >
+                                  <Calendar size={15} />
+                                </button>
+                              )}
+                              {canEdit && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openRowDetail(t, 'task', true);
+                                  }}
+                                  className="p-2 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors"
+                                  title="Editar Tarefa"
+                                >
+                                  <Edit2 size={15} />
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteModal({ isOpen: true, sheetName: 'Tarefas', id: t.id, name: t.name });
+                                  }}
+                                  className="p-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                  title="Excluir Tarefa"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              )}
+                              {canEdit && (
+                                <button
+                                  onClick={(e) => handleToggleTaskCompleted(t, e)}
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                    isCompleted
+                                      ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                      : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
+                                  }`}
+                                >
+                                  {isCompleted ? 'Desfazer' : 'Concluir'}
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1121,7 +1218,7 @@ export default function GestaoAdministrativa() {
           )}
 
           {/* ================================================================ */}
-          {/* TABELA RESPONSIVA: ABA 2 (PREVENTIVAS) - CARDS NO MOBILE          */}
+          {/* TABELA RESPONSIVA: ABA 2 (PREVENTIVAS) */}
           {/* ================================================================ */}
           {activeTab === 'preventive' && (
             <div className="bg-transparent md:bg-white dark:md:bg-zinc-900 md:rounded-xl md:border md:border-slate-200 dark:md:border-zinc-800 md:shadow-xs overflow-hidden">
@@ -1133,7 +1230,7 @@ export default function GestaoAdministrativa() {
                     <th className="px-4 py-3.5 text-center">Periodicidade</th>
                     <th className="px-4 py-3.5 text-center">Última Realização</th>
                     <th className="px-4 py-3.5 text-center">Próxima Realização</th>
-                    <th className="px-4 py-3.5 text-center">Status / Dias</th>
+                    <th className="px-4 py-3.5 text-center">Contador de Dias</th>
                     <th className="px-4 py-3.5 text-right">Ações Rápidas</th>
                   </tr>
                 </thead>
@@ -1142,13 +1239,12 @@ export default function GestaoAdministrativa() {
                   {filteredPreventivas.length === 0 ? (
                     <tr className="block md:table-row bg-white dark:bg-zinc-900 rounded-xl p-8 border border-slate-200 dark:border-zinc-800 text-center">
                       <td colSpan="7" className="block md:table-cell text-slate-400 font-medium text-center">
-                        Nenhuma preventiva encontrada.
+                        Nenhuma preventiva encontrada com os filtros aplicados.
                       </td>
                     </tr>
                   ) : (
                     filteredPreventivas.map((p) => {
                       const nextDate = calculateNextDate(p.lastDate, p.periodicity);
-                      const daysRemaining = getDaysRemaining(nextDate);
 
                       return (
                         <tr
@@ -1188,40 +1284,59 @@ export default function GestaoAdministrativa() {
                             <span>{nextDate ? nextDate.toLocaleDateString('pt-BR') : '-'}</span>
                           </td>
 
-                          {/* STATUS / DIAS */}
+                          {/* CONTADOR DE DIAS */}
                           <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center">
-                            <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Status:</span>
-                            {daysRemaining !== null ? (
-                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold ${
-                                daysRemaining < 0
-                                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                                  : daysRemaining <= 15
-                                    ? 'bg-orange-100 text-orange-800 border border-orange-300'
-                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              }`}>
-                                {daysRemaining < 0 ? `Vencido (${Math.abs(daysRemaining)}d)` : `${daysRemaining} dias`}
-                              </span>
-                            ) : '-'}
+                            <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Status / Dias:</span>
+                            <ContadorDias targetDate={nextDate} />
                           </td>
 
-                          {/* AÇÕES RÁPIDAS */}
+                          {/* AÇÕES RÁPIDAS (EXCLUSÃO E EDIÇÃO DE DATAS INCLUÍDAS DIRETO NA LISTA) */}
                           <td className="flex justify-end items-center pt-3 md:pt-0 md:table-cell md:py-3.5 md:px-4 md:text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openRowDetail(p, 'preventive', true);
-                                }}
-                                className="flex-1 sm:flex-none h-9 px-3 rounded-lg text-xs font-bold bg-orange-50 dark:bg-orange-950/50 text-orange-600 hover:bg-orange-100 transition-colors flex items-center justify-center gap-1"
-                              >
-                                <Edit2 size={13} /> Editar
-                              </button>
-                              <button
-                                onClick={(e) => handleCompletePreventiveCycle(p, e)}
-                                className="flex-1 sm:flex-none h-9 px-3 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center justify-center gap-1"
-                              >
-                                <RotateCcw size={13} /> Renovar
-                              </button>
+                            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                              {canEditDates && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDateEditModal({ isOpen: true, item: p, type: 'preventive' });
+                                  }}
+                                  className="p-2 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors"
+                                  title="Editar Data de Realização"
+                                >
+                                  <Calendar size={15} />
+                                </button>
+                              )}
+                              {canEdit && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openRowDetail(p, 'preventive', true);
+                                  }}
+                                  className="p-2 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors"
+                                  title="Editar Registro"
+                                >
+                                  <Edit2 size={15} />
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteModal({ isOpen: true, sheetName: 'Preventivas', id: p.id, name: p.name });
+                                  }}
+                                  className="p-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                  title="Excluir Preventiva"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              )}
+                              {canEdit && (
+                                <button
+                                  onClick={(e) => handleCompletePreventiveCycle(p, e)}
+                                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center gap-1"
+                                >
+                                  <RotateCcw size={13} /> Renovar
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1234,7 +1349,7 @@ export default function GestaoAdministrativa() {
           )}
 
           {/* ================================================================ */}
-          {/* TABELA RESPONSIVA: ABA 3 (TI) - CARDS NO MOBILE                  */}
+          {/* TABELA RESPONSIVA: ABA 3 (TI) */}
           {/* ================================================================ */}
           {activeTab === 'it' && (
             <div className="bg-transparent md:bg-white dark:md:bg-zinc-900 md:rounded-xl md:border md:border-slate-200 dark:md:border-zinc-800 md:shadow-xs overflow-hidden">
@@ -1246,7 +1361,7 @@ export default function GestaoAdministrativa() {
                     <th className="px-4 py-3.5">Fornecedor / Assistência</th>
                     <th className="px-4 py-3.5">Status Manutenção</th>
                     <th className="px-4 py-3.5 text-center">Data Envio</th>
-                    <th className="px-4 py-3.5 text-center">Previsão Retorno</th>
+                    <th className="px-4 py-3.5 text-center">Previsão Retorno / Dias</th>
                     <th className="px-4 py-3.5 text-right">Ações Rápidas</th>
                   </tr>
                 </thead>
@@ -1255,7 +1370,7 @@ export default function GestaoAdministrativa() {
                   {filteredTI.length === 0 ? (
                     <tr className="block md:table-row bg-white dark:bg-zinc-900 rounded-xl p-8 border border-slate-200 dark:border-zinc-800 text-center">
                       <td colSpan="7" className="block md:table-cell text-slate-400 font-medium text-center">
-                        Nenhum equipamento de TI encontrado.
+                        Nenhum equipamento de TI encontrado com os filtros aplicados.
                       </td>
                     </tr>
                   ) : (
@@ -1314,34 +1429,70 @@ export default function GestaoAdministrativa() {
                             <span>{i.sendDate ? new Date(i.sendDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
                           </td>
 
-                          {/* PREVISÃO RETORNO */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center text-xs font-bold text-slate-700 dark:text-slate-300">
+                          {/* PREVISÃO RETORNO E CONTADOR DE DIAS */}
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Previsão Retorno:</span>
-                            <span>{i.expectedDate ? new Date(i.expectedDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
+                            <div className="flex flex-col md:items-center gap-1">
+                              {i.expectedDate && (
+                                <span className="text-[11px] font-semibold text-slate-500">
+                                  {new Date(i.expectedDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                                </span>
+                              )}
+                              <ContadorDias targetDate={i.expectedDate} isCompleted={isCompleted} completedText="Retornado" />
+                            </div>
                           </td>
 
-                          {/* AÇÕES RÁPIDAS */}
+                          {/* AÇÕES RÁPIDAS (EXCLUSÃO E EDIÇÃO DE DATAS DIRETO NA LISTA) */}
                           <td className="flex justify-end items-center pt-3 md:pt-0 md:table-cell md:py-3.5 md:px-4 md:text-right" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openRowDetail(i, 'it', true);
-                                }}
-                                className="flex-1 sm:flex-none h-9 px-3 rounded-lg text-xs font-bold bg-orange-50 dark:bg-orange-950/50 text-orange-600 hover:bg-orange-100 transition-colors flex items-center justify-center gap-1"
-                              >
-                                <Edit2 size={13} /> Editar
-                              </button>
-                              <button
-                                onClick={(e) => handleToggleITCompleted(i, e)}
-                                className={`flex-1 sm:flex-none h-9 px-3 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1 ${
-                                  isCompleted
-                                    ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
-                                }`}
-                              >
-                                <CheckCircle2 size={13} /> {isCompleted ? 'Desfazer' : 'Retornado'}
-                              </button>
+                            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                              {canEditDates && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDateEditModal({ isOpen: true, item: i, type: 'it' });
+                                  }}
+                                  className="p-2 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors"
+                                  title="Editar Datas de Envio/Retorno"
+                                >
+                                  <Calendar size={15} />
+                                </button>
+                              )}
+                              {canEdit && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openRowDetail(i, 'it', true);
+                                  }}
+                                  className="p-2 rounded-lg text-slate-500 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition-colors"
+                                  title="Editar Registro"
+                                >
+                                  <Edit2 size={15} />
+                                </button>
+                              )}
+                              {canDelete && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteModal({ isOpen: true, sheetName: 'TI', id: i.id, name: i.device });
+                                  }}
+                                  className="p-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                  title="Excluir Registro TI"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              )}
+                              {canEdit && (
+                                <button
+                                  onClick={(e) => handleToggleITCompleted(i, e)}
+                                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                    isCompleted
+                                      ? 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                      : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
+                                  }`}
+                                >
+                                  {isCompleted ? 'Desfazer' : 'Retornado'}
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1411,7 +1562,7 @@ export default function GestaoAdministrativa() {
                                   <Edit2 size={15} />
                                 </button>
                                 <button
-                                  onClick={() => setDeleteConfirm({ sheetName: 'Setores', id: s.id, name: s.nome })}
+                                  onClick={() => setDeleteModal({ isOpen: true, sheetName: 'Setores', id: s.id, name: s.nome })}
                                   className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
                                 >
                                   <Trash2 size={15} />
@@ -1474,7 +1625,7 @@ export default function GestaoAdministrativa() {
                                   <Edit2 size={15} />
                                 </button>
                                 <button
-                                  onClick={() => setDeleteConfirm({ sheetName: 'Fornecedores', id: f.id, name: f.name })}
+                                  onClick={() => setDeleteModal({ isOpen: true, sheetName: 'Fornecedores', id: f.id, name: f.name })}
                                   className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
                                 >
                                   <Trash2 size={15} />
@@ -1494,12 +1645,32 @@ export default function GestaoAdministrativa() {
       )}
 
       {/* ================================================================ */}
-      {/* MODAL DE DETALHES E EDIÇÃO RESPONSIVO (HEADER FIXO + BODY SCROLL + FOOTER FIXO) */}
+      {/* MODAIS COMPONENTIZADOS */}
       {/* ================================================================ */}
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      <ModalConfirmarExclusao
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, sheetName: '', id: null, name: '' })}
+        onConfirm={handleConfirmDelete}
+        itemName={deleteModal.name}
+        isDeleting={isSaving}
+      />
+
+      {/* MODAL DE EDIÇÃO DE DATAS */}
+      <ModalEditarDatas
+        isOpen={dateEditModal.isOpen}
+        onClose={() => setDateEditModal({ isOpen: false, item: null, type: 'task' })}
+        onSave={handleSaveDates}
+        item={dateEditModal.item}
+        type={dateEditModal.type}
+        isSaving={isSaving}
+      />
+
+      {/* MODAL DE DETALHES E EDIÇÃO COMPLETA DE REGISTRO */}
       {selectedDetail && (
         <div className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
           <div className="w-[95%] md:w-full max-w-2xl max-h-[90vh] rounded-2xl flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            {/* HEADER FIXO DO MODAL */}
             <div className="flex-none p-4 md:p-6 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 flex justify-between items-center">
               <div className="min-w-0 pr-2">
                 <span className="text-[10px] md:text-[11px] font-extrabold uppercase tracking-widest px-2.5 py-0.5 rounded-md bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-300 inline-block">
@@ -1519,10 +1690,8 @@ export default function GestaoAdministrativa() {
               </button>
             </div>
 
-            {/* CONTEÚDO ROLÁVEL DO MODAL */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 custom-scrollbar">
               {!isEditingModal ? (
-                /* --- MODO VISUALIZAÇÃO --- */
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="bg-slate-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-zinc-800">
@@ -1603,7 +1772,6 @@ export default function GestaoAdministrativa() {
                   )}
                 </div>
               ) : (
-                /* --- MODO EDIÇÃO --- */
                 <form id="detail-edit-form" onSubmit={handleSaveDetailModal} className="space-y-3">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
@@ -1721,7 +1889,6 @@ export default function GestaoAdministrativa() {
               )}
             </div>
 
-            {/* RODAPÉ FIXO DO MODAL (STICKY FOOTER NUNCA ESCONDE OS BOTÕES) */}
             <div className="flex-none sticky bottom-0 bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800 p-3 sm:p-4 flex flex-wrap justify-between items-center gap-2 rounded-b-2xl shadow-[0_-4px_12px_-4px_rgba(0,0,0,0.05)]">
               {!isEditingModal ? (
                 <>
@@ -1764,11 +1931,14 @@ export default function GestaoAdministrativa() {
 
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setDeleteConfirm({
-                        sheetName: selectedDetail.type === 'task' ? 'Tarefas' : selectedDetail.type === 'preventive' ? 'Preventivas' : 'TI',
-                        id: selectedDetail.item.id,
-                        name: selectedDetail.item.name || selectedDetail.item.device
-                      })}
+                      onClick={() => {
+                        setDeleteModal({
+                          isOpen: true,
+                          sheetName: selectedDetail.type === 'task' ? 'Tarefas' : selectedDetail.type === 'preventive' ? 'Preventivas' : 'TI',
+                          id: selectedDetail.item.id,
+                          name: selectedDetail.item.name || selectedDetail.item.device
+                        });
+                      }}
                       className="h-9 px-3 rounded-xl font-bold text-xs uppercase tracking-wider text-rose-600 bg-rose-50 flex items-center gap-1"
                     >
                       <Trash2 size={14} /> Excluir
@@ -1809,7 +1979,7 @@ export default function GestaoAdministrativa() {
         </div>
       )}
 
-      {/* MODAL DE CRIAÇÃO (TAREFA) RESPONSIVO */}
+      {/* MODAL DE CRIAÇÃO (TAREFA) */}
       {modalType === 'task' && (
         <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-xs flex items-center justify-center p-3">
           <div className="w-full max-w-lg max-h-[90vh] bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -1918,7 +2088,7 @@ export default function GestaoAdministrativa() {
         </div>
       )}
 
-      {/* MODAL DE CRIAÇÃO (PREVENTIVA) RESPONSIVO */}
+      {/* MODAL DE CRIAÇÃO (PREVENTIVA) */}
       {modalType === 'preventive' && (
         <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-xs flex items-center justify-center p-3">
           <div className="w-full max-w-lg max-h-[90vh] bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -2004,7 +2174,7 @@ export default function GestaoAdministrativa() {
         </div>
       )}
 
-      {/* MODAL DE CRIAÇÃO (TI) RESPONSIVO */}
+      {/* MODAL DE CRIAÇÃO (TI) */}
       {modalType === 'it' && (
         <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-xs flex items-center justify-center p-3">
           <div className="w-full max-w-lg max-h-[90vh] bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -2118,7 +2288,7 @@ export default function GestaoAdministrativa() {
         </div>
       )}
 
-      {/* MODAL (SETOR) RESPONSIVO */}
+      {/* MODAL (SETOR) */}
       {modalType === 'sector' && (
         <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-xs flex items-center justify-center p-3">
           <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -2167,7 +2337,7 @@ export default function GestaoAdministrativa() {
         </div>
       )}
 
-      {/* MODAL (FORNECEDOR) RESPONSIVO */}
+      {/* MODAL (FORNECEDOR) */}
       {modalType === 'supplier' && (
         <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-xs flex items-center justify-center p-3">
           <div className="w-full max-w-lg max-h-[90vh] bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -2226,7 +2396,7 @@ export default function GestaoAdministrativa() {
                     placeholder="14400-000"
                     value={supplierForm.cep}
                     onChange={(e) => setSupplierForm({ ...supplierForm, cep: e.target.value })}
-                    className="w-full h-10 text-xs md:h-11 md:text-sm px-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                    className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
                   />
                 </div>
 
@@ -2237,7 +2407,7 @@ export default function GestaoAdministrativa() {
                     placeholder="Franca"
                     value={supplierForm.city}
                     onChange={(e) => setSupplierForm({ ...supplierForm, city: e.target.value })}
-                    className="w-full h-10 text-xs md:h-11 md:text-sm px-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                    className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
                   />
                 </div>
 
@@ -2246,10 +2416,9 @@ export default function GestaoAdministrativa() {
                   <input
                     type="text"
                     placeholder="SP"
-                    maxLength={2}
                     value={supplierForm.state}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, state: e.target.value.toUpperCase() })}
-                    className="w-full h-10 text-xs md:h-11 md:text-sm px-2 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                    onChange={(e) => setSupplierForm({ ...supplierForm, state: e.target.value })}
+                    className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium uppercase"
                   />
                 </div>
               </div>
@@ -2272,39 +2441,6 @@ export default function GestaoAdministrativa() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL CONFIRMAÇÃO EXCLUSÃO RESPONSIVO */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-[150] bg-black/50 backdrop-blur-xs flex items-center justify-center p-3">
-          <div className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-5 text-center space-y-3">
-              <div className="w-10 h-10 bg-rose-100 dark:bg-rose-950/50 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                <AlertTriangle size={22} />
-              </div>
-              <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Confirmar Exclusão</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Deseja mesmo excluir o registro <strong className="text-slate-800 dark:text-slate-200">"{deleteConfirm.name}"</strong> da aba <strong className="text-green-600">{deleteConfirm.sheetName}</strong>?
-              </p>
-              <div className="pt-2 flex justify-center gap-2">
-                <button
-                  onClick={() => setDeleteConfirm(null)}
-                  className="h-9 px-4 rounded-xl font-bold text-xs uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleDeleteRecord}
-                  disabled={isSaving}
-                  className="h-9 px-4 rounded-xl font-bold text-xs uppercase tracking-wider bg-rose-600 hover:bg-rose-700 text-white shadow-md flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : null}
-                  Confirmar Exclusão
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}
