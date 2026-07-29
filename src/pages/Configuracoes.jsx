@@ -20,12 +20,34 @@ import ModalCriarRole from '../components/ModalCriarRole';
 
 export default function Configuracoes() {
   const { role, permissions, updatePermissions, isAdmin, user, hasPermission, customRoles: authCustomRoles } = useAuth();
+
+  // ---- ESTADOS E REFS DE CONFIGURAÇÃO ----
   const [activeTab, setActiveTab] = useState('permissoes');
   const [showCreateRoleModal, setShowCreateRoleModal] = useState(false);
   const [isSavingRole, setIsSavingRole] = useState(false);
   const [dynamicRoles, setDynamicRoles] = useState([]);
   const unsubRolesRef = useRef(null);
 
+  // ---- ESTADOS E REFS DE USUÁRIOS ----
+  const [users, setUsers] = useState([]);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [userForm, setUserForm] = useState({ nome: '', usuario: '', senha: '', role: 'vendedor' });
+  const [savingUser, setSavingUser] = useState(false);
+  const unsubUsersRef = useRef(null);
+
+  // ---- ESTADOS DE SINCRONIZAÇÃO E SENHA ----
+  const [file, setFile] = useState(null);
+  const [syncingTarget, setSyncingTarget] = useState(null);
+  const [syncStatus, setSyncStatus] = useState({ type: '', message: '' });
+  const [dragActive, setDragActive] = useState(false);
+  const [updatingMaster, setUpdatingMaster] = useState(false);
+  const [oldPwd, setOldPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [changingPwd, setChangingPwd] = useState(false);
+
+  // ---- EFFECT LISTENERS DE DADOS DO FIREBASE ----
   useEffect(() => {
     unsubRolesRef.current = listenToRoles(setDynamicRoles);
     return () => {
@@ -33,14 +55,27 @@ export default function Configuracoes() {
     };
   }, []);
 
-  // ---- Permissões ----
+  useEffect(() => {
+    if (isAdmin()) {
+      unsubUsersRef.current = listenToUsers(setUsers);
+      return () => { if (unsubUsersRef.current) unsubUsersRef.current(); };
+    }
+  }, [isAdmin]);
+
+  // Se não é admin e tab atual é restrita, muda pra senha
+  useEffect(() => {
+    if (!isAdmin() && activeTab === 'permissoes') setActiveTab('senha');
+    if (!hasPermission('Acessar Sincronização Master') && activeTab === 'sync') setActiveTab('senha');
+  }, [activeTab, isAdmin, hasPermission]);
+
+  // ---- DEFINIÇÃO DE ROLES E AÇÕES DA MATRIZ ----
   const baseRoles = ['gerente', 'lider', 'vendedor', 'repositor', 'clientes'];
-  const allRoles = [
+  const allRoles = useMemo(() => [
     ...baseRoles,
     ...dynamicRoles.map(r => r.id || r.name.toLowerCase().replace(/\s+/g, '_'))
-  ].filter((v, i, a) => a.indexOf(v) === i);
+  ].filter((v, i, a) => a.indexOf(v) === i), [baseRoles, dynamicRoles]);
 
-  const actionsList = [
+  const actionsList = useMemo(() => [
     { id: 'Acesso Dashboard', label: 'Acesso Dashboard' },
     { id: 'Acesso Consulta', label: 'Acesso Consulta' },
     { id: 'Acesso Pedidos', label: 'Acesso Pedidos' },
@@ -63,10 +98,7 @@ export default function Configuracoes() {
     { id: 'Botao Enviar WPP', label: 'Botão Enviar WhatsApp' },
     { id: 'Botao Ligar Comprador', label: 'Botão Falar Comprador' },
     { id: 'Botao Gerar PDF', label: 'Botão Gerar PDF' },
-  ];
-
-  // ---- Hooks de Ordenação Dinâmica ----
-  const { items: sortedUsers, requestSort: sortUsers, sortConfig: sortUsersConfig } = useSortableData(users, { key: 'nome', direction: 'asc' });
+  ], []);
 
   // Prepara lista de ações com valores calculados por role para ordenação nas colunas da Matriz
   const actionsWithRoleValues = useMemo(() => {
@@ -79,8 +111,11 @@ export default function Configuracoes() {
     });
   }, [actionsList, allRoles, permissions]);
 
+  // ---- HOOKS DE ORDENAÇÃO DINÂMICA (EXECUTADOS APÓS A DECLARAÇÃO DOS DADOS) ----
+  const { items: sortedUsers, requestSort: sortUsers, sortConfig: sortUsersConfig } = useSortableData(users, { key: 'nome', direction: 'asc' });
   const { items: sortedActions, requestSort: sortActions, sortConfig: sortActionsConfig } = useSortableData(actionsWithRoleValues, { key: 'label', direction: 'asc' });
 
+  // ---- MANIPULADORES DE EVENTOS DE INTERFACE ----
   const renderSortHeader = (title, key, currentSortConfig, onRequestSort, align = 'left') => {
     const isActive = currentSortConfig?.key === key;
     return (
@@ -144,21 +179,6 @@ export default function Configuracoes() {
     updatePermissions({ ...permissions, [action]: newRoles });
   };
 
-  // ---- Usuários ----
-  const [users, setUsers] = useState([]);
-  const [showUserModal, setShowUserModal] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [userForm, setUserForm] = useState({ nome: '', usuario: '', senha: '', role: 'vendedor' });
-  const [savingUser, setSavingUser] = useState(false);
-  const unsubUsersRef = useRef(null);
-
-  useEffect(() => {
-    if (isAdmin()) {
-      unsubUsersRef.current = listenToUsers(setUsers);
-      return () => { if (unsubUsersRef.current) unsubUsersRef.current(); };
-    }
-  }, [isAdmin]);
-
   const openNewUser = () => { setEditingUser(null); setUserForm({ nome: '', usuario: '', senha: '', role: 'vendedor' }); setShowUserModal(true); };
   const openEditUser = (u) => { setEditingUser(u); setUserForm({ nome: u.nome || '', usuario: u.usuario || '', senha: '', role: u.role || u.perfil || 'vendedor' }); setShowUserModal(true); };
 
@@ -186,11 +206,6 @@ export default function Configuracoes() {
   };
 
   // ---- Sincronização ----
-  const [file, setFile] = useState(null);
-  const [syncingTarget, setSyncingTarget] = useState(null);
-  const [syncStatus, setSyncStatus] = useState({ type: '', message: '' });
-  const [dragActive, setDragActive] = useState(false);
-
   const handleSync = async (target) => {
     setSyncingTarget(target); 
     setSyncStatus({ type: '', message: '' });
@@ -222,7 +237,6 @@ export default function Configuracoes() {
       finally { setSyncingTarget(null); }
     }
   };
-  const [updatingMaster, setUpdatingMaster] = useState(false);
 
   const handleTriggerUpdate = async () => {
     setUpdatingMaster(true);
@@ -238,11 +252,6 @@ export default function Configuracoes() {
   };
 
   // ---- Trocar Senha ----
-  const [oldPwd, setOldPwd] = useState('');
-  const [newPwd, setNewPwd] = useState('');
-  const [confirmPwd, setConfirmPwd] = useState('');
-  const [changingPwd, setChangingPwd] = useState(false);
-
   const handleChangePassword = async () => {
     if (!newPwd || newPwd.length < 4) return alert('Senha deve ter pelo menos 4 caracteres.');
     if (newPwd !== confirmPwd) return alert('As senhas não coincidem.');
