@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api';
-import { listenToPermissions, fetchPermissionsFromFirebase, savePermissionsToFirebase } from '../lib/firebase';
+import { listenToPermissions, fetchPermissionsFromFirebase, savePermissionsToFirebase, listenToRoles } from '../lib/firebase';
 import { hasRolePermission } from '../lib/permissions';
 
 const AuthContext = createContext({});
@@ -45,7 +45,9 @@ export const AuthProvider = ({ children }) => {
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState(defaultPermissions);
+  const [customRoles, setCustomRoles] = useState([]);
   const unsubPermsRef = useRef(null);
+  const unsubRolesRef = useRef(null);
 
   // Listener em tempo real para permissões do Firebase
   useEffect(() => {
@@ -53,14 +55,28 @@ export const AuthProvider = ({ children }) => {
       if (fbPerms && typeof fbPerms === 'object') {
         const { updatedAt, ...cleanPerms } = fbPerms;
         if (Object.keys(cleanPerms).length > 0) {
-          // CORREÇÃO: Mescla o padrão com o Firebase. Assim as permissões novas nunca somem!
-          setPermissions({ ...defaultPermissions, ...cleanPerms });
+          setPermissions(prev => ({ ...defaultPermissions, ...cleanPerms, ...prev }));
         }
+      }
+    });
+
+    unsubRolesRef.current = listenToRoles((rolesData) => {
+      if (Array.isArray(rolesData)) {
+        setCustomRoles(rolesData);
+        // Transforma o formato { id, name, permissions } em entradas para a matriz
+        const roleMatrix = {};
+        rolesData.forEach(r => {
+          if (r.id && Array.isArray(r.permissions)) {
+            roleMatrix[r.id] = r.permissions;
+          }
+        });
+        setPermissions(prev => ({ ...prev, ...roleMatrix }));
       }
     });
 
     return () => {
       if (unsubPermsRef.current) unsubPermsRef.current();
+      if (unsubRolesRef.current) unsubRolesRef.current();
     };
   }, []);
 
@@ -125,8 +141,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const contextValue = React.useMemo(() => ({
-    user, role, login, logout, loading, permissions, hasPermission, updatePermissions, isAdmin
-  }), [user, role, loading, permissions, hasPermission, updatePermissions, isAdmin]);
+    user, role, login, logout, loading, permissions, customRoles, hasPermission, updatePermissions, isAdmin
+  }), [user, role, loading, permissions, customRoles, hasPermission, updatePermissions, isAdmin]);
 
   return (
     <AuthContext.Provider value={contextValue}>

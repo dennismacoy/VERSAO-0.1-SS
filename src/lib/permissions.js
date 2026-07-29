@@ -22,8 +22,31 @@ export const PERMISSIONS = {
   EDIT_DATES: 'edit_dates',
   CREATE_ITEMS: 'create_items',
   EXPORT_REPORTS: 'export_reports',
-  SYNC_MASTER: 'sync_master'
+  SYNC_MASTER: 'sync_master',
+
+  // Integração & Sincronização Base
+  ALLOW_SHEETS_SYNC: 'allow_sheets_sync'
 };
+
+// Lista catalogada e amigável com labels de todas as permissões do sistema
+export const ALL_PERMISSIONS_LIST = [
+  { id: PERMISSIONS.VIEW_DASHBOARD, label: 'Acesso Dashboard', category: 'Páginas' },
+  { id: PERMISSIONS.VIEW_CONSULTA, label: 'Acesso Consulta', category: 'Páginas' },
+  { id: PERMISSIONS.VIEW_PEDIDOS, label: 'Acesso Pedidos', category: 'Páginas' },
+  { id: PERMISSIONS.VIEW_REQUISICOES, label: 'Acesso Requisições', category: 'Páginas' },
+  { id: PERMISSIONS.VIEW_PREVENDA, label: 'Acesso Pré-Venda', category: 'Páginas' },
+  { id: PERMISSIONS.VIEW_SEPARACAO, label: 'Acesso Separação', category: 'Páginas' },
+  { id: PERMISSIONS.VIEW_GESTAO_ADMIN, label: 'Acesso Gestão Administrativa', category: 'Páginas' },
+  { id: PERMISSIONS.VIEW_RELATORIOS, label: 'Acesso Relatórios', category: 'Páginas' },
+  { id: PERMISSIONS.VIEW_CONFIGURACOES, label: 'Acesso Configurações', category: 'Páginas' },
+  { id: PERMISSIONS.ALLOW_SHEETS_SYNC, label: 'Acesso à Planilha Base (Google Sheets)', category: 'Integrações', highlight: true },
+  { id: PERMISSIONS.CREATE_ITEMS, label: 'Criar Registros / Tarefas', category: 'Ações' },
+  { id: PERMISSIONS.EDIT_ITEMS, label: 'Editar Registros / Itens', category: 'Ações' },
+  { id: PERMISSIONS.EDIT_DATES, label: 'Editar Datas dos Registros', category: 'Ações' },
+  { id: PERMISSIONS.DELETE_ITEMS, label: 'Excluir Registros / Itens', category: 'Ações' },
+  { id: PERMISSIONS.EXPORT_REPORTS, label: 'Gerar PDF / Exportar CSV', category: 'Ações' },
+  { id: PERMISSIONS.SYNC_MASTER, label: 'Sincronização Master', category: 'Ações' }
+];
 
 // Mapeamento de chaves legadas para as novas ações canônicas (backward compatibility)
 export const LEGACY_ACTION_MAP = {
@@ -55,6 +78,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     PERMISSIONS.VIEW_GESTAO_ADMIN,
     PERMISSIONS.VIEW_RELATORIOS,
     PERMISSIONS.VIEW_CONFIGURACOES,
+    PERMISSIONS.ALLOW_SHEETS_SYNC,
     PERMISSIONS.DELETE_ITEMS,
     PERMISSIONS.EDIT_ITEMS,
     PERMISSIONS.EDIT_DATES,
@@ -69,6 +93,7 @@ export const DEFAULT_ROLE_PERMISSIONS = {
     PERMISSIONS.VIEW_GESTAO_ADMIN,
     PERMISSIONS.VIEW_RELATORIOS,
     PERMISSIONS.VIEW_CONFIGURACOES,
+    PERMISSIONS.ALLOW_SHEETS_SYNC,
     PERMISSIONS.DELETE_ITEMS,
     PERMISSIONS.EDIT_ITEMS,
     PERMISSIONS.EDIT_DATES,
@@ -158,3 +183,32 @@ export const hasRolePermission = (userRole, action, customMatrix = null) => {
   const rolePermissions = DEFAULT_ROLE_PERMISSIONS[role] || [];
   return rolePermissions.includes('*') || rolePermissions.includes(canonicalAction);
 };
+
+// LISTA DE PRIORIDADE DE PÁGINAS PARA ROTA INICIAL DINÂMICA
+export const PAGE_PRIORITY_LIST = [
+  { path: '/', action: PERMISSIONS.VIEW_DASHBOARD },
+  { path: '/consulta', action: PERMISSIONS.VIEW_CONSULTA },
+  { path: '/pedidos', action: PERMISSIONS.VIEW_PEDIDOS },
+  { path: '/pre-venda', action: PERMISSIONS.VIEW_PREVENDA },
+  { path: '/separacao', action: PERMISSIONS.VIEW_SEPARACAO },
+  { path: '/gestao-administrativa', action: PERMISSIONS.VIEW_GESTAO_ADMIN },
+  { path: '/relatorios', action: PERMISSIONS.VIEW_RELATORIOS },
+  { path: '/configuracoes', action: PERMISSIONS.VIEW_CONFIGURACOES }
+];
+
+/**
+ * Retorna o path (caminho) da primeira página que a role do usuário tem permissão para visualizar.
+ * Se não tiver permissão para nenhuma, retorna '/sem-acesso'.
+ */
+export const getDefaultRoute = (userRole, customMatrix = null) => {
+  if (!userRole) return '/login';
+
+  for (const page of PAGE_PRIORITY_LIST) {
+    if (hasRolePermission(userRole, page.action, customMatrix)) {
+      return page.path;
+    }
+  }
+
+  return '/sem-acesso';
+};
+

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getDefaultRoute } from '../lib/permissions';
 import { Package2, Loader2, User, Lock, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function Login() {
@@ -8,7 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const { login } = useAuth();
+  const { login, permissions } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -16,8 +17,10 @@ export default function Login() {
     setLoading(true);
     setErrorMsg('');
     try {
-      await login(username, password);
-      navigate('/consulta');
+      const res = await login(username, password);
+      const userRole = res?.role || res?.user?.role || 'vendedor';
+      const targetRoute = getDefaultRoute(userRole, permissions);
+      navigate(targetRoute, { replace: true });
     } catch (error) {
       console.error(error);
       setErrorMsg(error?.message || 'Acesso Negado: Verifique suas credenciais.');

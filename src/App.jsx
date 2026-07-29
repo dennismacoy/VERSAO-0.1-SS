@@ -53,6 +53,8 @@ class ErrorBoundary extends React.Component {
 }
 
 import ProtectedRoute from './components/ProtectedRoute';
+import HomeRedirect from './components/HomeRedirect';
+import SemAcesso from './pages/SemAcesso';
 import { PERMISSIONS } from './lib/permissions';
 
 function AppRoutes() {
@@ -60,7 +62,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/gerar-relatorio" element={<VisualizadorRelatorioPublico />} />
-      <Route path="/" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_DASHBOARD}><Dashboard /></ProtectedRoute>} />
+      <Route path="/sem-acesso" element={<SemAcesso />} />
+      <Route path="/" element={<HomeRedirect />} />
       <Route path="/consulta" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_CONSULTA}><Consulta /></ProtectedRoute>} />
       <Route path="/pedidos" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_PEDIDOS}><Pedidos /></ProtectedRoute>} />
       <Route path="/requisicoes" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_REQUISICOES}><Requisicoes /></ProtectedRoute>} />

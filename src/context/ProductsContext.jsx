@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { hasRolePermission } from '../lib/permissions';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 
 const CACHE_KEY = 'erp_products_cache';
 const CACHE_TIME_KEY = 'erp_products_time'; // Para guardar a data da última atualização
 const ProductsContext = createContext({});
 
-// URL do GAS (Apps Script) extraída do seu api.js
+// =============================================================================
+// CONFIGURAÇÃO DA URL / CHAVE DA API DO GOOGLE SHEETS (GOOGLE APPS SCRIPT)
+// Caso sua planilha mude de URL ou necessite de chave/ID de API, atualize o valor abaixo:
+// =============================================================================
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec";
 
 // Trava de cache no Firebase (Nó super leve apenas com a data de atualização)
@@ -15,13 +19,28 @@ const FIREBASE_SISTEMA_URL = "https://atacadao-ss-default-rtdb.firebaseio.com/si
 export const useProducts = () => useContext(ProductsContext);
 
 export const ProductsProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user, role, permissions, hasPermission } = useAuth();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
     if (!user || hasLoaded) return;
+
+    // =========================================================================
+    // IF DE SEGURANÇA & REGRAS DE NEGÓCIO: BLOQUEIO DE FETCH & CACHE DA PLANILHA
+    // Se o usuário logado não possuir a permissão 'allow_sheets_sync', o sistema
+    // ignora completamente o download e salvamento em cache do Google Sheets.
+    // =========================================================================
+    const canSyncSheets = hasPermission ? hasPermission('allow_sheets_sync') : hasRolePermission(role, 'allow_sheets_sync', permissions);
+
+    if (!canSyncSheets) {
+      console.warn(`🚫 [Permissão Negada] O perfil/role "${role}" NÃO tem permissão "allow_sheets_sync". Ignorando download e cache da Planilha Base.`);
+      setProducts([]);
+      setLoading(false);
+      setHasLoaded(true);
+      return;
+    }
 
     let isMounted = true;
     setLoading(true);

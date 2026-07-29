@@ -458,5 +458,81 @@ export const listenToReports = (callback) => {
   return listenToNode('relatorios_hist', callback);
 };
 
+// =============================================
+// ROLES DINÂMICAS (Firebase — /roles)
+// =============================================
+
+/**
+ * Salva ou atualiza uma Role dinâmica no nó /roles.
+ */
+export const saveRoleFirebase = async (roleName, permissions = []) => {
+  try {
+    const roleId = roleName.toLowerCase().trim().replace(/\s+/g, '_');
+    const roleRef = ref(db, `roles/${roleId}`);
+    const data = {
+      id: roleId,
+      name: roleName.trim(),
+      permissions: permissions || [],
+      updatedAt: new Date().toISOString(),
+    };
+    await set(roleRef, data);
+    return { success: true, roleId, data };
+  } catch (error) {
+    console.error('[Firebase] Erro ao salvar Role:', error);
+    throw error;
+  }
+};
+
+/**
+ * Busca todas as roles dinâmicas do nó /roles.
+ */
+export const fetchRolesFromFirebase = async () => {
+  try {
+    const snapshot = await get(ref(db, 'roles'));
+    if (!snapshot.exists()) return [];
+    const data = snapshot.val();
+    if (data && typeof data === 'object') {
+      return Object.values(data);
+    }
+    return [];
+  } catch (error) {
+    console.error('[Firebase] Erro ao buscar roles:', error);
+    return [];
+  }
+};
+
+/**
+ * Listener em tempo real para o nó /roles.
+ */
+export const listenToRoles = (callback) => {
+  const rolesRef = ref(db, 'roles');
+  return onValue(rolesRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      callback([]);
+      return;
+    }
+    const data = snapshot.val();
+    const items = data && typeof data === 'object' ? Object.values(data) : [];
+    callback(items);
+  }, (error) => {
+    console.error('[Firebase] Erro no listener de roles:', error);
+  });
+};
+
+/**
+ * Exclui uma Role dinâmica do nó /roles.
+ */
+export const deleteRoleFirebase = async (roleId) => {
+  try {
+    const roleRef = ref(db, `roles/${roleId}`);
+    await remove(roleRef);
+    return { success: true };
+  } catch (error) {
+    console.error('[Firebase] Erro ao excluir role:', error);
+    throw error;
+  }
+};
+
 // Exporta o db para uso direto se necessário
 export { db, ref, get, set, push, update, remove, onValue };
+

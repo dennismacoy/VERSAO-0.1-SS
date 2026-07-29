@@ -1,17 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UploadCloud, CheckCircle2, AlertCircle, Loader2, ShieldCheck, Settings2, Lock, Eye, FileText, Trash2, UserPlus, X, Save, Key, RefreshCw } from 'lucide-react';
+import { UploadCloud, CheckCircle2, AlertCircle, Loader2, ShieldCheck, ShieldPlus, Settings2, Lock, Eye, FileText, Trash2, UserPlus, X, Save, Key, RefreshCw, Plus, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
-import { fetchUsersFromFirebase, createUserFirebase, updateUserFirebase, deleteUserFirebase, changePasswordFirebase, listenToUsers } from '../lib/firebase';
+import useSortableData from '../hooks/useSortableData';
+import {
+  fetchUsersFromFirebase,
+  createUserFirebase,
+  updateUserFirebase,
+  deleteUserFirebase,
+  changePasswordFirebase,
+  listenToUsers,
+  saveRoleFirebase,
+  deleteRoleFirebase,
+  listenToRoles
+} from '../lib/firebase';
+import ModalCriarRole from '../components/ModalCriarRole';
 
 export default function Configuracoes() {
-  const { role, permissions, updatePermissions, isAdmin, user, hasPermission } = useAuth();
+  const { role, permissions, updatePermissions, isAdmin, user, hasPermission, customRoles: authCustomRoles } = useAuth();
   const [activeTab, setActiveTab] = useState('permissoes');
+  const [showCreateRoleModal, setShowCreateRoleModal] = useState(false);
+  const [isSavingRole, setIsSavingRole] = useState(false);
+  const [dynamicRoles, setDynamicRoles] = useState([]);
+  const unsubRolesRef = useRef(null);
+
+  useEffect(() => {
+    unsubRolesRef.current = listenToRoles(setDynamicRoles);
+    return () => {
+      if (unsubRolesRef.current) unsubRolesRef.current();
+    };
+  }, []);
 
   // ---- Permissões ----
-  const rolesAvailable = ['gerente', 'lider', 'vendedor', 'repositor', 'clientes'];
+  const baseRoles = ['gerente', 'lider', 'vendedor', 'repositor', 'clientes'];
+  const allRoles = [
+    ...baseRoles,
+    ...dynamicRoles.map(r => r.id || r.name.toLowerCase().replace(/\s+/g, '_'))
+  ].filter((v, i, a) => a.indexOf(v) === i);
+
   const actionsList = [
     { id: 'Acesso Dashboard', label: 'Acesso Dashboard' },
     { id: 'Acesso Consulta', label: 'Acesso Consulta' },
@@ -36,6 +64,74 @@ export default function Configuracoes() {
     { id: 'Botao Ligar Comprador', label: 'Botão Falar Comprador' },
     { id: 'Botao Gerar PDF', label: 'Botão Gerar PDF' },
   ];
+
+  // ---- Hooks de Ordenação Dinâmica ----
+  const { items: sortedUsers, requestSort: sortUsers, sortConfig: sortUsersConfig } = useSortableData(users, { key: 'nome', direction: 'asc' });
+
+  // Prepara lista de ações com valores calculados por role para ordenação nas colunas da Matriz
+  const actionsWithRoleValues = useMemo(() => {
+    return actionsList.map(action => {
+      const item = { ...action };
+      allRoles.forEach(r => {
+        item[`perm_${r}`] = permissions[action.id]?.includes(r) ? 1 : 0;
+      });
+      return item;
+    });
+  }, [actionsList, allRoles, permissions]);
+
+  const { items: sortedActions, requestSort: sortActions, sortConfig: sortActionsConfig } = useSortableData(actionsWithRoleValues, { key: 'label', direction: 'asc' });
+
+  const renderSortHeader = (title, key, currentSortConfig, onRequestSort, align = 'left') => {
+    const isActive = currentSortConfig?.key === key;
+    return (
+      <th
+        onClick={() => onRequestSort(key)}
+        className={`px-4 py-3 cursor-pointer select-none hover:bg-muted/80 transition-colors ${
+          align === 'center' ? 'text-center' : 'text-left'
+        }`}
+        title={`Clique para ordenar por ${title}`}
+      >
+        <div className={`inline-flex items-center gap-1.5 ${align === 'center' ? 'justify-center' : 'justify-start'}`}>
+          <span>{title}</span>
+          {isActive ? (
+            currentSortConfig.direction === 'asc' ? (
+              <ArrowUp size={13} className="text-primary font-bold" />
+            ) : (
+              <ArrowDown size={13} className="text-primary font-bold" />
+            )
+          ) : (
+            <ArrowUpDown size={12} className="text-muted-foreground opacity-50 hover:opacity-100" />
+          )}
+        </div>
+      </th>
+    );
+  };
+
+  const handleSaveNewRole = async (roleName, selectedPermissions) => {
+    setIsSavingRole(true);
+    try {
+      await saveRoleFirebase(roleName, selectedPermissions);
+      setShowCreateRoleModal(false);
+      alert(`Nova Role "${roleName}" criada e salva com sucesso no Firebase!`);
+    } catch (err) {
+      console.error('[Firebase] Erro ao salvar Role:', err);
+      alert('Erro ao salvar nova Role no Firebase.');
+    } finally {
+      setIsSavingRole(false);
+    }
+  };
+
+  const handleDeleteDynamicRole = async (roleObj) => {
+    if (window.confirm(`Tem certeza que deseja excluir a Role "${roleObj.name || roleObj.id}"?`)) {
+      try {
+        await deleteRoleFirebase(roleObj.id);
+        alert(`Role "${roleObj.name || roleObj.id}" excluída com sucesso!`);
+      } catch (err) {
+        console.error('[Firebase] Erro ao excluir Role:', err);
+        alert('Erro ao excluir Role.');
+      }
+    }
+  };
 
   const handleTogglePermission = (action, targetRole) => {
     const currentRoles = permissions[action] || [];
@@ -204,14 +300,14 @@ export default function Configuracoes() {
               <table className="w-full text-sm text-left">
                 <thead className="bg-zinc-200 dark:bg-zinc-800">
                   <tr>
-                    <th className="px-4 py-3 font-bold text-xs uppercase">Nome</th>
-                    <th className="px-4 py-3 font-bold text-xs uppercase">Usuário</th>
-                    <th className="px-4 py-3 font-bold text-xs uppercase text-center">Role</th>
+                    {renderSortHeader('Nome', 'nome', sortUsersConfig, sortUsers, 'left')}
+                    {renderSortHeader('Usuário', 'usuario', sortUsersConfig, sortUsers, 'left')}
+                    {renderSortHeader('Role', 'role', sortUsersConfig, sortUsers, 'center')}
                     <th className="px-4 py-3 text-center text-xs uppercase font-bold">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {users.map(u => (
+                  {sortedUsers.map(u => (
                     <tr key={u.firebaseId} className="hover:bg-muted/30">
                       <td className="px-4 py-3 font-bold">{u.nome || u.usuario}</td>
                       <td className="px-4 py-3 text-muted-foreground">{u.usuario}</td>
@@ -229,28 +325,74 @@ export default function Configuracoes() {
 
           {/* Permission Matrix */}
           <div className="erp-card overflow-hidden">
-            <div className="p-6 border-b border-border flex items-center gap-3">
-              <ShieldCheck size={24} className="text-primary" />
-              <div>
-                <h2 className="text-xl font-black uppercase">Matriz de Permissões</h2>
-                <p className="text-xs font-bold text-muted-foreground">Admin possui acesso total automático</p>
+            <div className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <ShieldCheck size={24} className="text-primary" />
+                <div>
+                  <h2 className="text-xl font-black uppercase">Matriz de Permissões</h2>
+                  <p className="text-xs font-bold text-muted-foreground">Admin possui acesso total automático</p>
+                </div>
               </div>
+
+              <button
+                onClick={() => setShowCreateRoleModal(true)}
+                className="btn-primary flex items-center justify-center gap-2 text-xs py-2.5 px-4 rounded-xl shadow-md bg-green-600 hover:bg-green-700 text-white font-bold uppercase tracking-wider"
+              >
+                <ShieldPlus size={18} />
+                <span>Criar Nova Role</span>
+              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-zinc-200 dark:bg-zinc-800">
-                    <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px]">Funcionalidade</th>
-                    {rolesAvailable.map(r => (
-                      <th key={r} className="px-3 py-4 text-center font-black uppercase tracking-widest text-[10px]">{r}</th>
-                    ))}
+                    {renderSortHeader('Funcionalidade / Ação', 'label', sortActionsConfig, sortActions, 'left')}
+                    {allRoles.map(r => {
+                      const dynamicRole = dynamicRoles.find(dr => dr.id === r || dr.name?.toLowerCase().replace(/\s+/g, '_') === r);
+                      const roleTitle = dynamicRole?.name || r;
+                      const isRoleSorted = sortActionsConfig?.key === `perm_${r}`;
+
+                      return (
+                        <th
+                          key={r}
+                          onClick={() => sortActions(`perm_${r}`)}
+                          className="px-3 py-4 text-center font-black uppercase tracking-widest text-[10px] cursor-pointer select-none hover:bg-muted/80 transition-colors"
+                          title={`Clique para ordenar por permissões de ${roleTitle}`}
+                        >
+                          <div className="flex items-center justify-center gap-1">
+                            <span>{roleTitle}</span>
+                            {isRoleSorted ? (
+                              sortActionsConfig.direction === 'asc' ? (
+                                <ArrowUp size={13} className="text-primary font-bold" />
+                              ) : (
+                                <ArrowDown size={13} className="text-primary font-bold" />
+                              )
+                            ) : (
+                              <ArrowUpDown size={12} className="text-muted-foreground opacity-40 hover:opacity-100" />
+                            )}
+                            {dynamicRole && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteDynamicRole(dynamicRole);
+                                }}
+                                className="text-rose-500 hover:text-rose-700 p-0.5 rounded transition-colors ml-1"
+                                title={`Excluir role ${dynamicRole.name}`}
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {actionsList.map(action => (
+                  {sortedActions.map(action => (
                     <tr key={action.id} className="hover:bg-primary/5">
                       <td className="px-6 py-3 font-bold text-sm">{action.label}</td>
-                      {rolesAvailable.map(r => (
+                      {allRoles.map(r => (
                         <td key={r} className="px-3 py-3 text-center">
                           <button
                             onClick={() => handleTogglePermission(action.id, r)}
@@ -384,6 +526,9 @@ export default function Configuracoes() {
                   <option value="vendedor">Vendedor</option>
                   <option value="repositor">Repositor</option>
                   <option value="clientes">Clientes</option>
+                  {dynamicRoles.map(dr => (
+                    <option key={dr.id} value={dr.id}>{dr.name || dr.id}</option>
+                  ))}
                 </select>
               </div>
               <button onClick={handleSaveUser} disabled={savingUser} className="w-full btn-primary py-3 flex items-center justify-center gap-2">
@@ -394,6 +539,14 @@ export default function Configuracoes() {
           </div>
         </div>
       )}
+
+      {/* Modal: Criar Nova Role Dinâmica */}
+      <ModalCriarRole
+        isOpen={showCreateRoleModal}
+        onClose={() => setShowCreateRoleModal(false)}
+        onSave={handleSaveNewRole}
+        isSaving={isSavingRole}
+      />
     </div>
   );
 }

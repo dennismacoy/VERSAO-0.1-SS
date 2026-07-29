@@ -19,10 +19,14 @@ import {
   CheckSquare,
   Square,
   Settings,
-  RotateCcw
+  RotateCcw,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import usePermission from '../hooks/usePermission';
+import useSortableData from '../hooks/useSortableData';
 import { PERMISSIONS } from '../lib/permissions';
 import ContadorDias, { calculateDaysRemaining } from '../components/ContadorDias';
 import ModalConfirmarExclusao from '../components/ModalConfirmarExclusao';
@@ -684,6 +688,38 @@ export default function GestaoAdministrativa() {
     });
   }, [tiItems, completionFilter, searchQuery, statusFilter, startDate, endDate]);
 
+  // HOOKS DE ORDENAÇÃO DINÂMICA DE COLUNAS
+  const { items: sortedTarefas, requestSort: sortTarefas, sortConfig: sortTarefasConfig } = useSortableData(filteredTarefas, { key: 'name', direction: 'asc' });
+  const { items: sortedPreventivas, requestSort: sortPreventivas, sortConfig: sortPreventivasConfig } = useSortableData(filteredPreventivas, { key: 'name', direction: 'asc' });
+  const { items: sortedTI, requestSort: sortTI, sortConfig: sortTIConfig } = useSortableData(filteredTI, { key: 'device', direction: 'asc' });
+
+  // Funções utilitárias para renderizar o cabeçalho ordenável
+  const renderSortHeader = (title, key, currentSortConfig, onRequestSort, align = 'left') => {
+    const isActive = currentSortConfig?.key === key;
+    return (
+      <th
+        onClick={() => onRequestSort(key)}
+        className={`px-4 py-3.5 cursor-pointer select-none hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors ${
+          align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left'
+        }`}
+        title={`Clique para ordenar por ${title}`}
+      >
+        <div className={`inline-flex items-center gap-1.5 ${align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : 'justify-start'}`}>
+          <span>{title}</span>
+          {isActive ? (
+            currentSortConfig.direction === 'asc' ? (
+              <ArrowUp size={14} className="text-green-600 dark:text-green-400 font-extrabold" />
+            ) : (
+              <ArrowDown size={14} className="text-green-600 dark:text-green-400 font-extrabold" />
+            )
+          ) : (
+            <ArrowUpDown size={13} className="text-slate-400 opacity-60 hover:opacity-100" />
+          )}
+        </div>
+      </th>
+    );
+  };
+
   // EXPORTAÇÕES (PDF E CSV) QUE RESPEITAM OS FILTROS DA TELA
 
   const handleExportPDF = () => {
@@ -1070,24 +1106,24 @@ export default function GestaoAdministrativa() {
                 <thead className="hidden md:table-header-group bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-zinc-700">
                   <tr>
                     <th className="px-4 py-3.5 w-12 text-center">Status</th>
-                    <th className="px-4 py-3.5">Descrição da Tarefa</th>
-                    <th className="px-4 py-3.5">Setor</th>
-                    <th className="px-4 py-3.5">Status Processo</th>
-                    <th className="px-4 py-3.5 text-center">Data Entrada</th>
-                    <th className="px-4 py-3.5 text-center">Prazo / Dias</th>
+                    {renderSortHeader('Descrição da Tarefa', 'name', sortTarefasConfig, sortTarefas, 'left')}
+                    {renderSortHeader('Setor', 'sector', sortTarefasConfig, sortTarefas, 'left')}
+                    {renderSortHeader('Status Processo', 'status', sortTarefasConfig, sortTarefas, 'left')}
+                    {renderSortHeader('Data Entrada', 'entryDate', sortTarefasConfig, sortTarefas, 'center')}
+                    {renderSortHeader('Prazo / Dias', 'dueDate', sortTarefasConfig, sortTarefas, 'center')}
                     <th className="px-4 py-3.5 text-right">Ações Rápidas</th>
                   </tr>
                 </thead>
 
                 <tbody className="block md:table-row-group space-y-3 md:space-y-0 divide-y-0 md:divide-y divide-slate-100 dark:divide-zinc-800">
-                  {filteredTarefas.length === 0 ? (
+                  {sortedTarefas.length === 0 ? (
                     <tr className="block md:table-row bg-white dark:bg-zinc-900 rounded-xl p-8 border border-slate-200 dark:border-zinc-800 text-center">
                       <td colSpan="7" className="block md:table-cell text-slate-400 font-medium text-center">
                         Nenhuma tarefa encontrada com os filtros aplicados.
                       </td>
                     </tr>
                   ) : (
-                    filteredTarefas.map((t) => {
+                    sortedTarefas.map((t) => {
                       const isCompleted = isItemCompleted(t);
 
                       return (
@@ -1225,10 +1261,10 @@ export default function GestaoAdministrativa() {
               <table className="w-full text-xs md:text-sm text-left border-collapse block md:table">
                 <thead className="hidden md:table-header-group bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-zinc-700">
                   <tr>
-                    <th className="px-4 py-3.5">Equipamento / Documento</th>
-                    <th className="px-4 py-3.5">Categoria</th>
-                    <th className="px-4 py-3.5 text-center">Periodicidade</th>
-                    <th className="px-4 py-3.5 text-center">Última Realização</th>
+                    {renderSortHeader('Equipamento / Documento', 'name', sortPreventivasConfig, sortPreventivas, 'left')}
+                    {renderSortHeader('Categoria', 'category', sortPreventivasConfig, sortPreventivas, 'left')}
+                    {renderSortHeader('Periodicidade', 'periodicity', sortPreventivasConfig, sortPreventivas, 'center')}
+                    {renderSortHeader('Última Realização', 'lastDate', sortPreventivasConfig, sortPreventivas, 'center')}
                     <th className="px-4 py-3.5 text-center">Próxima Realização</th>
                     <th className="px-4 py-3.5 text-center">Contador de Dias</th>
                     <th className="px-4 py-3.5 text-right">Ações Rápidas</th>
@@ -1236,14 +1272,14 @@ export default function GestaoAdministrativa() {
                 </thead>
 
                 <tbody className="block md:table-row-group space-y-3 md:space-y-0 divide-y-0 md:divide-y divide-slate-100 dark:divide-zinc-800">
-                  {filteredPreventivas.length === 0 ? (
+                  {sortedPreventivas.length === 0 ? (
                     <tr className="block md:table-row bg-white dark:bg-zinc-900 rounded-xl p-8 border border-slate-200 dark:border-zinc-800 text-center">
                       <td colSpan="7" className="block md:table-cell text-slate-400 font-medium text-center">
                         Nenhuma preventiva encontrada com os filtros aplicados.
                       </td>
                     </tr>
                   ) : (
-                    filteredPreventivas.map((p) => {
+                    sortedPreventivas.map((p) => {
                       const nextDate = calculateNextDate(p.lastDate, p.periodicity);
 
                       return (
@@ -1357,24 +1393,24 @@ export default function GestaoAdministrativa() {
                 <thead className="hidden md:table-header-group bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-zinc-700">
                   <tr>
                     <th className="px-4 py-3.5 w-12 text-center">Status</th>
-                    <th className="px-4 py-3.5">Equipamento</th>
-                    <th className="px-4 py-3.5">Fornecedor / Assistência</th>
-                    <th className="px-4 py-3.5">Status Manutenção</th>
-                    <th className="px-4 py-3.5 text-center">Data Envio</th>
-                    <th className="px-4 py-3.5 text-center">Previsão Retorno / Dias</th>
+                    {renderSortHeader('Equipamento', 'device', sortTIConfig, sortTI, 'left')}
+                    {renderSortHeader('Fornecedor / Assistência', 'supplierName', sortTIConfig, sortTI, 'left')}
+                    {renderSortHeader('Status Manutenção', 'status', sortTIConfig, sortTI, 'left')}
+                    {renderSortHeader('Data Envio', 'sendDate', sortTIConfig, sortTI, 'center')}
+                    {renderSortHeader('Previsão Retorno / Dias', 'expectedDate', sortTIConfig, sortTI, 'center')}
                     <th className="px-4 py-3.5 text-right">Ações Rápidas</th>
                   </tr>
                 </thead>
 
                 <tbody className="block md:table-row-group space-y-3 md:space-y-0 divide-y-0 md:divide-y divide-slate-100 dark:divide-zinc-800">
-                  {filteredTI.length === 0 ? (
+                  {sortedTI.length === 0 ? (
                     <tr className="block md:table-row bg-white dark:bg-zinc-900 rounded-xl p-8 border border-slate-200 dark:border-zinc-800 text-center">
                       <td colSpan="7" className="block md:table-cell text-slate-400 font-medium text-center">
                         Nenhum equipamento de TI encontrado com os filtros aplicados.
                       </td>
                     </tr>
                   ) : (
-                    filteredTI.map((i) => {
+                    sortedTI.map((i) => {
                       const isCompleted = isItemCompleted(i);
 
                       return (
