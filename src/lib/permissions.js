@@ -160,6 +160,11 @@ export const hasRolePermission = (userRole, action, customMatrix = null) => {
   // Normaliza o nome da ação se for legado
   const canonicalAction = LEGACY_ACTION_MAP[action] || action;
 
+  // Permissão global para realizar o download da base de dados
+  if (canonicalAction === PERMISSIONS.ALLOW_SHEETS_SYNC || canonicalAction === 'allow_sheets_sync') {
+    return true;
+  }
+
   // 1. Se existir uma matriz customizada vinda do Firebase ou estado
   if (customMatrix && typeof customMatrix === 'object') {
     // Se a matriz customizada contiver a role diretamente como chave

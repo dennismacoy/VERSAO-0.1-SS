@@ -9,6 +9,7 @@ import {
   AlertCircle,
   Package,
   User,
+  MessageSquare,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { generateSeparacaoPDF } from '../lib/pdfGenerator';
@@ -21,9 +22,7 @@ export default function Separacao() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
-  const [repositores, setRepositores] = useState([]);
   const unsubRef = useRef(null);
-  const unsubUsersRef = useRef(null);
 
   // Debug de permissões para resolver o erro de "Acesso Negado"
   useEffect(() => {
@@ -42,20 +41,6 @@ export default function Separacao() {
     });
     return () => {
       if (unsubRef.current) unsubRef.current();
-    };
-  }, []);
-
-  // Listener em tempo real para usuários (separadores/repositores)
-  useEffect(() => {
-    unsubUsersRef.current = listenToUsers((users) => {
-      const filteredUsers = users.filter(u => {
-        const userRole = (u.role || u.perfil || u.cargo || u.Role || '').toLowerCase();
-        return userRole.includes('repositor') || userRole.includes('lider') || userRole.includes('líder');
-      });
-      setRepositores(filteredUsers);
-    });
-    return () => {
-      if (unsubUsersRef.current) unsubUsersRef.current();
     };
   }, []);
 
@@ -78,27 +63,39 @@ export default function Separacao() {
     }
   };
 
-  const handleReatribuir = async (firebaseId, newUserId) => {
-    try {
-      const targetUser = repositores.find(u => (u.firebaseId || u.id) === newUserId);
-      const targetName = targetUser ? (targetUser.nome || targetUser.usuario) : '';
+  const handleShareWhatsApp = (item) => {
+    const id = item.firebaseId?.slice(-6) || item.id || 'N/A';
+    const dataStr = item.data || item.createdAt ? new Date(item.data || item.createdAt).toLocaleDateString('pt-BR') : '';
+    const cliente = item.cliente || 'Não Informado';
+    const separador = item.atribuido || item.separador || 'Não Atribuído';
+    const total = item.total ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.total) : 'R$ 0,00';
+    
+    const itensList = (item.itens || []).map(i => {
+      const cod = i.codigo || i.CODIGO || '';
+      const desc = i.descricao || i.DESCRICAO || '';
+      const qtd = i.qtd || i.QTD || 1;
+      const emb = i.embalagem || i.EMBALAGEM || i.emb || 'UN';
+      return `• *${cod}* - ${desc} (Qtd: ${qtd} ${emb})`;
+    }).join('\n');
 
-      await api.updateRecord('prevendas', firebaseId, {
-        atribuidoId: newUserId || '',
-        atribuido: targetName,
-        separadorId: newUserId || '',
-        separador: targetName,
-        status: newUserId ? 'Em Separação' : 'Aberta'
-      });
-    } catch (e) {
-      console.error('Erro ao reatribuir:', e);
-      alert('Erro ao reatribuir separador.');
-    }
+    const msg = [
+      `📦 *GUIA DE SEPARAÇÃO - ATACADÃO SS*`,
+      `👤 *CLIENTE:* ${cliente}`,
+      `📋 *Pedido:* #${id} ${dataStr ? `| *Data:* ${dataStr}` : ''}`,
+      `⚙️ *Status:* ${item.status || 'Aberta'} | *Separador:* ${separador}`,
+      `----------------------------------------`,
+      `📝 *PRODUTOS PARA SEPARAÇÃO:*`,
+      itensList || '• Nenhum item cadastrado',
+      `----------------------------------------`,
+      `💰 *VALOR TOTAL:* ${total}`,
+    ].join('\n');
+
+    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
   };
 
   // Verificação de permissão de acesso à página
   const canAccess = hasPermission('Acesso Separacao') || role === 'repositor' || role === 'lider' || role === 'admin' || role === 'gerente' || role === 'vendedor';
-  // Perfis com permissão para realizar designações/atribuições
   const canAssign = role === 'admin' || role === 'gerente' || role === 'vendedor';
 
   if (!canAccess) {
@@ -115,8 +112,6 @@ export default function Separacao() {
   }
 
   // Filtra itens visíveis:
-  // Perfis com permissão de gestão (Admin, Gerente, Vendedor) visualizam todas as tarefas abertas para gestão.
-  // Usuários designados (Repositor, Líder) visualizam exclusivamente as tarefas a eles atribuídas.
   const visibleItems = items
     .filter(item => item.status !== 'Finalizada')
     .filter(item => {
@@ -184,16 +179,20 @@ export default function Separacao() {
                 <Package size={32} />
               </div>
 
+              {/* Destaque no Cliente */}
               <div className="flex justify-between items-start mb-6">
-                <div>
-                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-1">Pré-Venda</span>
-                  <h3 className="text-2xl font-black tracking-tighter text-foreground">#{item.firebaseId?.slice(-6) || 'N/A'}</h3>
-                  <p className="text-xs text-muted-foreground mt-1 truncate max-w-[200px]">
-                    Cliente: <span className="font-bold">{item.cliente || 'N/A'}</span>
+                <div className="flex-1 min-w-0 pr-3">
+                  <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-0.5">Cliente</span>
+                  <h3 className="text-xl md:text-2xl font-black tracking-tight text-foreground truncate" title={item.cliente}>
+                    {item.cliente || 'CLIENTE NÃO INFORMADO'}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-bold">
+                    <span>Pedido #{item.firebaseId?.slice(-6) || 'N/A'}</span>
+                    {item.data && <span>• {new Date(item.data).toLocaleDateString('pt-BR')}</span>}
                   </p>
                 </div>
                 <span className={cn(
-                  "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm",
+                  "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-2xs shrink-0",
                   item.status === 'Aberta' ? "bg-muted text-muted-foreground border-border" :
                     item.status === 'Em Separação' ? "bg-orange-100 text-orange-700 border-orange-200" :
                       item.status === 'Finalizada' ? "bg-success/10 text-success border-success/20" :
@@ -204,28 +203,12 @@ export default function Separacao() {
               </div>
 
               <div className="space-y-4 flex-1">
+                {/* Separador Apenas Leitura (Sem Dropdown) */}
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl">
                   <User size={18} className="text-primary" />
                   <div className="flex-1 overflow-hidden">
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest leading-none">Separador</p>
                     <p className="font-bold truncate mt-1">{item.atribuido || item.separador || 'Não Atribuído'}</p>
-                    {canAssign && (
-                      <select
-                        className="mt-2 text-xs border border-border rounded-lg p-1.5 w-full bg-background"
-                        value={item.atribuidoId || item.separadorId || ''}
-                        onChange={(e) => handleReatribuir(item.firebaseId, e.target.value)}
-                      >
-                        <option value="">Não atribuído</option>
-                        {repositores.map(u => {
-                          const uId = u.firebaseId || u.id;
-                          return (
-                            <option key={uId} value={uId}>
-                              {u.nome || u.usuario} ({u.role || u.perfil || u.cargo || 'Repositor'})
-                            </option>
-                          );
-                        })}
-                      </select>
-                    )}
                   </div>
                 </div>
 
@@ -238,20 +221,29 @@ export default function Separacao() {
                 </div>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-dashed border-border flex gap-3">
+              {/* Botões de Ação com Envio Minimalista no WPP */}
+              <div className="mt-8 pt-6 border-t border-dashed border-border flex items-center gap-2">
                 <button
                   onClick={() => generateSeparacaoPDF(item)}
-                  className="min-h-[44px] p-4 bg-card border-2 border-border text-foreground hover:bg-muted rounded-2xl transition-all shadow-sm active:scale-90"
-                  title="Imprimir Guia de Picking"
+                  className="min-h-[44px] p-3.5 bg-card border border-border text-foreground hover:bg-muted rounded-2xl transition-all shadow-2xs active:scale-95 flex items-center justify-center"
+                  title="Imprimir Guia de Picking (PDF)"
                 >
-                  <FileText size={20} />
+                  <FileText size={18} />
+                </button>
+
+                <button
+                  onClick={() => handleShareWhatsApp(item)}
+                  className="min-h-[44px] p-3.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded-2xl transition-all shadow-2xs active:scale-95 flex items-center justify-center gap-1.5 font-extrabold text-xs"
+                  title="Encaminhar via WhatsApp"
+                >
+                  <MessageSquare size={18} />
                 </button>
 
                 <button
                   disabled={item.status === 'Finalizada' || updatingId === item.firebaseId}
                   onClick={() => handleUpdateStatus(item.firebaseId, item.status)}
                   className={cn(
-                    "min-h-[44px] flex-1 flex items-center justify-center gap-2 font-black text-xs uppercase tracking-widest py-4 rounded-2xl transition-all shadow-lg active:scale-95 disabled:opacity-50",
+                    "min-h-[44px] flex-1 flex items-center justify-center gap-2 font-black text-xs uppercase tracking-widest py-3 px-4 rounded-2xl transition-all shadow-md active:scale-95 disabled:opacity-50",
                     item.status === 'Finalizada' ? "bg-success text-success-foreground" : "bg-primary text-primary-foreground hover:shadow-primary/20"
                   )}
                 >

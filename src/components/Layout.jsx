@@ -90,13 +90,16 @@ export default function Layout({ children }) {
       {/* ================================================================ */}
       {/* DESKTOP SIDEBAR (Unchanged — visible from md breakpoint)         */}
       {/* ================================================================ */}
+      {/* ================================================================ */}
+      {/* DESKTOP SIDEBAR (Visible from md breakpoint)                     */}
+      {/* ================================================================ */}
       <aside
         className={cn(
-          "hidden md:flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out relative z-30 shadow-lg",
+          "hidden md:flex flex-col bg-slate-100 dark:bg-zinc-900 border-r border-slate-200 dark:border-zinc-800 transition-all duration-300 ease-in-out relative z-30 shadow-lg",
           isSidebarOpen ? "w-64" : "w-20"
         )}
       >
-        <div className="h-20 flex items-center justify-between px-4 border-b border-border bg-green-50 dark:bg-green-950/20">
+        <div className="h-20 flex items-center justify-between px-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-200/50 dark:bg-zinc-800/50">
           {isSidebarOpen ? (
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-600/20 transform rotate-3">
@@ -120,15 +123,15 @@ export default function Layout({ children }) {
                   className={({ isActive }) => cn(
                     "flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden",
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-md font-bold scale-[1.02]"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground font-semibold"
+                      ? "bg-orange-500 text-white shadow-md shadow-orange-500/20 font-bold scale-[1.02]"
+                      : "text-slate-600 dark:text-slate-300 hover:bg-orange-500/10 hover:text-orange-600 dark:hover:text-orange-400 font-semibold"
                   )}
                 >
                   {({ isActive }) => (
                     <>
-                      <item.icon size={22} className={cn("flex-shrink-0 transition-transform group-hover:scale-110", isActive && "text-primary-foreground")} />
+                      <item.icon size={22} className={cn("flex-shrink-0 transition-transform group-hover:scale-110", isActive ? "text-white" : "text-slate-500 dark:text-slate-400 group-hover:text-orange-600 dark:group-hover:text-orange-400")} />
                       {isSidebarOpen && <span className="text-sm tracking-tight">{item.name}</span>}
-                      {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/20" />}
+                      {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/40" />}
                     </>
                   )}
                 </NavLink>
@@ -137,22 +140,22 @@ export default function Layout({ children }) {
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-border bg-muted/10">
+        <div className="p-4 border-t border-slate-200 dark:border-zinc-800 bg-slate-200/30 dark:bg-zinc-800/30">
           {isSidebarOpen && (
-            <div className="mb-4 px-3 py-3 bg-card rounded-xl border border-border shadow-sm flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary border border-primary/30">
+            <div className="mb-4 px-3 py-3 bg-white dark:bg-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 shadow-xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-green-600/15 flex items-center justify-center text-green-600 dark:text-green-400 border border-green-600/20">
                 <User size={20} />
               </div>
               <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-bold truncate leading-tight">{user?.name || 'Usuário'}</p>
-                <p className="text-[10px] font-black text-primary uppercase tracking-widest mt-0.5">{role}</p>
+                <p className="text-sm font-bold truncate leading-tight text-slate-800 dark:text-slate-100">{user?.name || 'Usuário'}</p>
+                <p className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest mt-0.5">{role}</p>
               </div>
             </div>
           )}
           <button
             onClick={handleLogout}
             className={cn(
-              "flex items-center gap-3 px-3 py-3 w-full rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all font-bold group",
+              "flex items-center gap-3 px-3 py-3 w-full rounded-xl text-slate-600 dark:text-slate-300 hover:bg-rose-500/10 hover:text-rose-600 transition-all font-bold group",
               !isSidebarOpen && "justify-center"
             )}
           >
@@ -164,7 +167,7 @@ export default function Layout({ children }) {
         {/* Sidebar Toggle Button */}
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute -right-3 top-24 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-md border-2 border-background z-40 hover:scale-110 transition-transform"
+          className="absolute -right-3 top-24 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white dark:border-zinc-900 z-40 hover:scale-110 transition-transform"
         >
           {isSidebarOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
         </button>
@@ -174,30 +177,30 @@ export default function Layout({ children }) {
       {/* MAIN CONTENT AREA                                                */}
       {/* ================================================================ */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-16 bg-card/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-8 z-40 shadow-sm sticky top-0">
+        <header className="h-16 bg-slate-100/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 z-40 shadow-xs sticky top-0">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 md:hidden">
-              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shadow-lg transform rotate-3">
+              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center shadow-md transform rotate-3">
                 <span className="font-black text-white text-sm">SS</span>
               </div>
               <span className="font-black text-lg tracking-tighter text-green-600">Smart Stock</span>
             </div>
-            <h2 className="hidden md:block font-bold text-muted-foreground text-sm uppercase tracking-widest">
+            <h2 className="hidden md:block font-bold text-slate-600 dark:text-slate-300 text-sm uppercase tracking-widest">
               {menuItems.find(i => i.path === location.pathname)?.name || 'Início'}
             </h2>
           </div>
 
           <div className="flex items-center gap-3">
             <button
-              className="flex items-center gap-2 px-3 py-2 md:px-4 rounded-xl border border-border bg-background hover:bg-muted text-muted-foreground transition-all shadow-sm active:scale-95 group"
+              className="flex items-center gap-2 px-3 py-2 md:px-4 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-700 text-slate-700 dark:text-slate-200 transition-all shadow-2xs active:scale-95 group"
               onClick={() => setDarkMode(!darkMode)}
             >
-              {darkMode ? <Sun size={18} className="text-primary group-hover:rotate-45 transition-transform" /> : <Moon size={18} className="text-primary group-hover:-rotate-12 transition-transform" />}
+              {darkMode ? <Sun size={18} className="text-orange-500 group-hover:rotate-45 transition-transform" /> : <Moon size={18} className="text-orange-500 group-hover:-rotate-12 transition-transform" />}
               <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">{darkMode ? 'Claro' : 'Escuro'}</span>
             </button>
             <button
               onClick={handleLogout}
-              className="md:hidden flex items-center justify-center p-2 rounded-xl border border-destructive/20 bg-destructive/5 text-destructive hover:bg-destructive/10 transition-all active:scale-95"
+              className="md:hidden flex items-center justify-center p-2 rounded-xl border border-rose-500/20 bg-rose-500/5 text-rose-600 hover:bg-rose-500/10 transition-all active:scale-95"
             >
               <LogOut size={18} />
             </button>
@@ -205,7 +208,7 @@ export default function Layout({ children }) {
         </header>
 
         {/* Page Container — pb-28 garante espaço suficiente acima do bottom nav mobile */}
-        <div className="flex-1 overflow-auto custom-scrollbar bg-muted/30 p-4 pb-28 md:p-8 md:pb-8">
+        <div className="flex-1 overflow-auto custom-scrollbar bg-slate-50 dark:bg-zinc-950 p-4 pb-28 md:p-8 md:pb-8">
           <div className="max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
             {children}
           </div>

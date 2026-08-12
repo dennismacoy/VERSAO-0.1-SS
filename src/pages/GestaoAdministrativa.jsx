@@ -87,7 +87,7 @@ const PREVENTIVE_CATEGORY_OPTIONS = [
 ];
 
 // Opções de Periodicidade
-const PERIODICITY_OPTIONS = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Bianual', '3 anos', '4 anos', '5 anos', '6 anos'];
+const PERIODICITY_OPTIONS = ['Mensal', 'Trimestral', 'Semestral', 'Anual', '(2 anos)', '3 anos', '4 anos', '5 anos', '6 anos'];
 
 // Opções de Status de TI
 const IT_STATUS_OPTIONS = [
@@ -129,6 +129,8 @@ const calculateNextDate = (lastDateStr, periodicity) => {
     case 'Anual':
       date.setFullYear(date.getFullYear() + 1);
       break;
+    case '(2 anos)':
+    case '2 anos':
     case 'Bianual':
       date.setFullYear(date.getFullYear() + 2);
       break;
@@ -1125,7 +1127,6 @@ export default function GestaoAdministrativa() {
               <table className="w-full text-xs md:text-sm text-left border-collapse block md:table">
                 <thead className="hidden md:table-header-group bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-zinc-700">
                   <tr>
-                    <th className="px-4 py-3.5 w-12 text-center">Status</th>
                     {renderSortHeader('Descrição da Tarefa', 'name', sortTarefasConfig, sortTarefas, 'left')}
                     {renderSortHeader('Setor', 'sector', sortTarefasConfig, sortTarefas, 'left')}
                     {renderSortHeader('Status Processo', 'status', sortTarefasConfig, sortTarefas, 'left')}
@@ -1138,7 +1139,7 @@ export default function GestaoAdministrativa() {
                 <tbody className="block md:table-row-group space-y-3 md:space-y-0 divide-y-0 md:divide-y divide-slate-100 dark:divide-zinc-800">
                   {sortedTarefas.length === 0 ? (
                     <tr className="block md:table-row bg-white dark:bg-zinc-900 rounded-xl p-8 border border-slate-200 dark:border-zinc-800 text-center">
-                      <td colSpan="7" className="block md:table-cell text-slate-400 font-medium text-center">
+                      <td colSpan="6" className="block md:table-cell text-slate-400 font-medium text-center">
                         Nenhuma tarefa encontrada com os filtros aplicados.
                       </td>
                     </tr>
@@ -1154,20 +1155,8 @@ export default function GestaoAdministrativa() {
                             isCompleted ? 'opacity-70 bg-slate-50/50 dark:bg-zinc-900/50' : ''
                           }`}
                         >
-                          {/* STATUS CHECKBOX */}
-                          <td className="flex justify-between items-center pb-2.5 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center" onClick={(e) => e.stopPropagation()}>
-                            <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Conclusão:</span>
-                            <button
-                              onClick={(e) => handleToggleTaskCompleted(t, e)}
-                              className="p-1 text-slate-400 hover:text-green-600 transition-colors"
-                              title={isCompleted ? "Marcar como pendente" : "Marcar como concluída"}
-                            >
-                              {isCompleted ? <CheckSquare size={22} className="text-emerald-600" /> : <Square size={22} />}
-                            </button>
-                          </td>
-
                           {/* DESCRIÇÃO DA TAREFA */}
-                          <td className="flex flex-col py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4">
+                          <td className="flex flex-col py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:align-middle">
                             <span className="md:hidden font-bold text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Descrição:</span>
                             <p className={`font-bold text-slate-800 dark:text-slate-100 text-sm ${isCompleted ? 'line-through text-slate-400' : ''}`}>
                               {t.name}
@@ -1176,7 +1165,7 @@ export default function GestaoAdministrativa() {
                           </td>
 
                           {/* SETOR */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:align-middle">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Setor:</span>
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300">
                               <Building2 size={12} className="text-green-600" />
@@ -1185,21 +1174,21 @@ export default function GestaoAdministrativa() {
                           </td>
 
                           {/* STATUS PROCESSO */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:align-middle">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Status:</span>
-                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border border-orange-200/80 dark:border-orange-800 shadow-2xs">
                               {t.status}
                             </span>
                           </td>
 
                           {/* DATA ENTRADA */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center text-xs text-slate-600 dark:text-slate-400">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center md:align-middle text-xs text-slate-600 dark:text-slate-400">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Entrada:</span>
                             <span>{t.entryDate ? new Date(t.entryDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
                           </td>
 
                           {/* PRAZO E CONTADOR DE DIAS */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center md:align-middle">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Prazo / Dias:</span>
                             <div className="flex flex-col md:items-center gap-1">
                               {t.dueDate && (
@@ -1211,8 +1200,8 @@ export default function GestaoAdministrativa() {
                             </div>
                           </td>
 
-                          {/* AÇÕES RÁPIDAS (EXCLUSÃO E EDIÇÃO DE DATAS INCLUÍDAS DIRECTAMENTE) */}
-                          <td className="flex justify-end items-center pt-3 md:pt-0 md:table-cell md:py-3.5 md:px-4 md:text-right" onClick={(e) => e.stopPropagation()}>
+                          {/* AÇÕES RÁPIDAS */}
+                          <td className="flex justify-end items-center pt-3 md:pt-0 md:table-cell md:py-3.5 md:px-4 md:text-right md:align-middle" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                               {canEditDates && (
                                 <button
@@ -1309,45 +1298,45 @@ export default function GestaoAdministrativa() {
                           className="block md:table-row cursor-pointer bg-white dark:bg-zinc-900 rounded-xl p-4 md:p-0 border md:border-none border-slate-200 dark:border-zinc-800 shadow-xs md:shadow-none hover:bg-slate-50 dark:hover:bg-zinc-800/60 transition-all"
                         >
                           {/* NOME / EQUIPAMENTO */}
-                          <td className="flex flex-col pb-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4">
+                          <td className="flex flex-col pb-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:align-middle">
                             <span className="md:hidden font-bold text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Equipamento:</span>
                             <p className="font-bold text-slate-800 dark:text-slate-100 text-sm">{p.name}</p>
                           </td>
 
                           {/* CATEGORIA */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:align-middle">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Categoria:</span>
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300">
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-zinc-700 shadow-2xs">
                               {p.category}
                             </span>
                           </td>
 
                           {/* PERIODICIDADE */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center font-semibold text-slate-600 dark:text-slate-300">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center md:align-middle font-semibold text-slate-600 dark:text-slate-300">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Periodicidade:</span>
                             <span>{p.periodicity}</span>
                           </td>
 
                           {/* ÚLTIMA REALIZAÇÃO */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center text-xs text-slate-600 dark:text-slate-400">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center md:align-middle text-xs text-slate-600 dark:text-slate-400">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Última Realização:</span>
                             <span>{p.lastDate ? new Date(p.lastDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
                           </td>
 
                           {/* PRÓXIMA REALIZAÇÃO */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center text-xs font-bold">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center md:align-middle text-xs font-bold">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Próximo Vencimento:</span>
                             <span>{nextDate ? nextDate.toLocaleDateString('pt-BR') : '-'}</span>
                           </td>
 
                           {/* CONTADOR DE DIAS */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center md:align-middle">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Status / Dias:</span>
                             <ContadorDias targetDate={nextDate} />
                           </td>
 
-                          {/* AÇÕES RÁPIDAS (EXCLUSÃO E EDIÇÃO DE DATAS INCLUÍDAS DIRETO NA LISTA) */}
-                          <td className="flex justify-end items-center pt-3 md:pt-0 md:table-cell md:py-3.5 md:px-4 md:text-right" onClick={(e) => e.stopPropagation()}>
+                          {/* AÇÕES RÁPIDAS */}
+                          <td className="flex justify-end items-center pt-3 md:pt-0 md:table-cell md:py-3.5 md:px-4 md:text-right md:align-middle" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                               {canEditDates && (
                                 <button
@@ -1412,7 +1401,6 @@ export default function GestaoAdministrativa() {
               <table className="w-full text-xs md:text-sm text-left border-collapse block md:table">
                 <thead className="hidden md:table-header-group bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-zinc-700">
                   <tr>
-                    <th className="px-4 py-3.5 w-12 text-center">Status</th>
                     {renderSortHeader('Equipamento', 'device', sortTIConfig, sortTI, 'left')}
                     {renderSortHeader('Fornecedor / Assistência', 'supplierName', sortTIConfig, sortTI, 'left')}
                     {renderSortHeader('Status Manutenção', 'status', sortTIConfig, sortTI, 'left')}
@@ -1425,7 +1413,7 @@ export default function GestaoAdministrativa() {
                 <tbody className="block md:table-row-group space-y-3 md:space-y-0 divide-y-0 md:divide-y divide-slate-100 dark:divide-zinc-800">
                   {sortedTI.length === 0 ? (
                     <tr className="block md:table-row bg-white dark:bg-zinc-900 rounded-xl p-8 border border-slate-200 dark:border-zinc-800 text-center">
-                      <td colSpan="7" className="block md:table-cell text-slate-400 font-medium text-center">
+                      <td colSpan="6" className="block md:table-cell text-slate-400 font-medium text-center">
                         Nenhum equipamento de TI encontrado com os filtros aplicados.
                       </td>
                     </tr>
@@ -1441,20 +1429,8 @@ export default function GestaoAdministrativa() {
                             isCompleted ? 'opacity-70 bg-slate-50/50 dark:bg-zinc-900/50' : ''
                           }`}
                         >
-                          {/* CHECKBOX RETORNADO */}
-                          <td className="flex justify-between items-center pb-2.5 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center" onClick={(e) => e.stopPropagation()}>
-                            <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Retornado:</span>
-                            <button
-                              onClick={(e) => handleToggleITCompleted(i, e)}
-                              className="p-1 text-slate-400 hover:text-green-600 transition-colors"
-                              title={isCompleted ? "Marcar em aberto" : "Marcar como retornado"}
-                            >
-                              {isCompleted ? <CheckSquare size={22} className="text-emerald-600" /> : <Square size={22} />}
-                            </button>
-                          </td>
-
                           {/* EQUIPAMENTO */}
-                          <td className="flex flex-col py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4">
+                          <td className="flex flex-col py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:align-middle">
                             <span className="md:hidden font-bold text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Equipamento:</span>
                             <p className={`font-bold text-slate-800 dark:text-slate-100 text-sm ${isCompleted ? 'line-through text-slate-400' : ''}`}>
                               {i.device}
@@ -1463,7 +1439,7 @@ export default function GestaoAdministrativa() {
                           </td>
 
                           {/* FORNECEDOR */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:align-middle">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Assistência:</span>
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300">
                               <Users size={12} />
@@ -1472,21 +1448,21 @@ export default function GestaoAdministrativa() {
                           </td>
 
                           {/* STATUS */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:align-middle">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Status:</span>
-                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border border-orange-200/80 dark:border-orange-800 shadow-2xs">
                               {i.status}
                             </span>
                           </td>
 
                           {/* DATA ENVIO */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center text-xs text-slate-600 dark:text-slate-400">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center md:align-middle text-xs text-slate-600 dark:text-slate-400">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Data Envio:</span>
                             <span>{i.sendDate ? new Date(i.sendDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</span>
                           </td>
 
                           {/* PREVISÃO RETORNO E CONTADOR DE DIAS */}
-                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center">
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center md:align-middle">
                             <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Previsão Retorno:</span>
                             <div className="flex flex-col md:items-center gap-1">
                               {i.expectedDate && (
@@ -1498,8 +1474,8 @@ export default function GestaoAdministrativa() {
                             </div>
                           </td>
 
-                          {/* AÇÕES RÁPIDAS (EXCLUSÃO E EDIÇÃO DE DATAS DIRETO NA LISTA) */}
-                          <td className="flex justify-end items-center pt-3 md:pt-0 md:table-cell md:py-3.5 md:px-4 md:text-right" onClick={(e) => e.stopPropagation()}>
+                          {/* AÇÕES RÁPIDAS */}
+                          <td className="flex justify-end items-center pt-3 md:pt-0 md:table-cell md:py-3.5 md:px-4 md:text-right md:align-middle" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
                               {canEditDates && (
                                 <button

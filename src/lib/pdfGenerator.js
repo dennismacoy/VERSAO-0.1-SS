@@ -142,7 +142,7 @@ export const generatePreVendaPDF = (item) => {
           try {
             const codA = String(prod.codigo || prod.CODIGO || '').trim();
             const codB = String(prod.codigo_interno || prod.CODIGO_INTERNO || prod.codigo_int || prod.CODIGO_INT || prod.cod_interno || prod.COD_INTERNO || '').trim();
-            const barcodeValue = `${codA}${codB}`;
+            const barcodeValue = codB ? `${codA}${codB}` : codA;
             if (barcodeValue) {
               JsBarcode(canvas, barcodeValue, { format: 'CODE128', displayValue: false, height: 30, width: 1.5, margin: 0 });
               doc.addImage(canvas.toDataURL('image/png'), 'PNG', data.cell.x + 1, data.cell.y + 2, 28, 12);

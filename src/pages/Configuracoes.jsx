@@ -111,12 +111,10 @@ export default function Configuracoes() {
     if (!hasPermission('Acessar Sincronização Master') && activeTab === 'sync') setActiveTab('senha');
   }, [activeTab, isAdmin, hasPermission]);
 
-  // ---- DEFINIÇÃO DE ROLES ----
-  const baseRoles = ['gerente', 'lider', 'vendedor', 'repositor', 'clientes'];
+  // ---- DEFINIÇÃO DE ROLES (Exclusivamente modelo de roles dinâmicas) ----
   const allRoles = useMemo(() => [
-    ...baseRoles,
     ...dynamicRoles.map(r => r.id || r.name.toLowerCase().replace(/\s+/g, '_'))
-  ].filter((v, i, a) => a.indexOf(v) === i), [baseRoles, dynamicRoles]);
+  ].filter((v, i, a) => a.indexOf(v) === i), [dynamicRoles]);
 
   // ---- HOOKS DE ORDENAÇÃO DINÂMICA ----
   const { items: sortedUsers, requestSort: sortUsers, sortConfig: sortUsersConfig } = useSortableData(users, { key: 'nome', direction: 'asc' });
