@@ -73,6 +73,7 @@ const TASK_STATUS_OPTIONS = [
   'Aguardando Orçamento',
   'Aguardando Aprovação da Despesa',
   'Aprovado - Aguardando Chegada',
+  'Aprovado - Aguardando',
   'Recusado',
   'Aguardando Verba'
 ];
@@ -86,7 +87,7 @@ const PREVENTIVE_CATEGORY_OPTIONS = [
 ];
 
 // Opções de Periodicidade
-const PERIODICITY_OPTIONS = ['Mensal', 'Trimestral', 'Semestral', 'Anual'];
+const PERIODICITY_OPTIONS = ['Mensal', 'Trimestral', 'Semestral', 'Anual', 'Bianual', '3 anos', '4 anos', '5 anos', '6 anos'];
 
 // Opções de Status de TI
 const IT_STATUS_OPTIONS = [
@@ -127,6 +128,21 @@ const calculateNextDate = (lastDateStr, periodicity) => {
       break;
     case 'Anual':
       date.setFullYear(date.getFullYear() + 1);
+      break;
+    case 'Bianual':
+      date.setFullYear(date.getFullYear() + 2);
+      break;
+    case '3 anos':
+      date.setFullYear(date.getFullYear() + 3);
+      break;
+    case '4 anos':
+      date.setFullYear(date.getFullYear() + 4);
+      break;
+    case '5 anos':
+      date.setFullYear(date.getFullYear() + 5);
+      break;
+    case '6 anos':
+      date.setFullYear(date.getFullYear() + 6);
       break;
     default:
       date.setMonth(date.getMonth() + 1);
@@ -232,9 +248,11 @@ export default function GestaoAdministrativa() {
   const [sectorForm, setSectorForm] = useState({ nome: '' });
   const [supplierForm, setSupplierForm] = useState({
     name: '',
+    cnpj: '',
     contact: '',
     phone: '',
     cep: '',
+    address: '',
     city: '',
     state: ''
   });
@@ -482,7 +500,7 @@ export default function GestaoAdministrativa() {
     } else if (type === 'sector') {
       setSectorForm({ nome: '' });
     } else if (type === 'supplier') {
-      setSupplierForm({ name: '', contact: '', phone: '', cep: '', city: '', state: '' });
+      setSupplierForm({ name: '', cnpj: '', contact: '', phone: '', cep: '', address: '', city: '', state: '' });
     }
   };
 
@@ -494,9 +512,11 @@ export default function GestaoAdministrativa() {
     } else if (type === 'supplier') {
       setSupplierForm({
         name: item.name || '',
+        cnpj: item.cnpj || '',
         contact: item.contact || '',
         phone: item.phone || '',
         cep: item.cep || '',
+        address: item.address || item.endereco || '',
         city: item.city || '',
         state: item.state || ''
       });
@@ -1648,6 +1668,10 @@ export default function GestaoAdministrativa() {
                             <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-zinc-800/50">
                               <td className="px-4 py-3">
                                 <p className="font-bold text-slate-800 dark:text-slate-100">{f.name}</p>
+                                {f.cnpj && <p className="text-[11px] text-slate-500 font-medium">CNPJ: {f.cnpj}</p>}
+                                {(f.address || f.endereco) && (
+                                  <p className="text-[11px] text-slate-400 font-medium truncate max-w-xs">{f.address || f.endereco}</p>
+                                )}
                               </td>
                               <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
                                 {f.contact && <p className="font-semibold">{f.contact}</p>}
@@ -2388,16 +2412,29 @@ export default function GestaoAdministrativa() {
             </div>
 
             <form onSubmit={handleSubmitSupplier} className="p-4 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Razão Social / Nome *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Assistência Zebra Brasil"
-                  value={supplierForm.name}
-                  onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
-                  className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Razão Social / Nome *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Assistência Zebra Brasil"
+                    value={supplierForm.name}
+                    onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
+                    className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">CNPJ</label>
+                  <input
+                    type="text"
+                    placeholder="00.000.000/0001-00"
+                    value={supplierForm.cnpj}
+                    onChange={(e) => setSupplierForm({ ...supplierForm, cnpj: e.target.value })}
+                    className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2422,6 +2459,17 @@ export default function GestaoAdministrativa() {
                     className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Endereço Completo</label>
+                <input
+                  type="text"
+                  placeholder="Rua, Número, Bairro, Complemento"
+                  value={supplierForm.address}
+                  onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })}
+                  className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                />
               </div>
 
               <div className="grid grid-cols-3 gap-2">
