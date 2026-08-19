@@ -16,6 +16,38 @@ export const PERMISSIONS = {
   VIEW_RELATORIOS: 'view_relatorios',
   VIEW_CONFIGURACOES: 'view_configuracoes',
 
+  // Abas de Gestão Administrativa
+  GESTAO_TAB_TASKS: 'gestao_tab_tasks',
+  GESTAO_TAB_PREVENTIVE: 'gestao_tab_preventive',
+  GESTAO_TAB_IT: 'gestao_tab_it',
+  GESTAO_TAB_CONFIG: 'gestao_tab_config',
+
+  // Abas de Relatórios
+  RELATORIOS_TAB_GERAL: 'relatorios_tab_geral',
+  RELATORIOS_TAB_AVANCADO: 'relatorios_tab_avancado',
+
+  // Abas de Configurações
+  CONFIG_TAB_PERMISSOES: 'config_tab_permissoes',
+  CONFIG_TAB_SYNC: 'config_tab_sync',
+  CONFIG_TAB_SENHA: 'config_tab_senha',
+
+  // Abas e Modos de Pré-Venda
+  PREVENDA_TAB_NOVA: 'prevenda_tab_nova',
+  PREVENDA_TAB_HISTORICO: 'prevenda_tab_historico',
+  PREVENDA_VIEW_ALL: 'prevenda_view_all',
+
+  // Cards do Dashboard
+  DASHBOARD_CARD_SEPARACOES: 'dashboard_card_separacoes',
+  DASHBOARD_CARD_REQUISICOES: 'dashboard_card_requisicoes',
+  DASHBOARD_CARD_ISV: 'dashboard_card_isv',
+  DASHBOARD_CARD_IDADE: 'dashboard_card_idade',
+  DASHBOARD_CARD_PALETES: 'dashboard_card_paletes',
+  DASHBOARD_CARD_ESTOQUE: 'dashboard_card_estoque',
+
+  // Seções da Consulta
+  CONSULTA_SHEET_GERAL: 'consulta_sheet_geral',
+  CONSULTA_SHEET_EXTRAS: 'consulta_sheet_extras',
+
   // Ações de Recursos & Botões
   DELETE_ITEMS: 'delete_items',
   EDIT_ITEMS: 'edit_items',
@@ -23,10 +55,94 @@ export const PERMISSIONS = {
   CREATE_ITEMS: 'create_items',
   EXPORT_REPORTS: 'export_reports',
   SYNC_MASTER: 'sync_master',
-
-  // Integração & Sincronização Base
   ALLOW_SHEETS_SYNC: 'allow_sheets_sync'
 };
+
+// Estrutura hierárquica por página e suas respectivas abas / sub-módulos
+export const PAGE_PERMISSIONS_STRUCTURE = [
+  {
+    pageId: PERMISSIONS.VIEW_DASHBOARD,
+    legacyId: 'Acesso Dashboard',
+    label: 'Dashboard',
+    tabs: [
+      { id: PERMISSIONS.DASHBOARD_CARD_SEPARACOES, legacyId: 'Ver Separacoes Abertas', label: 'Card: Separações Abertas' },
+      { id: PERMISSIONS.DASHBOARD_CARD_REQUISICOES, legacyId: 'Ver Requisicoes Pendentes', label: 'Card: Requisições Pendentes' },
+      { id: PERMISSIONS.DASHBOARD_CARD_ISV, legacyId: 'Ver Itens ISV', label: 'Card: Itens ISV' },
+      { id: PERMISSIONS.DASHBOARD_CARD_IDADE, legacyId: 'Ver Itens Idade', label: 'Card: Itens por Idade' },
+      { id: PERMISSIONS.DASHBOARD_CARD_PALETES, legacyId: 'Ver Total Paletes', label: 'Card: Total de Paletes' },
+      { id: PERMISSIONS.DASHBOARD_CARD_ESTOQUE, legacyId: 'Ver Valor Estoque', label: 'Card: Valor do Estoque' }
+    ]
+  },
+  {
+    pageId: PERMISSIONS.VIEW_CONSULTA,
+    legacyId: 'Acesso Consulta',
+    label: 'Consulta de Estoque',
+    tabs: [
+      { id: PERMISSIONS.CONSULTA_SHEET_GERAL, legacyId: 'Ver Card Geral', label: 'Detalhes Gerais do Produto' },
+      { id: PERMISSIONS.CONSULTA_SHEET_EXTRAS, legacyId: 'Ver Card Extras', label: 'Informações Extras do Produto' }
+    ]
+  },
+  {
+    pageId: PERMISSIONS.VIEW_PREVENDA,
+    legacyId: 'Acesso Pre-Venda',
+    label: 'Pré-Venda',
+    tabs: [
+      { id: PERMISSIONS.PREVENDA_TAB_NOVA, legacyId: 'Criar Prevenda', label: 'Formulário: Criar Pré-Venda' },
+      { id: PERMISSIONS.PREVENDA_TAB_HISTORICO, legacyId: 'Ver Historico Prevenda', label: 'Histórico de Pré-Vendas' },
+      { id: PERMISSIONS.PREVENDA_VIEW_ALL, legacyId: 'Ver Todas Prevendas', label: 'Ver Pré-Vendas de Todos os Vendedores' }
+    ]
+  },
+  {
+    pageId: PERMISSIONS.VIEW_SEPARACAO,
+    legacyId: 'Acesso Separacao',
+    label: 'Separação & Picking',
+    tabs: [
+      { id: PERMISSIONS.EDIT_ITEMS, legacyId: 'Atribuir Separador', label: 'Atribuir Separadores aos Pedidos' }
+    ]
+  },
+  {
+    pageId: PERMISSIONS.VIEW_GESTAO_ADMIN,
+    legacyId: 'Acesso Gestao Administrativa',
+    label: 'Gestão Administrativa',
+    tabs: [
+      { id: PERMISSIONS.GESTAO_TAB_TASKS, legacyId: 'Aba Tarefas Diarias', label: 'Aba: Tarefas Diárias' },
+      { id: PERMISSIONS.GESTAO_TAB_PREVENTIVE, legacyId: 'Aba Manutencao Preventiva', label: 'Aba: Manutenção Preventiva' },
+      { id: PERMISSIONS.GESTAO_TAB_IT, legacyId: 'Aba TI e Suporte', label: 'Aba: TI & Suporte' },
+      { id: PERMISSIONS.GESTAO_TAB_CONFIG, legacyId: 'Aba Config Setores', label: 'Aba: Configuração de Setores/Categorias' }
+    ]
+  },
+  {
+    pageId: PERMISSIONS.VIEW_RELATORIOS,
+    legacyId: 'Acesso Relatorios',
+    label: 'Relatórios',
+    tabs: [
+      { id: PERMISSIONS.RELATORIOS_TAB_GERAL, legacyId: 'Aba Relatorio Geral', label: 'Aba: Relatório Geral' },
+      { id: PERMISSIONS.RELATORIOS_TAB_AVANCADO, legacyId: 'Aba Analise Avancada', label: 'Aba: Análise Avançada & Exportação' }
+    ]
+  },
+  {
+    pageId: PERMISSIONS.VIEW_CONFIGURACOES,
+    legacyId: 'Acesso Configuracoes',
+    label: 'Configurações',
+    tabs: [
+      { id: PERMISSIONS.CONFIG_TAB_PERMISSOES, legacyId: 'Aba Controle Permissoes', label: 'Aba: Controle de Acessos & Usuários' },
+      { id: PERMISSIONS.CONFIG_TAB_SYNC, legacyId: 'Acessar Sincronização Master', label: 'Aba: Sincronização Master' },
+      { id: PERMISSIONS.CONFIG_TAB_SENHA, legacyId: 'Aba Trocar Senha', label: 'Aba: Trocar Senha' }
+    ]
+  },
+  {
+    pageId: PERMISSIONS.VIEW_PEDIDOS,
+    legacyId: 'Acesso Pedidos',
+    label: 'Pedidos B2B',
+    tabs: []
+  },
+  {
+    pageId: PERMISSIONS.VIEW_REQUISICOES,
+    legacyId: 'Acesso Requisições',
+    label: 'Requisições de Estoque',
+    tabs: []
+  }
+];
 
 // Lista catalogada e amigável com labels de todas as permissões do sistema
 export const ALL_PERMISSIONS_LIST = [
@@ -39,6 +155,23 @@ export const ALL_PERMISSIONS_LIST = [
   { id: PERMISSIONS.VIEW_GESTAO_ADMIN, label: 'Acesso Gestão Administrativa', category: 'Páginas' },
   { id: PERMISSIONS.VIEW_RELATORIOS, label: 'Acesso Relatórios', category: 'Páginas' },
   { id: PERMISSIONS.VIEW_CONFIGURACOES, label: 'Acesso Configurações', category: 'Páginas' },
+
+  // Abas internas
+  { id: PERMISSIONS.GESTAO_TAB_TASKS, label: 'Gestão: Tarefas Diárias', category: 'Abas' },
+  { id: PERMISSIONS.GESTAO_TAB_PREVENTIVE, label: 'Gestão: Manutenção Preventiva', category: 'Abas' },
+  { id: PERMISSIONS.GESTAO_TAB_IT, label: 'Gestão: TI & Suporte', category: 'Abas' },
+  { id: PERMISSIONS.GESTAO_TAB_CONFIG, label: 'Gestão: Configuração de Setores', category: 'Abas' },
+
+  { id: PERMISSIONS.RELATORIOS_TAB_GERAL, label: 'Relatórios: Visão Geral', category: 'Abas' },
+  { id: PERMISSIONS.RELATORIOS_TAB_AVANCADO, label: 'Relatórios: Análise Avançada', category: 'Abas' },
+
+  { id: PERMISSIONS.CONFIG_TAB_PERMISSOES, label: 'Config: Permissões & Usuários', category: 'Abas' },
+  { id: PERMISSIONS.CONFIG_TAB_SYNC, label: 'Config: Sincronização Master', category: 'Abas' },
+  { id: PERMISSIONS.CONFIG_TAB_SENHA, label: 'Config: Trocar Senha', category: 'Abas' },
+
+  { id: PERMISSIONS.PREVENDA_TAB_NOVA, label: 'Pré-Venda: Criar Nova', category: 'Abas' },
+  { id: PERMISSIONS.PREVENDA_TAB_HISTORICO, label: 'Pré-Venda: Histórico', category: 'Abas' },
+
   { id: PERMISSIONS.ALLOW_SHEETS_SYNC, label: 'Acesso à Planilha Base (Google Sheets)', category: 'Integrações', highlight: true },
   { id: PERMISSIONS.CREATE_ITEMS, label: 'Criar Registros / Tarefas', category: 'Ações' },
   { id: PERMISSIONS.EDIT_ITEMS, label: 'Editar Registros / Itens', category: 'Ações' },
@@ -65,79 +198,15 @@ export const LEGACY_ACTION_MAP = {
   'Criar Prevenda': PERMISSIONS.CREATE_ITEMS
 };
 
-// MATRIZ DE PERMISSÕES PADRÃO MAPEADA POR ROLE
+// MATRIZ DE PERMISSÕES PADRÃO MAPEADA POR ROLE (Apenas 'admin' é nativo)
 export const DEFAULT_ROLE_PERMISSIONS = {
-  admin: ['*'], // Wildcard: acesso irrestrito a todas as ações
-
-  gerente: [
-    PERMISSIONS.VIEW_DASHBOARD,
-    PERMISSIONS.VIEW_CONSULTA,
-    PERMISSIONS.VIEW_REQUISICOES,
-    PERMISSIONS.VIEW_PREVENDA,
-    PERMISSIONS.VIEW_SEPARACAO,
-    PERMISSIONS.VIEW_GESTAO_ADMIN,
-    PERMISSIONS.VIEW_RELATORIOS,
-    PERMISSIONS.VIEW_CONFIGURACOES,
-    PERMISSIONS.ALLOW_SHEETS_SYNC,
-    PERMISSIONS.DELETE_ITEMS,
-    PERMISSIONS.EDIT_ITEMS,
-    PERMISSIONS.EDIT_DATES,
-    PERMISSIONS.CREATE_ITEMS,
-    PERMISSIONS.EXPORT_REPORTS
-  ],
-
-  administrativo: [
-    PERMISSIONS.VIEW_DASHBOARD,
-    PERMISSIONS.VIEW_CONSULTA,
-    PERMISSIONS.VIEW_PREVENDA,
-    PERMISSIONS.VIEW_GESTAO_ADMIN,
-    PERMISSIONS.VIEW_RELATORIOS,
-    PERMISSIONS.VIEW_CONFIGURACOES,
-    PERMISSIONS.ALLOW_SHEETS_SYNC,
-    PERMISSIONS.DELETE_ITEMS,
-    PERMISSIONS.EDIT_ITEMS,
-    PERMISSIONS.EDIT_DATES,
-    PERMISSIONS.CREATE_ITEMS,
-    PERMISSIONS.EXPORT_REPORTS
-  ],
-
-  vendedor: [
-    PERMISSIONS.VIEW_DASHBOARD,
-    PERMISSIONS.VIEW_CONSULTA,
-    PERMISSIONS.VIEW_PREVENDA,
-    PERMISSIONS.VIEW_GESTAO_ADMIN,
-    PERMISSIONS.VIEW_CONFIGURACOES,
-    PERMISSIONS.EDIT_ITEMS,
-    PERMISSIONS.EDIT_DATES,
-    PERMISSIONS.CREATE_ITEMS,
-    PERMISSIONS.EXPORT_REPORTS
-  ],
-
-  repositor: [
-    PERMISSIONS.VIEW_DASHBOARD,
-    PERMISSIONS.VIEW_CONSULTA,
-    PERMISSIONS.VIEW_SEPARACAO,
-    PERMISSIONS.VIEW_GESTAO_ADMIN,
-    PERMISSIONS.VIEW_CONFIGURACOES,
-    PERMISSIONS.EDIT_ITEMS,
-    PERMISSIONS.CREATE_ITEMS
-  ],
-
-  operador: [
-    PERMISSIONS.VIEW_DASHBOARD,
-    PERMISSIONS.VIEW_CONSULTA,
-    PERMISSIONS.VIEW_GESTAO_ADMIN,
-    PERMISSIONS.EDIT_ITEMS
-  ],
-
-  clientes: [
-    PERMISSIONS.VIEW_PEDIDOS,
-    PERMISSIONS.VIEW_CONFIGURACOES
-  ]
+  admin: ['*'] // Admin é a única role nativa do sistema com acesso irrestrito por padrão
 };
 
 /**
  * Verifica se uma dada Role possui permissão para executar uma Action.
+ * NENHUMA VALIDAÇÃO HARDCODED É REALIZADA (ex: `role === 'admin'`).
+ * Toda a validação provém única e exclusivamente da matriz dinâmica de permissões.
  * 
  * @param {string} userRole - Role do usuário logado (ex: 'admin', 'gerente', 'operador')
  * @param {string|string[]} action - Permissão necessária (ex: 'delete_items') ou array de permissões
@@ -149,9 +218,6 @@ export const hasRolePermission = (userRole, action, customMatrix = null) => {
 
   const role = userRole.trim().toLowerCase();
 
-  // Admin sempre possui acesso total
-  if (role === 'admin') return true;
-
   // Trata array de ações (se qualquer uma for permitida, retorna true)
   if (Array.isArray(action)) {
     return action.some(act => hasRolePermission(userRole, act, customMatrix));
@@ -160,33 +226,24 @@ export const hasRolePermission = (userRole, action, customMatrix = null) => {
   // Normaliza o nome da ação se for legado
   const canonicalAction = LEGACY_ACTION_MAP[action] || action;
 
-  // Permissão global para realizar o download da base de dados
-  if (canonicalAction === PERMISSIONS.ALLOW_SHEETS_SYNC || canonicalAction === 'allow_sheets_sync') {
-    return true;
-  }
-
   // 1. Se existir uma matriz customizada vinda do Firebase ou estado
   if (customMatrix && typeof customMatrix === 'object') {
-    // Se a matriz customizada contiver a role diretamente como chave
+    // Caso A: Matriz formato por Role { [role]: [actions] }
     if (customMatrix[role] && Array.isArray(customMatrix[role])) {
       const allowedActions = customMatrix[role];
-      if (allowedActions.includes('*') || allowedActions.includes(canonicalAction)) {
-        return true;
-      }
+      return allowedActions.includes('*') || allowedActions.includes(canonicalAction) || allowedActions.includes(action);
     }
 
-    // Compatibilidade reversa: se a matriz customizada for formato { action: [roles] }
+    // Caso B: Matriz formato por Ação { [action]: [roles] }
     const allowedRolesForAction = customMatrix[canonicalAction] || customMatrix[action];
     if (Array.isArray(allowedRolesForAction)) {
-      if (allowedRolesForAction.some(r => r.toLowerCase() === role)) {
-        return true;
-      }
+      return allowedRolesForAction.some(r => String(r).toLowerCase() === role);
     }
   }
 
-  // 2. Consulta na Matriz Padrão de Roles
+  // 2. Consulta na Matriz Padrão de Roles (Fallback caso a role não esteja customizada na matriz)
   const rolePermissions = DEFAULT_ROLE_PERMISSIONS[role] || [];
-  return rolePermissions.includes('*') || rolePermissions.includes(canonicalAction);
+  return rolePermissions.includes('*') || rolePermissions.includes(canonicalAction) || rolePermissions.includes(action);
 };
 
 // LISTA DE PRIORIDADE DE PÁGINAS PARA ROTA INICIAL DINÂMICA

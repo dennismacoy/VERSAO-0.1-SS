@@ -14,6 +14,7 @@ import {
 import { api } from '../lib/api';
 import { generateSeparacaoPDF } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
+import { PERMISSIONS } from '../lib/permissions';
 import { listenToNode, listenToUsers } from '../lib/firebase';
 import { cn } from '../lib/utils';
 
@@ -95,8 +96,8 @@ export default function Separacao() {
   };
 
   // Verificação de permissão de acesso à página
-  const canAccess = hasPermission('Acesso Separacao') || role === 'repositor' || role === 'lider' || role === 'admin' || role === 'gerente' || role === 'vendedor';
-  const canAssign = role === 'admin' || role === 'gerente' || role === 'vendedor';
+  const canAccess = hasPermission(PERMISSIONS.VIEW_SEPARACAO) || hasPermission('Acesso Separacao');
+  const canAssign = hasPermission(PERMISSIONS.EDIT_ITEMS) || hasPermission(PERMISSIONS.CREATE_ITEMS);
 
   if (!canAccess) {
     return (

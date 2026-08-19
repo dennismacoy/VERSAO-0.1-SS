@@ -18,14 +18,23 @@ import QRCode from 'qrcode';
 import { generateRelatorioPDF, generateRelatorioAvancadoPDF, gerarPdfRelatorioAvancado } from '../lib/pdfGenerator';
 import { useAuth } from '../context/AuthContext';
 import { useProducts } from '../context/ProductsContext';
+import { PERMISSIONS } from '../lib/permissions';
 import { cn, parseEstoque, getEstoqueNumerico, formatCurrency, parseNumericValue, isEstoquePositivo, getItemEstoqueVal } from '../lib/utils';
 
 export default function Relatorios() {
   const { hasPermission } = useAuth();
-  const canSeeAtual = hasPermission('Ver Aba Atual');
+
+  const canGeral = hasPermission(PERMISSIONS.RELATORIOS_TAB_GERAL) || hasPermission('Aba Relatorio Geral');
+  const canAvancado = hasPermission(PERMISSIONS.RELATORIOS_TAB_AVANCADO) || hasPermission('Aba Analise Avancada');
 
   // Sistema de Abas ('geral' | 'avancado')
   const [activeTab, setActiveTab] = useState('geral');
+
+  useEffect(() => {
+    if (!canGeral && activeTab === 'geral' && canAvancado) {
+      setActiveTab('avancado');
+    }
+  }, [canGeral, canAvancado, activeTab]);
 
   // ESTADOS - ABA GERAL
   const [query, setQuery] = useState('');
@@ -316,38 +325,40 @@ export default function Relatorios() {
         </div>
       </div>
 
-      {canSeeAtual ? (
-        <>
-          {/* SISTEMA DE ABAS */}
-          <div className="flex border-b border-border space-x-2">
-            <button
-              onClick={() => setActiveTab('geral')}
-              className={cn(
-                "px-6 py-3 font-black text-xs uppercase tracking-widest transition-all border-b-2 -mb-px flex items-center gap-2",
-                activeTab === 'geral'
-                  ? "border-primary text-primary bg-primary/5 rounded-t-xl"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <BarChart3 size={16} />
-              Geral
-            </button>
-            <button
-              onClick={() => setActiveTab('avancado')}
-              className={cn(
-                "px-6 py-3 font-black text-xs uppercase tracking-widest transition-all border-b-2 -mb-px flex items-center gap-2",
-                activeTab === 'avancado'
-                  ? "border-primary text-primary bg-primary/5 rounded-t-xl"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Filter size={16} />
-              Avançado
-            </button>
-          </div>
+      {/* SISTEMA DE ABAS */}
+      <div className="flex border-b border-border space-x-2">
+        {canGeral && (
+          <button
+            onClick={() => setActiveTab('geral')}
+            className={cn(
+              "px-6 py-3 font-black text-xs uppercase tracking-widest transition-all border-b-2 -mb-px flex items-center gap-2",
+              activeTab === 'geral'
+                ? "border-primary text-primary bg-primary/5 rounded-t-xl"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <BarChart3 size={16} />
+            Geral
+          </button>
+        )}
+        {canAvancado && (
+          <button
+            onClick={() => setActiveTab('avancado')}
+            className={cn(
+              "px-6 py-3 font-black text-xs uppercase tracking-widest transition-all border-b-2 -mb-px flex items-center gap-2",
+              activeTab === 'avancado'
+                ? "border-primary text-primary bg-primary/5 rounded-t-xl"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Filter size={16} />
+            Avançado
+          </button>
+        )}
+      </div>
 
-          {/* CONTEÚDO DA ABA 1: GERAL */}
-          {activeTab === 'geral' && (
+      {/* CONTEÚDO DA ABA 1: GERAL */}
+      {activeTab === 'geral' && canGeral && (
             <div className="space-y-6">
               <div className="erp-card p-4 flex flex-col md:flex-row gap-4 items-center">
                 <div className="flex-1 flex gap-2 w-full">
@@ -527,7 +538,7 @@ export default function Relatorios() {
           )}
 
           {/* CONTEÚDO DA ABA 2: AVANÇADO */}
-          {activeTab === 'avancado' && (
+          {activeTab === 'avancado' && canAvancado && (
             <div className="space-y-6">
               {/* Filtros e Controles de Estado */}
               <div className="erp-card p-5 md:p-6 space-y-6">
@@ -844,8 +855,6 @@ export default function Relatorios() {
               </div>
             </div>
           )}
-        </>
-      ) : null}
 
       {/* Modal: Escolher "Com Estoque", "Todos os Itens" ou "ISV" antes de gerar PDF */}
       {showPdfModal && (

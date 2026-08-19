@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Trash2, FileText, ShoppingCart, Save, History, Loader2, Calendar, User, Search, X, ArrowUpDown, ChevronUp, ChevronDown, Filter, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { PERMISSIONS } from '../lib/permissions';
 import { useProducts } from '../context/ProductsContext';
 import { useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
@@ -56,7 +57,9 @@ export default function PreVenda() {
   useEffect(() => {
     unsubRef.current = listenToNode('prevendas', (items) => {
       let filtered = items;
-      if (user?.role === 'vendedor') {
+      // Se não possui permissão para ver todas as pré-vendas ou gerenciar pré-vendas, filtra por seu usuário
+      const canViewAll = hasPermission(PERMISSIONS.VIEW_GESTAO_ADMIN) || hasPermission(PERMISSIONS.VIEW_RELATORIOS) || hasPermission('view_all_prevendas');
+      if (!canViewAll) {
         const userName = user?.name || user?.usuario || '';
         filtered = items.filter(p => (p.usuario || '').toLowerCase() === userName.toLowerCase());
       }
@@ -67,14 +70,14 @@ export default function PreVenda() {
     return () => {
       if (unsubRef.current) unsubRef.current();
     };
-  }, [user]);
+  }, [user, hasPermission]);
 
   // Listener em tempo real para usuários (separadores/repositores)
   useEffect(() => {
     unsubUsersRef.current = listenToUsers((users) => {
       const separadores = users.filter(u => {
         const userRole = (u.role || u.perfil || u.cargo || u.Role || '').toLowerCase();
-        return userRole.includes('repositor') || userRole.includes('lider') || userRole.includes('líder');
+        return userRole !== 'clientes';
       });
       setRepositores(separadores);
     });

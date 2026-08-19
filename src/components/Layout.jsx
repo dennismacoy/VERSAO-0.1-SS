@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { PERMISSIONS } from '../lib/permissions';
 import {
   Search,
   ShoppingCart,
@@ -67,20 +68,15 @@ export default function Layout({ children }) {
   };
 
   const menuItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard, condition: hasPermission('Acesso Dashboard') },
-    { name: 'Consulta', path: '/consulta', icon: Search, condition: hasPermission('Acesso Consulta') },
-    { name: 'Pedidos', path: '/pedidos', icon: ClipboardList, condition: hasPermission('Acesso Pedidos') },
-    { name: 'Requisições', path: '/requisicoes', icon: Inbox, condition: hasPermission('Acesso Requisições') },
-    { name: 'Pré-Venda', path: '/pre-venda', icon: ShoppingCart, condition: hasPermission('Acesso Pre-Venda') },
-    {
-      name: 'Separação',
-      path: '/separacao',
-      icon: ListChecks,
-      condition: hasPermission('Acesso Separacao') || role === 'repositor' || role === 'lider'
-    },
-    { name: 'Gestão Administrativa', path: '/gestao-administrativa', icon: Building2, condition: hasPermission('Acesso Gestao Administrativa') || hasPermission('gestao_administrativa') },
-    { name: 'Relatórios', path: '/relatorios', icon: BarChart3, condition: hasPermission('Acesso Relatorios') },
-    { name: 'Configurações', path: '/configuracoes', icon: Settings, condition: hasPermission('Acesso Configuracoes') },
+    { name: 'Dashboard', path: '/', icon: LayoutDashboard, condition: hasPermission(PERMISSIONS.VIEW_DASHBOARD) || hasPermission('Acesso Dashboard') },
+    { name: 'Consulta', path: '/consulta', icon: Search, condition: hasPermission(PERMISSIONS.VIEW_CONSULTA) || hasPermission('Acesso Consulta') },
+    { name: 'Pedidos', path: '/pedidos', icon: ClipboardList, condition: hasPermission(PERMISSIONS.VIEW_PEDIDOS) || hasPermission('Acesso Pedidos') },
+    { name: 'Requisições', path: '/requisicoes', icon: Inbox, condition: hasPermission(PERMISSIONS.VIEW_REQUISICOES) || hasPermission('Acesso Requisições') },
+    { name: 'Pré-Venda', path: '/pre-venda', icon: ShoppingCart, condition: hasPermission(PERMISSIONS.VIEW_PREVENDA) || hasPermission('Acesso Pre-Venda') },
+    { name: 'Separação', path: '/separacao', icon: ListChecks, condition: hasPermission(PERMISSIONS.VIEW_SEPARACAO) || hasPermission('Acesso Separacao') },
+    { name: 'Gestão Administrativa', path: '/gestao-administrativa', icon: Building2, condition: hasPermission(PERMISSIONS.VIEW_GESTAO_ADMIN) || hasPermission('Acesso Gestao Administrativa') },
+    { name: 'Relatórios', path: '/relatorios', icon: BarChart3, condition: hasPermission(PERMISSIONS.VIEW_RELATORIOS) || hasPermission('Acesso Relatorios') },
+    { name: 'Configurações', path: '/configuracoes', icon: Settings, condition: hasPermission(PERMISSIONS.VIEW_CONFIGURACOES) || hasPermission('Acesso Configuracoes') },
   ];
 
   const filteredMenu = menuItems.filter(item => item.condition);

@@ -15,10 +15,12 @@ import { hasRolePermission } from '../lib/permissions';
 export default function usePermission(action) {
   const { role, permissions } = useAuth();
 
+  const actionKey = Array.isArray(action) ? action.join(',') : action;
+
   const hasPermission = useMemo(() => {
     if (!role) return false;
     return hasRolePermission(role, action, permissions);
-  }, [role, action, permissions]);
+  }, [role, actionKey, permissions]);
 
   return hasPermission;
 }

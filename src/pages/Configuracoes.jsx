@@ -47,22 +47,10 @@ import {
   listenToRoles
 } from '../lib/firebase';
 import ModalCriarRole from '../components/ModalCriarRole';
-
-const SYSTEM_PAGES = [
-  { id: 'Acesso Dashboard', canonical: 'view_dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'Acesso Consulta', canonical: 'view_consulta', label: 'Consulta', icon: Search },
-  { id: 'Acesso Pedidos', canonical: 'view_pedidos', label: 'Pedidos', icon: ClipboardList },
-  { id: 'Acesso Requisições', canonical: 'view_requisicoes', label: 'Requisições', icon: Inbox },
-  { id: 'Acesso Pre-Venda', canonical: 'view_prevenda', label: 'Pré-Venda', icon: ShoppingCart },
-  { id: 'Acesso Separacao', canonical: 'view_separacao', label: 'Separação', icon: ListChecks },
-  { id: 'Acesso Gestao Administrativa', canonical: 'view_gestao_admin', label: 'Gestão Adm.', icon: Building2 },
-  { id: 'Acesso Relatorios', canonical: 'view_relatorios', label: 'Relatórios', icon: BarChart3 },
-  { id: 'Acesso Configuracoes', canonical: 'view_configuracoes', label: 'Configurações', icon: Settings },
-  { id: 'Acessar Sincronização Master', canonical: 'sync_master', label: 'Sincronização Master', icon: UploadCloud }
-];
+import { hasRolePermission, DEFAULT_ROLE_PERMISSIONS, PERMISSIONS, ALL_PERMISSIONS_LIST, PAGE_PERMISSIONS_STRUCTURE } from '../lib/permissions';
 
 export default function Configuracoes() {
-  const { role, permissions, updatePermissions, isAdmin, user, hasPermission, customRoles: authCustomRoles } = useAuth();
+  const { role, permissions, updatePermissions, user, hasPermission, customRoles: authCustomRoles } = useAuth();
 
   // ---- ESTADOS E REFS DE CONFIGURAÇÃO ----
   const [activeTab, setActiveTab] = useState('permissoes');
@@ -75,7 +63,7 @@ export default function Configuracoes() {
   const [users, setUsers] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [userForm, setUserForm] = useState({ nome: '', usuario: '', senha: '', role: 'vendedor' });
+  const [userForm, setUserForm] = useState({ nome: '', usuario: '', senha: '', role: 'admin' });
   const [savingUser, setSavingUser] = useState(false);
   const unsubUsersRef = useRef(null);
 
@@ -98,23 +86,31 @@ export default function Configuracoes() {
     };
   }, []);
 
+  const canManageConfig = useMemo(() => {
+    return hasPermission(PERMISSIONS.VIEW_CONFIGURACOES) || hasPermission('Acesso Configuracoes');
+  }, [hasPermission]);
+
   useEffect(() => {
-    if (isAdmin()) {
+    if (canManageConfig) {
       unsubUsersRef.current = listenToUsers(setUsers);
       return () => { if (unsubUsersRef.current) unsubUsersRef.current(); };
     }
-  }, [isAdmin]);
+  }, [canManageConfig]);
 
-  // Se não é admin e tab atual é restrita, muda pra senha
+  // Se não possui permissão de configuração e tab atual é restrita, muda pra senha
   useEffect(() => {
-    if (!isAdmin() && activeTab === 'permissoes') setActiveTab('senha');
-    if (!hasPermission('Acessar Sincronização Master') && activeTab === 'sync') setActiveTab('senha');
-  }, [activeTab, isAdmin, hasPermission]);
+    const canSyncMaster = hasPermission(PERMISSIONS.SYNC_MASTER) || hasPermission('Acessar Sincronização Master');
+    if (!canManageConfig && activeTab === 'permissoes') setActiveTab('senha');
+    if (!canSyncMaster && activeTab === 'sync') setActiveTab('senha');
+  }, [activeTab, canManageConfig, hasPermission]);
 
-  // ---- DEFINIÇÃO DE ROLES (Exclusivamente modelo de roles dinâmicas) ----
+  // ---- DEFINIÇÃO DE ROLES (Role Nativa 'admin' + Roles Dinâmicas Customizadas) ----
+  const NATIVE_ROLES = useMemo(() => ['admin'], []);
+
   const allRoles = useMemo(() => [
+    ...NATIVE_ROLES,
     ...dynamicRoles.map(r => r.id || r.name.toLowerCase().replace(/\s+/g, '_'))
-  ].filter((v, i, a) => a.indexOf(v) === i), [dynamicRoles]);
+  ].filter((v, i, a) => a.indexOf(v) === i), [NATIVE_ROLES, dynamicRoles]);
 
   // ---- HOOKS DE ORDENAÇÃO DINÂMICA ----
   const { items: sortedUsers, requestSort: sortUsers, sortConfig: sortUsersConfig } = useSortableData(users, { key: 'nome', direction: 'asc' });
@@ -172,66 +168,56 @@ export default function Configuracoes() {
     }
   };
 
-  const checkRolePageAccess = (roleId, page) => {
-    const normRole = roleId.toLowerCase();
-    
-    // Check in permissions object
-    const actionRoles = permissions[page.id] || [];
-    const canonicalRoles = page.canonical ? (permissions[page.canonical] || []) : [];
-    if (actionRoles.some(r => String(r).toLowerCase() === normRole) || canonicalRoles.some(r => String(r).toLowerCase() === normRole)) {
-      return true;
-    }
-
-    // Check dynamic role object permissions
-    const dynamicRole = dynamicRoles.find(dr => dr.id === normRole || dr.name?.toLowerCase().replace(/\s+/g, '_') === normRole);
-    if (dynamicRole && Array.isArray(dynamicRole.permissions)) {
-      if (dynamicRole.permissions.includes(page.id) || (page.canonical && dynamicRole.permissions.includes(page.canonical))) {
-        return true;
-      }
-    }
-
-    return false;
+  const checkItemAccess = (roleId, itemId, legacyId = null) => {
+    return hasRolePermission(roleId, itemId, permissions) || (legacyId ? hasRolePermission(roleId, legacyId, permissions) : false);
   };
 
-  const handleTogglePageForRole = async (targetRole, page) => {
+  const handleToggleItemForRole = async (targetRole, itemId, legacyId = null) => {
     const normRole = targetRole.toLowerCase();
-    const hasAccess = checkRolePageAccess(targetRole, page);
+    const hasAccess = checkItemAccess(targetRole, itemId, legacyId);
 
-    const currentIdRoles = (permissions[page.id] || []).map(r => String(r).toLowerCase());
-    let newIdRoles;
-    if (hasAccess) {
-      newIdRoles = currentIdRoles.filter(r => r !== normRole);
-    } else {
-      newIdRoles = Array.from(new Set([...currentIdRoles, normRole]));
-    }
-
-    let newCanonicalRoles;
-    if (page.canonical) {
-      const currentCanonicalRoles = (permissions[page.canonical] || []).map(r => String(r).toLowerCase());
-      if (hasAccess) {
-        newCanonicalRoles = currentCanonicalRoles.filter(r => r !== normRole);
+    // 1. Obter ações atuais para a role
+    let rolePerms = permissions[normRole];
+    if (!rolePerms || !Array.isArray(rolePerms)) {
+      const defaultPerms = DEFAULT_ROLE_PERMISSIONS[normRole] || [];
+      if (defaultPerms.includes('*')) {
+        rolePerms = ALL_PERMISSIONS_LIST.map(p => p.id);
       } else {
-        newCanonicalRoles = Array.from(new Set([...currentCanonicalRoles, normRole]));
+        rolePerms = [...defaultPerms];
       }
+    } else if (rolePerms.includes('*')) {
+      rolePerms = ALL_PERMISSIONS_LIST.map(p => p.id);
+    } else {
+      rolePerms = [...rolePerms];
     }
+
+    let newRolePerms;
+    if (hasAccess) {
+      // Remover permissão
+      newRolePerms = rolePerms.filter(p => p !== itemId && p !== legacyId);
+    } else {
+      // Adicionar permissão
+      newRolePerms = Array.from(new Set([...rolePerms, itemId, ...(legacyId ? [legacyId] : [])]));
+    }
+
+    // 2. Atualizar compatibilidade legada { [action]: [roles] }
+    const currentIdRoles = (permissions[itemId] || []).map(r => String(r).toLowerCase());
+    let newIdRoles = hasAccess
+      ? currentIdRoles.filter(r => r !== normRole)
+      : Array.from(new Set([...currentIdRoles, normRole]));
 
     const newPermissions = {
       ...permissions,
-      [page.id]: newIdRoles,
-      ...(page.canonical ? { [page.canonical]: newCanonicalRoles } : {})
+      [normRole]: newRolePerms,
+      [itemId]: newIdRoles,
+      ...(legacyId ? { [legacyId]: newIdRoles } : {})
     };
 
+    // 3. Atualizar Role Dinâmica no Firebase se aplicável
     const dynamicRole = dynamicRoles.find(dr => dr.id === normRole || dr.name?.toLowerCase().replace(/\s+/g, '_') === normRole);
     if (dynamicRole) {
-      let updatedPerms = Array.isArray(dynamicRole.permissions) ? [...dynamicRole.permissions] : [];
-      if (hasAccess) {
-        updatedPerms = updatedPerms.filter(p => p !== page.id && p !== page.canonical);
-      } else {
-        if (!updatedPerms.includes(page.id)) updatedPerms.push(page.id);
-        if (page.canonical && !updatedPerms.includes(page.canonical)) updatedPerms.push(page.canonical);
-      }
       try {
-        await saveRoleFirebase(dynamicRole.name || targetRole, updatedPerms);
+        await saveRoleFirebase(dynamicRole.name || targetRole, newRolePerms);
       } catch (e) {
         console.error('Erro ao atualizar role no Firebase:', e);
       }
@@ -327,16 +313,10 @@ export default function Configuracoes() {
   };
 
   const tabs = [
-    ...(isAdmin() ? [{ id: 'permissoes', label: 'Controle de Acessos (Roles)' }] : []),
-    ...(hasPermission('Acessar Sincronização Master') ? [{ id: 'sync', label: 'Sincronização Master' }] : []),
+    ...(canManageConfig ? [{ id: 'permissoes', label: 'Controle de Acessos (Roles)' }] : []),
+    ...(hasPermission(PERMISSIONS.SYNC_MASTER) || hasPermission('Acessar Sincronização Master') ? [{ id: 'sync', label: 'Sincronização Master' }] : []),
     { id: 'senha', label: 'Trocar Senha' },
   ];
-
-  // Se não é admin e tab atual é restrita, muda pra senha
-  useEffect(() => {
-    if (!isAdmin() && activeTab === 'permissoes') setActiveTab('senha');
-    if (!hasPermission('Acessar Sincronização Master') && activeTab === 'sync') setActiveTab('senha');
-  }, [activeTab, isAdmin, hasPermission]);
 
   return (
     <div className="flex flex-col h-full space-y-6 pb-10">
@@ -358,7 +338,7 @@ export default function Configuracoes() {
       </div>
 
       {/* TAB: Permissões */}
-      {activeTab === 'permissoes' && isAdmin() && (
+      {activeTab === 'permissoes' && canManageConfig && (
         <div className="space-y-6">
           {/* User Management */}
           <div className="erp-card p-6">
@@ -455,47 +435,81 @@ export default function Configuracoes() {
                         )}
                       </div>
 
-                      {/* Seção Toggles por Página */}
-                      <div className="space-y-3">
+                      {/* Seção Toggles Organizados por Página e Abas */}
+                      <div className="space-y-4">
                         <h4 className="text-[11px] font-black uppercase text-muted-foreground tracking-wider">
-                          Acesso a Páginas do Sistema
+                          Permissões por Página & Abas
                         </h4>
 
-                        <div className="grid grid-cols-1 gap-2">
-                          {SYSTEM_PAGES.map(page => {
-                            const PageIcon = page.icon;
-                            const hasAccess = checkRolePageAccess(roleId, page);
+                        <div className="space-y-3">
+                          {PAGE_PERMISSIONS_STRUCTURE.map(pageStruct => {
+                            const pageAccess = checkItemAccess(roleId, pageStruct.pageId, pageStruct.legacyId);
 
                             return (
                               <div
-                                key={page.id}
-                                onClick={() => handleTogglePageForRole(roleId, page)}
-                                className={cn(
-                                  "flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none",
-                                  hasAccess
-                                    ? "bg-green-50/70 dark:bg-green-950/30 border-green-300 dark:border-green-800 text-green-900 dark:text-green-200 shadow-2xs"
-                                    : "bg-muted/40 border-border/60 text-muted-foreground hover:border-primary/40"
-                                )}
+                                key={pageStruct.pageId}
+                                className="bg-slate-50/50 dark:bg-zinc-900/60 border border-border rounded-xl p-3 space-y-2"
                               >
-                                <div className="flex items-center gap-2">
-                                  <PageIcon size={16} className={hasAccess ? "text-green-600 dark:text-green-400" : "text-muted-foreground"} />
-                                  <span className="font-extrabold">{page.label}</span>
+                                {/* Alternador Principal da Página */}
+                                <div
+                                  onClick={() => handleToggleItemForRole(roleId, pageStruct.pageId, pageStruct.legacyId)}
+                                  className="flex items-center justify-between cursor-pointer select-none"
+                                >
+                                  <span className="font-extrabold text-xs text-foreground uppercase tracking-tight">
+                                    {pageStruct.label}
+                                  </span>
+
+                                  <div
+                                    className={cn(
+                                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out",
+                                      pageAccess ? "bg-green-600" : "bg-zinc-300 dark:bg-zinc-700"
+                                    )}
+                                  >
+                                    <span
+                                      className={cn(
+                                        "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                                        pageAccess ? "translate-x-4" : "translate-x-0"
+                                      )}
+                                    />
+                                  </div>
                                 </div>
 
-                                {/* Toggle Button / Switch */}
-                                <div
-                                  className={cn(
-                                    "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out",
-                                    hasAccess ? "bg-green-600" : "bg-zinc-300 dark:bg-zinc-700"
-                                  )}
-                                >
-                                  <span
-                                    className={cn(
-                                      "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
-                                      hasAccess ? "translate-x-4" : "translate-x-0"
-                                    )}
-                                  />
-                                </div>
+                                {/* Lista Sub-Abas/Módulos da Página */}
+                                {pageStruct.tabs && pageStruct.tabs.length > 0 && (
+                                  <div className="pl-3 border-l-2 border-primary/20 space-y-1.5 pt-1">
+                                    {pageStruct.tabs.map(tab => {
+                                      const tabAccess = checkItemAccess(roleId, tab.id, tab.legacyId);
+
+                                      return (
+                                        <div
+                                          key={tab.id}
+                                          onClick={() => handleToggleItemForRole(roleId, tab.id, tab.legacyId)}
+                                          className={cn(
+                                            "flex items-center justify-between p-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer select-none",
+                                            tabAccess
+                                              ? "bg-green-100/60 dark:bg-green-950/40 text-green-900 dark:text-green-200"
+                                              : "text-muted-foreground hover:bg-muted/40"
+                                          )}
+                                        >
+                                          <span>{tab.label}</span>
+                                          <div
+                                            className={cn(
+                                              "relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-200 ease-in-out",
+                                              tabAccess ? "bg-green-600" : "bg-zinc-300 dark:bg-zinc-700"
+                                            )}
+                                          >
+                                            <span
+                                              className={cn(
+                                                "pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out",
+                                                tabAccess ? "translate-x-3" : "translate-x-0"
+                                              )}
+                                            />
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -615,11 +629,6 @@ export default function Configuracoes() {
                 <label className="text-[10px] font-black text-muted-foreground uppercase">Role</label>
                 <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className="w-full px-4 py-2.5 rounded-lg border bg-background font-bold mt-1">
                   <option value="admin">Admin</option>
-                  <option value="gerente">Gerente</option>
-                  <option value="lider">Líder</option>
-                  <option value="vendedor">Vendedor</option>
-                  <option value="repositor">Repositor</option>
-                  <option value="clientes">Clientes</option>
                   {dynamicRoles.map(dr => (
                     <option key={dr.id} value={dr.id}>{dr.name || dr.id}</option>
                   ))}

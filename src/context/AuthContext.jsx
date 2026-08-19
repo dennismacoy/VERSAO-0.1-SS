@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }) => {
       if (fbPerms && typeof fbPerms === 'object') {
         const { updatedAt, ...cleanPerms } = fbPerms;
         if (Object.keys(cleanPerms).length > 0) {
-          setPermissions(prev => ({ ...defaultPermissions, ...cleanPerms, ...prev }));
+          setPermissions(prev => ({ ...defaultPermissions, ...prev, ...cleanPerms }));
         }
       }
     });
@@ -117,9 +117,10 @@ export const AuthProvider = ({ children }) => {
     return hasRolePermission(role, actionName, permissions);
   }, [role, permissions]);
 
+  // isAdmin derivado exclusivamente da verificação dinâmica da permissão de configurações
   const isAdmin = React.useCallback(() => {
-    return (role || '').toLowerCase() === 'admin';
-  }, [role]);
+    return hasRolePermission(role, 'view_configuracoes', permissions);
+  }, [role, permissions]);
 
   const updatePermissions = React.useCallback(async (newPermissions) => {
     setPermissions(newPermissions);

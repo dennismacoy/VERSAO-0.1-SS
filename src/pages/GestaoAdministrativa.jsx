@@ -179,8 +179,22 @@ export default function GestaoAdministrativa() {
   const canExport = usePermission(PERMISSIONS.EXPORT_REPORTS);
   const canCreate = usePermission(PERMISSIONS.CREATE_ITEMS);
 
+  // Permissões dinâmicas por Aba
+  const canTasks = hasPermission(PERMISSIONS.GESTAO_TAB_TASKS) || hasPermission('Aba Tarefas Diarias');
+  const canPreventive = hasPermission(PERMISSIONS.GESTAO_TAB_PREVENTIVE) || hasPermission('Aba Manutencao Preventiva');
+  const canIT = hasPermission(PERMISSIONS.GESTAO_TAB_IT) || hasPermission('Aba TI e Suporte');
+  const canConfig = hasPermission(PERMISSIONS.GESTAO_TAB_CONFIG) || hasPermission('Aba Config Setores');
+
   // Abas de navegação: 'tasks' | 'preventive' | 'it' | 'config'
   const [activeTab, setActiveTab] = useState('tasks');
+
+  useEffect(() => {
+    if (!canTasks && activeTab === 'tasks') {
+      if (canPreventive) setActiveTab('preventive');
+      else if (canIT) setActiveTab('it');
+      else if (canConfig) setActiveTab('config');
+    }
+  }, [canTasks, canPreventive, canIT, canConfig, activeTab]);
 
   // Filtro de Ativos vs. Concluídos: 'active' | 'completed' | 'all'
   const [completionFilter, setCompletionFilter] = useState('active');
@@ -898,53 +912,61 @@ export default function GestaoAdministrativa() {
 
       {/* 1. REPOSICIONAMENTO DO LAYOUT: ABAS POSICIONADAS ACIMA DO DASHBOARD */}
       <div className="flex items-center overflow-x-auto whitespace-nowrap pb-2 gap-2 hide-scrollbar border-b border-slate-200 dark:border-zinc-800">
-        <button
-          onClick={() => resetFiltersForTabChange('tasks')}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
-            activeTab === 'tasks'
-              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <FileText size={16} />
-          Tarefas ({tarefas.length})
-        </button>
+        {canTasks && (
+          <button
+            onClick={() => resetFiltersForTabChange('tasks')}
+            className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
+              activeTab === 'tasks'
+                ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <FileText size={16} />
+            Tarefas ({tarefas.length})
+          </button>
+        )}
 
-        <button
-          onClick={() => resetFiltersForTabChange('preventive')}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
-            activeTab === 'preventive'
-              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Wrench size={16} />
-          Preventivas ({preventivas.length})
-        </button>
+        {canPreventive && (
+          <button
+            onClick={() => resetFiltersForTabChange('preventive')}
+            className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
+              activeTab === 'preventive'
+                ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <Wrench size={16} />
+            Preventivas ({preventivas.length})
+          </button>
+        )}
 
-        <button
-          onClick={() => resetFiltersForTabChange('it')}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
-            activeTab === 'it'
-              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Laptop size={16} />
-          Informática & TI ({tiItems.length})
-        </button>
+        {canIT && (
+          <button
+            onClick={() => resetFiltersForTabChange('it')}
+            className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
+              activeTab === 'it'
+                ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <Laptop size={16} />
+            Informática & TI ({tiItems.length})
+          </button>
+        )}
 
-        <button
-          onClick={() => resetFiltersForTabChange('config')}
-          className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
-            activeTab === 'config'
-              ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-          }`}
-        >
-          <Settings size={16} />
-          ⚙️ Configurações
-        </button>
+        {canConfig && (
+          <button
+            onClick={() => resetFiltersForTabChange('config')}
+            className={`px-3.5 py-2.5 md:px-5 md:py-3 font-bold text-xs uppercase tracking-wider transition-all border-b-2 -mb-px flex items-center gap-2 flex-shrink-0 ${
+              activeTab === 'config'
+                ? 'border-green-600 text-green-600 bg-green-50/50 dark:bg-green-950/30 rounded-t-xl'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            <Settings size={16} />
+            ⚙️ Configurações
+          </button>
+        )}
       </div>
 
       {/* DASHBOARD CARDS DE KPI (VISÍVEIS PARA ABAS 1, 2 E 3 ABAIXO DAS TABS) */}
