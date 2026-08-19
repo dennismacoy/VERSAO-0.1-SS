@@ -6,7 +6,7 @@ import { useState, useMemo } from 'react';
  * @param {Array} items - Lista de itens a serem ordenados
  * @param {Object} defaultConfig - Configuração padrão { key: 'name', direction: 'asc' }
  */
-export default function useSortableData(items = [], defaultConfig = null) {
+export function useSortableData(items = [], defaultConfig = null) {
   const [sortConfig, setSortConfig] = useState(defaultConfig);
 
   const sortedItems = useMemo(() => {
@@ -69,3 +69,5 @@ function getNestedValue(obj, key) {
 function isDateString(val) {
   return typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val);
 }
+
+export default useSortableData;

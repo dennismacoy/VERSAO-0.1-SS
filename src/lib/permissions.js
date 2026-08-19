@@ -15,6 +15,7 @@ export const PERMISSIONS = {
   VIEW_GESTAO_ADMIN: 'view_gestao_admin',
   VIEW_RELATORIOS: 'view_relatorios',
   VIEW_CONFIGURACOES: 'view_configuracoes',
+  VIEW_TELEFONES: 'view_telefones',
 
   // Abas de Gestão Administrativa
   GESTAO_TAB_TASKS: 'gestao_tab_tasks',
@@ -141,6 +142,12 @@ export const PAGE_PERMISSIONS_STRUCTURE = [
     legacyId: 'Acesso Requisições',
     label: 'Requisições de Estoque',
     tabs: []
+  },
+  {
+    pageId: PERMISSIONS.VIEW_TELEFONES,
+    legacyId: 'Acesso Telefones',
+    label: 'Telefones & Ramais',
+    tabs: []
   }
 ];
 
@@ -155,6 +162,7 @@ export const ALL_PERMISSIONS_LIST = [
   { id: PERMISSIONS.VIEW_GESTAO_ADMIN, label: 'Acesso Gestão Administrativa', category: 'Páginas' },
   { id: PERMISSIONS.VIEW_RELATORIOS, label: 'Acesso Relatórios', category: 'Páginas' },
   { id: PERMISSIONS.VIEW_CONFIGURACOES, label: 'Acesso Configurações', category: 'Páginas' },
+  { id: PERMISSIONS.VIEW_TELEFONES, label: 'Acesso Telefones / Ramais', category: 'Páginas' },
 
   // Abas internas
   { id: PERMISSIONS.GESTAO_TAB_TASKS, label: 'Gestão: Tarefas Diárias', category: 'Abas' },
@@ -193,6 +201,7 @@ export const LEGACY_ACTION_MAP = {
   'gestao_administrativa': PERMISSIONS.VIEW_GESTAO_ADMIN,
   'Acesso Relatorios': PERMISSIONS.VIEW_RELATORIOS,
   'Acesso Configuracoes': PERMISSIONS.VIEW_CONFIGURACOES,
+  'Acesso Telefones': PERMISSIONS.VIEW_TELEFONES,
   'Acessar Sincronização Master': PERMISSIONS.SYNC_MASTER,
   'Botao Gerar PDF': PERMISSIONS.EXPORT_REPORTS,
   'Criar Prevenda': PERMISSIONS.CREATE_ITEMS
@@ -255,6 +264,7 @@ export const PAGE_PRIORITY_LIST = [
   { path: '/separacao', action: PERMISSIONS.VIEW_SEPARACAO },
   { path: '/gestao-administrativa', action: PERMISSIONS.VIEW_GESTAO_ADMIN },
   { path: '/relatorios', action: PERMISSIONS.VIEW_RELATORIOS },
+  { path: '/telefones', action: PERMISSIONS.VIEW_TELEFONES },
   { path: '/configuracoes', action: PERMISSIONS.VIEW_CONFIGURACOES }
 ];
 

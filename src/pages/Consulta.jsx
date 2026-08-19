@@ -286,50 +286,67 @@ export default function Consulta() {
             {/* Conteúdo Rolável do Painel */}
             <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4">
 
+              {/* CARD DE DESTAQUE DO ESTOQUE */}
+              {(() => {
+                const estRaw = getVal(selectedProduct, 'ESTOQUE', 'QTE', 'estoque') || '0';
+                const temEst = parseEstoque(estRaw);
+                return (
+                  <div className={cn(
+                    "p-5 rounded-2xl border text-center flex flex-col items-center justify-center space-y-1 shadow-sm transition-all",
+                    temEst
+                      ? "bg-green-50/80 dark:bg-green-950/40 border-green-300 dark:border-green-800 text-green-900 dark:text-green-200"
+                      : "bg-red-50/80 dark:bg-red-950/40 border-red-300 dark:border-red-800 text-red-900 dark:text-red-200"
+                  )}>
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-80">Situação do Estoque</span>
+                    <span className="text-4xl md:text-5xl font-black tracking-tight">{estRaw}</span>
+                    <span className={cn(
+                      "mt-1 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-2xs",
+                      temEst ? "bg-green-600 text-white" : "bg-red-600 text-white"
+                    )}>
+                      {temEst ? "✅ Disponível em Estoque" : "⚠️ Sem Estoque"}
+                    </span>
+                  </div>
+                );
+              })()}
+
               {/* Card Geral */}
               {hasPermission('Ver Card Geral') && (
-                <div className="border border-border rounded-xl p-4 space-y-3 bg-muted/20">
-                  <h3 className="font-bold text-sm uppercase text-primary border-b border-border/50 pb-2">Informações Gerais</h3>
-                  <div className="grid grid-cols-2 gap-y-3 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Estoque</p>
-                      <p className={cn("font-black text-lg", parseEstoque(getVal(selectedProduct, 'ESTOQUE', 'QTE', 'estoque') || 0) ? "text-green-600" : "text-red-500")}>
-                        {getVal(selectedProduct, 'ESTOQUE', 'QTE', 'estoque') || '0'}
+                <div className="border border-border rounded-2xl p-4 space-y-3 bg-card shadow-2xs">
+                  <h3 className="font-extrabold text-xs uppercase tracking-wider text-primary border-b border-border pb-2">
+                    Informações Logísticas & Operação
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="bg-muted/40 p-2.5 rounded-xl border border-border/50">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Corredor / Localização</p>
+                      <p className="font-black text-sm text-primary mt-0.5">{getVal(selectedProduct, 'CORREDOR', 'corredor') || '-'}</p>
+                    </div>
+                    <div className="bg-muted/40 p-2.5 rounded-xl border border-border/50">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Palete Estoque</p>
+                      <p className="font-black text-sm text-foreground mt-0.5">{getVal(selectedProduct, 'PALETE_ESTOQUE', 'PALETES', 'paletes') || '-'}</p>
+                    </div>
+                    <div className="bg-muted/40 p-2.5 rounded-xl border border-border/50">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Idade do Produto</p>
+                      <p className="font-extrabold text-sm text-foreground mt-0.5">{getVal(selectedProduct, 'IDADE', 'idade') || 0} dias</p>
+                    </div>
+                    <div className="bg-muted/40 p-2.5 rounded-xl border border-border/50">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Dias Sem Venda (ISV)</p>
+                      <p className="font-extrabold text-sm text-orange-600 dark:text-orange-400 mt-0.5">
+                        {getVal(selectedProduct, 'DIAS_SEM_VENDA', 'ISV', 'dias_sem_venda') || 0} dias
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Preços (At/Var)</p>
-                      <p className="font-bold text-sm">
-                        {formatCurrency(getVal(selectedProduct, 'preco_atacado', 'PRECO_ATACADO'))} <br /> <span className="text-xs text-muted-foreground">{formatCurrency(getVal(selectedProduct, 'preco_unitario', 'PRECO_VAREJO'))}</span>
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Idade / Dias S/ Venda</p>
-                      <p className="font-bold">
-                        {getVal(selectedProduct, 'IDADE', 'idade') || 0} / {getVal(selectedProduct, 'DIAS_SEM_VENDA', 'ISV', 'dias_sem_venda') || 0} dias
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Palete Estoque</p>
-                      <p className="font-bold">{getVal(selectedProduct, 'PALETE_ESTOQUE', 'PALETES', 'paletes') || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Corredor</p>
-                      <p className="font-bold text-accent">{getVal(selectedProduct, 'CORREDOR', 'corredor') || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Última Entrada</p>
-                      <p className="font-bold">{getVal(selectedProduct, 'ENTRADA', 'entrada') || '-'}</p>
+                    <div className="bg-muted/40 p-2.5 rounded-xl border border-border/50 col-span-2">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Última Entrada no Estoque</p>
+                      <p className="font-extrabold text-sm text-foreground mt-0.5">{getVal(selectedProduct, 'ENTRADA', 'entrada') || '-'}</p>
                     </div>
                   </div>
 
                   {hasPermission('Botao Enviar WPP') && (
                     <button
                       onClick={() => handleWppContact(buildWppMessage(selectedProduct))}
-                      className="mt-4 w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white py-3 rounded-lg font-bold transition-colors"
+                      className="mt-3 w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all active:scale-98"
                     >
                       <MessageSquare size={18} />
-                      Enviar Info WPP
+                      Enviar Info no WhatsApp
                     </button>
                   )}
                 </div>
@@ -337,37 +354,25 @@ export default function Consulta() {
 
               {/* Card Extras */}
               {hasPermission('Ver Card Extras') && (
-                <div className="border border-border rounded-xl p-4 space-y-3 bg-muted/20">
-                  <h3 className="font-bold text-sm uppercase text-accent border-b border-border/50 pb-2">Informações Extras</h3>
-                  <div className="grid grid-cols-2 gap-y-3 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Valor em Estoque</p>
-                      <p className="font-black text-primary">
-                        {formatCurrency(getVal(selectedProduct, 'valor_estoque', 'VALOR_ESTOQUE') || 0)}
-                      </p>
+                <div className="border border-border rounded-2xl p-4 space-y-3 bg-card shadow-2xs">
+                  <h3 className="font-extrabold text-xs uppercase tracking-wider text-accent border-b border-border pb-2">
+                    Métricas Complementares
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="bg-muted/40 p-2.5 rounded-xl border border-border/50">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Autonomia</p>
+                      <p className="font-extrabold text-sm text-foreground mt-0.5">{getVal(selectedProduct, 'autonomia_dias', 'AUTONOMIA_DIAS', 'autonomia') || 0} dias</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Custo</p>
-                      <p className="font-bold text-destructive">{formatCurrency(getVal(selectedProduct, 'custo', 'CUSTO'))}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Autonomia</p>
-                      <p className="font-bold">{getVal(selectedProduct, 'autonomia_dias', 'AUTONOMIA_DIAS', 'autonomia') || 0} dias</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Rentabilidade</p>
-                      <p className="font-bold text-green-600">{getVal(selectedProduct, 'RENTABILIDADE', 'rentabilidade') || '0'}%</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">Venda Mês</p>
-                      <p className="font-bold">{getVal(selectedProduct, 'venda_mes', 'VENDA_MES') || 0}</p>
+                    <div className="bg-muted/40 p-2.5 rounded-xl border border-border/50">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Venda Mês</p>
+                      <p className="font-extrabold text-sm text-foreground mt-0.5">{getVal(selectedProduct, 'venda_mes', 'VENDA_MES') || 0}</p>
                     </div>
                   </div>
 
                   {hasPermission('Botao Ligar Comprador') && (
                     <button
                       onClick={() => handleWppContact(`Atenção comprador, sobre o item ${getVal(selectedProduct, 'CODIGO', 'codigo')}.`)}
-                      className="mt-4 w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent/90 text-accent-foreground py-3 rounded-lg font-bold transition-colors"
+                      className="mt-3 w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent/90 text-accent-foreground py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all active:scale-98"
                     >
                       <Phone size={18} />
                       Falar com Comprador

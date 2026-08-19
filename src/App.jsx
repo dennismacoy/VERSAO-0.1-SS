@@ -12,6 +12,7 @@ import Separacao from './pages/Separacao';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
 import GestaoAdministrativa from './pages/GestaoAdministrativa';
+import Telefones from './pages/Telefones';
 import VisualizadorRelatorioPublico from './pages/VisualizadorRelatorioPublico';
 
 class ErrorBoundary extends React.Component {
@@ -71,6 +72,7 @@ function AppRoutes() {
       <Route path="/separacao" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_SEPARACAO}><Separacao /></ProtectedRoute>} />
       <Route path="/gestao-administrativa" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_GESTAO_ADMIN}><GestaoAdministrativa /></ProtectedRoute>} />
       <Route path="/relatorios" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_RELATORIOS}><Relatorios /></ProtectedRoute>} />
+      <Route path="/telefones" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_TELEFONES}><Telefones /></ProtectedRoute>} />
       <Route path="/configuracoes" element={<ProtectedRoute requiredAction={PERMISSIONS.VIEW_CONFIGURACOES}><Configuracoes /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

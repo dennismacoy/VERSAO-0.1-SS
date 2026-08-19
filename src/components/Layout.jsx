@@ -20,6 +20,7 @@ import {
   GripHorizontal,
   Wrench,
   Building2,
+  Phone,
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -76,6 +77,7 @@ export default function Layout({ children }) {
     { name: 'Separação', path: '/separacao', icon: ListChecks, condition: hasPermission(PERMISSIONS.VIEW_SEPARACAO) || hasPermission('Acesso Separacao') },
     { name: 'Gestão Administrativa', path: '/gestao-administrativa', icon: Building2, condition: hasPermission(PERMISSIONS.VIEW_GESTAO_ADMIN) || hasPermission('Acesso Gestao Administrativa') },
     { name: 'Relatórios', path: '/relatorios', icon: BarChart3, condition: hasPermission(PERMISSIONS.VIEW_RELATORIOS) || hasPermission('Acesso Relatorios') },
+    { name: 'Telefones', path: '/telefones', icon: Phone, condition: hasPermission(PERMISSIONS.VIEW_TELEFONES) || hasPermission('Acesso Telefones') },
     { name: 'Configurações', path: '/configuracoes', icon: Settings, condition: hasPermission(PERMISSIONS.VIEW_CONFIGURACOES) || hasPermission('Acesso Configuracoes') },
   ];
 

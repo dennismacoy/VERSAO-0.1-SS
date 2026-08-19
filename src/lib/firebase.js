@@ -321,6 +321,26 @@ export const createPedidoFirebase = async (pedidoData) => {
 };
 
 /**
+ * Cria um novo registro genérico em um nó (ex: 'telefones').
+ */
+export const createRecordFirebase = async (nodeName, recordData) => {
+  try {
+    const nodeRef = ref(db, nodeName);
+    const newRef = push(nodeRef);
+    const data = {
+      ...recordData,
+      firebaseId: newRef.key,
+      createdAt: new Date().toISOString(),
+    };
+    await set(newRef, data);
+    return { success: true, id: newRef.key, data };
+  } catch (error) {
+    console.error(`[Firebase] Erro ao criar registro em ${nodeName}:`, error);
+    throw error;
+  }
+};
+
+/**
  * Busca todos os registros de um nó (ex: 'prevendas', 'pedidos').
  * Retorna array ordenado por data (mais recente primeiro).
  */

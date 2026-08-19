@@ -74,6 +74,8 @@ const TASK_STATUS_OPTIONS = [
   'Aguardando Aprovação da Despesa',
   'Aprovado - Aguardando Chegada',
   'Aprovado - Aguardando',
+  'Aprovado - aguardando finalização',
+  'Em Tratativa adm',
   'Recusado',
   'Aguardando Verba'
 ];
@@ -95,7 +97,10 @@ const IT_STATUS_OPTIONS = [
   'Aguardando Orçamento',
   'Aguardando Aprovação',
   'Aprovado',
-  'Aguardando Retorno'
+  'Aguardando Retorno',
+  'Aguardando nota de remessa',
+  'Nota emitida',
+  'Devolvido'
 ];
 
 // Utilitário estrito para verificar se um item está concluído
@@ -252,6 +257,9 @@ export default function GestaoAdministrativa() {
 
   const [itForm, setItForm] = useState({
     device: '',
+    quantity: 1,
+    invoiceNumber: '',
+    value: '',
     supplierId: '',
     supplierName: '',
     status: IT_STATUS_OPTIONS[0],
@@ -505,6 +513,9 @@ export default function GestaoAdministrativa() {
     } else if (type === 'it') {
       setItForm({
         device: '',
+        quantity: 1,
+        invoiceNumber: '',
+        value: '',
         supplierId: fornecedores.length > 0 ? fornecedores[0].id : '',
         supplierName: fornecedores.length > 0 ? fornecedores[0].name : '',
         status: IT_STATUS_OPTIONS[0],
@@ -793,7 +804,7 @@ export default function GestaoAdministrativa() {
       });
       generateGestaoAdministrativaPDF('Relatório de Manutenções Preventivas', `Filtro: ${filteredPreventivas.length} item(ns)`, headers, rows, 'manutencoes_preventivas.pdf');
     } else if (activeTab === 'it') {
-      const headers = ['Status', 'Equipamento TI', 'Fornecedor / Assistência', 'Status Envio', 'Data Envio', 'Previsão Retorno', 'Dias Restantes'];
+      const headers = ['Status', 'Equipamento TI', 'Qtd', 'Nº NF', 'Valor (R$)', 'Fornecedor / Assistência', 'Status Envio', 'Data Envio', 'Previsão Retorno', 'Dias Restantes'];
       const rows = filteredTI.map(i => {
         const isComp = isItemCompleted(i);
         const days = calculateDaysRemaining(i.expectedDate);
@@ -801,6 +812,9 @@ export default function GestaoAdministrativa() {
         return [
           isComp ? 'Retornado' : 'Em Manutenção',
           i.device || '',
+          i.quantity || 1,
+          i.invoiceNumber || '-',
+          i.value ? formatCurrency(i.value) : i.cost ? formatCurrency(i.cost) : '-',
           i.supplierName || 'Não Informado',
           i.status || '',
           i.sendDate ? new Date(i.sendDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-',
@@ -846,13 +860,16 @@ export default function GestaoAdministrativa() {
       });
       downloadCSV('manutencoes_preventivas.csv', headers, rows);
     } else if (activeTab === 'it') {
-      const headers = ['Status Conclusão', 'Equipamento', 'Fornecedor', 'Status Envio', 'Data Envio', 'Previsão Retorno', 'Dias Restantes', 'Observações'];
+      const headers = ['Status Conclusão', 'Equipamento', 'Qtd', 'Nº NF', 'Valor (R$)', 'Fornecedor', 'Status Envio', 'Data Envio', 'Previsão Retorno', 'Dias Restantes', 'Observações'];
       const rows = filteredTI.map(i => {
         const isComp = isItemCompleted(i);
         const days = calculateDaysRemaining(i.expectedDate);
         return [
           isComp ? 'Retornado' : 'Em Manutenção',
           i.device || '',
+          i.quantity || 1,
+          i.invoiceNumber || '',
+          i.value || i.cost || '',
           i.supplierName || '',
           i.status || '',
           i.sendDate || '',
@@ -1424,6 +1441,9 @@ export default function GestaoAdministrativa() {
                 <thead className="hidden md:table-header-group bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-slate-300 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200 dark:border-zinc-700">
                   <tr>
                     {renderSortHeader('Equipamento', 'device', sortTIConfig, sortTI, 'left')}
+                    {renderSortHeader('Qtd', 'quantity', sortTIConfig, sortTI, 'center')}
+                    {renderSortHeader('Nº NF', 'invoiceNumber', sortTIConfig, sortTI, 'left')}
+                    {renderSortHeader('Valor (R$)', 'value', sortTIConfig, sortTI, 'right')}
                     {renderSortHeader('Fornecedor / Assistência', 'supplierName', sortTIConfig, sortTI, 'left')}
                     {renderSortHeader('Status Manutenção', 'status', sortTIConfig, sortTI, 'left')}
                     {renderSortHeader('Data Envio', 'sendDate', sortTIConfig, sortTI, 'center')}
@@ -1435,7 +1455,7 @@ export default function GestaoAdministrativa() {
                 <tbody className="block md:table-row-group space-y-3 md:space-y-0 divide-y-0 md:divide-y divide-slate-100 dark:divide-zinc-800">
                   {sortedTI.length === 0 ? (
                     <tr className="block md:table-row bg-white dark:bg-zinc-900 rounded-xl p-8 border border-slate-200 dark:border-zinc-800 text-center">
-                      <td colSpan="6" className="block md:table-cell text-slate-400 font-medium text-center">
+                      <td colSpan="9" className="block md:table-cell text-slate-400 font-medium text-center">
                         Nenhum equipamento de TI encontrado com os filtros aplicados.
                       </td>
                     </tr>
@@ -1458,6 +1478,28 @@ export default function GestaoAdministrativa() {
                               {i.device}
                             </p>
                             {i.notes && <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{i.notes}</p>}
+                          </td>
+
+                          {/* QUANTIDADE */}
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-center md:align-middle">
+                            <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Qtd:</span>
+                            <span className="font-extrabold text-xs bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 rounded-md text-slate-800 dark:text-slate-200">
+                              {i.quantity || 1}
+                            </span>
+                          </td>
+
+                          {/* Nº NF */}
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:align-middle">
+                            <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Nº NF:</span>
+                            <span className="font-bold text-xs text-slate-600 dark:text-slate-400">
+                              {i.invoiceNumber || '-'}
+                            </span>
+                          </td>
+
+                          {/* VALOR */}
+                          <td className="flex justify-between items-center py-2 border-b md:border-b-0 border-slate-100 dark:border-zinc-800 md:table-cell md:py-3.5 md:px-4 md:text-right md:align-middle font-black text-xs text-emerald-600 dark:text-emerald-400">
+                            <span className="md:hidden font-bold text-xs text-slate-400 uppercase tracking-wider">Valor:</span>
+                            <span>{i.value ? formatCurrency(i.value) : i.cost ? formatCurrency(i.cost) : '-'}</span>
                           </td>
 
                           {/* FORNECEDOR */}
@@ -1805,6 +1847,18 @@ export default function GestaoAdministrativa() {
                     {selectedDetail.type === 'it' && (
                       <>
                         <div className="bg-slate-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-zinc-800">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Qtd / Nº NF</p>
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+                            Qtd: {selectedDetail.item.quantity || 1} {selectedDetail.item.invoiceNumber ? `| NF: ${selectedDetail.item.invoiceNumber}` : ''}
+                          </p>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-zinc-800">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Valor Estimado / Custo</p>
+                          <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                            {selectedDetail.item.value ? formatCurrency(selectedDetail.item.value) : selectedDetail.item.cost ? formatCurrency(selectedDetail.item.cost) : '-'}
+                          </p>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-zinc-800/60 p-3.5 rounded-xl border border-slate-100 dark:border-zinc-800">
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Data Envio</p>
                           <p className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-0.5">
                             {selectedDetail.item.sendDate ? new Date(selectedDetail.item.sendDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}
@@ -1901,37 +1955,75 @@ export default function GestaoAdministrativa() {
                   )}
 
                   {selectedDetail.type === 'it' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Fornecedor / Assistência</label>
-                        <select
-                          value={detailForm.supplierId || ''}
-                          onChange={(e) => {
-                            const selectedSup = fornecedores.find(f => String(f.id) === String(e.target.value));
-                            setDetailForm({
-                              ...detailForm,
-                              supplierId: e.target.value,
-                              supplierName: selectedSup ? selectedSup.name : ''
-                            });
-                          }}
-                          className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
-                        >
-                          <option value="">Selecione...</option>
-                          {fornecedores.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                        </select>
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Quantidade</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={detailForm.quantity ?? 1}
+                            onChange={(e) => setDetailForm({ ...detailForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                            className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Nº da NF</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: 12345"
+                            value={detailForm.invoiceNumber ?? ''}
+                            onChange={(e) => setDetailForm({ ...detailForm, invoiceNumber: e.target.value })}
+                            className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Valor (R$)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={detailForm.value ?? detailForm.cost ?? ''}
+                            onChange={(e) => setDetailForm({ ...detailForm, value: e.target.value })}
+                            className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                          />
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Status Manutenção</label>
-                        <select
-                          value={detailForm.status || IT_STATUS_OPTIONS[0]}
-                          onChange={(e) => setDetailForm({ ...detailForm, status: e.target.value })}
-                          className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
-                        >
-                          {IT_STATUS_OPTIONS.map((st, i) => <option key={i} value={st}>{st}</option>)}
-                        </select>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Fornecedor / Assistência</label>
+                          <select
+                            value={detailForm.supplierId || ''}
+                            onChange={(e) => {
+                              const selectedSup = fornecedores.find(f => String(f.id) === String(e.target.value));
+                              setDetailForm({
+                                ...detailForm,
+                                supplierId: e.target.value,
+                                supplierName: selectedSup ? selectedSup.name : ''
+                              });
+                            }}
+                            className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                          >
+                            <option value="">Selecione...</option>
+                            {fornecedores.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Status Manutenção</label>
+                          <select
+                            value={detailForm.status || IT_STATUS_OPTIONS[0]}
+                            onChange={(e) => setDetailForm({ ...detailForm, status: e.target.value })}
+                            className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                          >
+                            {IT_STATUS_OPTIONS.map((st, i) => <option key={i} value={st}>{st}</option>)}
+                          </select>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
 
                   <div>
@@ -2257,6 +2349,42 @@ export default function GestaoAdministrativa() {
                   onChange={(e) => setItForm({ ...itForm, device: e.target.value })}
                   className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Quantidade</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={itForm.quantity ?? 1}
+                    onChange={(e) => setItForm({ ...itForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                    className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Nº da NF</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 12345"
+                    value={itForm.invoiceNumber ?? ''}
+                    onChange={(e) => setItForm({ ...itForm, invoiceNumber: e.target.value })}
+                    className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Valor (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={itForm.value ?? ''}
+                    onChange={(e) => setItForm({ ...itForm, value: e.target.value })}
+                    className="w-full h-10 text-xs md:h-11 md:text-sm px-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl font-medium"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

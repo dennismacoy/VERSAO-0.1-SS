@@ -55,16 +55,27 @@ export default function Relatorios() {
   const [advEstoqueFilter, setAdvEstoqueFilter] = useState('com_estoque'); // 'com_estoque' | 'todos'
   const [advSort, setAdvSort] = useState('descricao_asc'); // 'descricao_asc' | 'dias_desc' | 'valor_desc'
   const [advVisibleCount, setAdvVisibleCount] = useState(30);
+  const [showAdvFilterDrawer, setShowAdvFilterDrawer] = useState(false);
+
+  const activeAdvFiltersCount = useMemo(() => {
+    let count = 0;
+    if (advQuery.trim()) count++;
+    if (selectedCorredores.length > 0) count++;
+    if (minDiasSemVendas !== '') count++;
+    if (advEstoqueFilter !== 'com_estoque') count++;
+    if (advSort !== 'descricao_asc') count++;
+    return count;
+  }, [advQuery, selectedCorredores, minDiasSemVendas, advEstoqueFilter, advSort]);
 
   // Scroll Lock: trava o body quando o modal de PDF ou QR Code está aberto
   useEffect(() => {
-    if (showPdfModal || showQrModal) {
+    if (showPdfModal || showQrModal || showAdvFilterDrawer) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [showPdfModal, showQrModal]);
+  }, [showPdfModal, showQrModal, showAdvFilterDrawer]);
 
   // Renderiza o QR Code no canvas do modal
   useEffect(() => {
@@ -82,17 +93,33 @@ export default function Relatorios() {
     }
   }, [showQrModal, qrCodeUrl]);
 
+  // Helper robusto para extração e normalização da Razão Social
+  const getRazaoSocialFromItem = (item) => {
+    if (!item) return '';
+    const rz = (
+      item.RAZAOSOCIAL ||
+      item.RAZAO_SOCIAL ||
+      item.razaosocial ||
+      item.razao_social ||
+      item.FORNECEDOR ||
+      item.fornecedor ||
+      item.Fabricante ||
+      ''
+    ).toString().trim();
+    return rz;
+  };
+
   // --- LÓGICA DA ABA GERAL ---
   const filteredData = useMemo(() => {
     return cacheProducts.filter(item => {
       const term = query.toLowerCase();
       const desc = (item.DESCRICAO || item.descricao || '').toLowerCase();
-      const rz = (item.RAZAOSOCIAL || item.razaosocial || '').toLowerCase();
+      const rz = getRazaoSocialFromItem(item).toLowerCase();
       const cod = (item.CODIGO || item.codigo || '').toString().toLowerCase();
 
       const matchTerm = desc.includes(term) || rz.includes(term) || cod.includes(term);
       if (selectedRazao) {
-        return matchTerm && (item.RAZAOSOCIAL || item.razaosocial) === selectedRazao;
+        return matchTerm && getRazaoSocialFromItem(item) === selectedRazao;
       }
       return matchTerm;
     });
@@ -108,7 +135,7 @@ export default function Relatorios() {
   };
 
   const handleRowClick = (item) => {
-    const rz = item.RAZAOSOCIAL || item.razaosocial;
+    const rz = getRazaoSocialFromItem(item);
     if (rz) {
       setSelectedRazao(rz);
       setQuery('');
@@ -338,7 +365,7 @@ export default function Relatorios() {
             )}
           >
             <BarChart3 size={16} />
-            Geral
+            Relatório para Promotores
           </button>
         )}
         {canAvancado && (
@@ -540,173 +567,55 @@ export default function Relatorios() {
           {/* CONTEÚDO DA ABA 2: AVANÇADO */}
           {activeTab === 'avancado' && canAvancado && (
             <div className="space-y-6">
-              {/* Filtros e Controles de Estado */}
-              <div className="erp-card p-5 md:p-6 space-y-6">
-                <div className="flex items-center justify-between border-b border-border pb-4">
-                  <h2 className="text-lg font-black uppercase tracking-wider text-primary flex items-center gap-2">
-                    <Filter size={20} /> Filtros do Relatório Avançado
-                  </h2>
+              {/* Barra de Ações & Acionador de Filtros */}
+              <div className="erp-card p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <button
+                    onClick={() => setShowAdvFilterDrawer(true)}
+                    className="flex items-center justify-center gap-2 bg-primary text-primary-foreground font-extrabold px-5 py-2.5 rounded-xl shadow-md hover:bg-primary/90 text-xs uppercase tracking-wider transition-all cursor-pointer"
+                  >
+                    <SlidersHorizontal size={16} />
+                    <span>Filtros Avançados</span>
+                    {activeAdvFiltersCount > 0 && (
+                      <span className="bg-white text-primary rounded-full px-2 py-0.5 text-[10px] font-black">
+                        {activeAdvFiltersCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {activeAdvFiltersCount > 0 && (
+                    <button
+                      onClick={() => {
+                        setAdvQuery('');
+                        setSelectedCorredores([]);
+                        setMinDiasSemVendas('');
+                        setAdvEstoqueFilter('com_estoque');
+                        setAdvSort('descricao_asc');
+                      }}
+                      className="text-xs font-bold text-rose-500 hover:underline"
+                    >
+                      Limpar Filtros
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+                  <span className="text-xs font-bold text-muted-foreground">
+                    Exibindo <span className="text-foreground font-black">{advancedFilteredData.length}</span> itens
+                  </span>
                   <button
                     onClick={() => {
-                      setAdvQuery('');
-                      setSelectedCorredores([]);
-                      setMinDiasSemVendas('');
-                      setAdvEstoqueFilter('com_estoque');
-                      setAdvSort('descricao_asc');
+                      if (!advancedFilteredData.length) {
+                        alert('Nenhum item para gerar relatório PDF.');
+                        return;
+                      }
+                      gerarPdfRelatorioAvancado(advancedFilteredData);
                     }}
-                    className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-destructive transition-colors"
+                    className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-extrabold px-4 py-2.5 rounded-xl shadow-md text-xs uppercase tracking-wider transition-all cursor-pointer"
                   >
-                    Limpar Filtros
+                    <Download size={16} />
+                    Gerar PDF Avançado
                   </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Filtro por Descrição */}
-                  <div className="space-y-2 lg:col-span-2">
-                    <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
-                      Filtro por Descrição ou Código
-                    </label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                      <input
-                        type="text"
-                        placeholder="Digite o nome ou código..."
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-background font-bold text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                        value={advQuery}
-                        onChange={(e) => setAdvQuery(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Status do Estoque */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
-                      Status do Estoque
-                    </label>
-                    <select
-                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background font-bold text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                      value={advEstoqueFilter}
-                      onChange={(e) => setAdvEstoqueFilter(e.target.value)}
-                    >
-                      <option value="com_estoque">Com estoque</option>
-                      <option value="todos">Todos os itens</option>
-                    </select>
-                  </div>
-
-                  {/* Dias sem Vendas (Input Numérico) */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
-                      Mín. Dias Sem Vendas
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Ex: 6"
-                      className="w-full px-4 py-2.5 rounded-xl border border-border bg-background font-bold text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                      value={minDiasSemVendas}
-                      onChange={(e) => setMinDiasSemVendas(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* Filtro por Corredor (Multiselect / Badges) */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
-                      Filtro por Corredor ({selectedCorredores.length === 0 ? 'Todos' : `${selectedCorredores.length} selecionado(s)`})
-                    </label>
-                    {selectedCorredores.length > 0 && (
-                      <button
-                        onClick={() => setSelectedCorredores([])}
-                        className="text-[10px] font-black uppercase text-primary hover:underline"
-                      >
-                        Selecionar Todos
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto p-3 border border-border rounded-xl bg-background custom-scrollbar">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCorredores([])}
-                      className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                        selectedCorredores.length === 0
-                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                          : "bg-card text-muted-foreground border-border hover:border-primary/50"
-                      )}
-                    >
-                      Todos
-                    </button>
-                    {corredoresDisponiveis.map(corredor => {
-                      const isSelected = selectedCorredores.includes(corredor);
-                      return (
-                        <button
-                          key={corredor}
-                          type="button"
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedCorredores(prev => prev.filter(c => c !== corredor));
-                            } else {
-                              setSelectedCorredores(prev => [...prev, corredor]);
-                            }
-                          }}
-                          className={cn(
-                            "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1",
-                            isSelected
-                              ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                              : "bg-card text-foreground border-border hover:border-primary/50"
-                          )}
-                        >
-                          <span>Corredor {corredor}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Ordenação */}
-                <div className="space-y-2 pt-2 border-t border-border/50">
-                  <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
-                    Ordenar por:
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setAdvSort('descricao_asc')}
-                      className={cn(
-                        "px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all text-center",
-                        advSort === 'descricao_asc'
-                          ? "bg-primary/10 border-primary text-primary shadow-sm font-black"
-                          : "bg-background border-border text-muted-foreground hover:bg-muted"
-                      )}
-                    >
-                      1. Descrição (A-Z)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAdvSort('dias_desc')}
-                      className={cn(
-                        "px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all text-center",
-                        advSort === 'dias_desc'
-                          ? "bg-primary/10 border-primary text-primary shadow-sm font-black"
-                          : "bg-background border-border text-muted-foreground hover:bg-muted"
-                      )}
-                    >
-                      2. Dias sem venda (Maior → Menor)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAdvSort('valor_desc')}
-                      className={cn(
-                        "px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all text-center",
-                        advSort === 'valor_desc'
-                          ? "bg-primary/10 border-primary text-primary shadow-sm font-black"
-                          : "bg-background border-border text-muted-foreground hover:bg-muted"
-                      )}
-                    >
-                      3. Valor Estoque (Maior → Menor)
-                    </button>
-                  </div>
                 </div>
               </div>
 
@@ -916,6 +825,204 @@ export default function Relatorios() {
                 className="text-xs font-black text-primary hover:underline uppercase tracking-widest"
               >
                 Copiar Link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DRAWER / MODAL: Filtros Avançados */}
+      {showAdvFilterDrawer && (
+        <div className="fixed inset-0 z-[110] flex justify-end bg-background/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-card w-full max-w-md h-full shadow-2xl border-l border-border flex flex-col animate-in slide-in-from-right duration-200">
+            {/* Header do Drawer */}
+            <div className="p-4 border-b border-border bg-primary/5 flex justify-between items-center shrink-0">
+              <h3 className="text-base font-extrabold uppercase text-foreground flex items-center gap-2">
+                <SlidersHorizontal size={18} className="text-primary" />
+                Filtros Avançados
+              </h3>
+              <button
+                onClick={() => setShowAdvFilterDrawer(false)}
+                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Conteúdo dos Filtros */}
+            <div className="flex-1 p-5 overflow-y-auto custom-scrollbar space-y-5">
+              {/* Filtro por Descrição ou Código */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
+                  Descrição ou Código
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Digite o nome ou código..."
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-background font-bold text-xs focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                    value={advQuery}
+                    onChange={(e) => setAdvQuery(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Status do Estoque */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
+                  Status do Estoque
+                </label>
+                <select
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background font-bold text-xs focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  value={advEstoqueFilter}
+                  onChange={(e) => setAdvEstoqueFilter(e.target.value)}
+                >
+                  <option value="com_estoque">Com estoque</option>
+                  <option value="todos">Todos os itens</option>
+                </select>
+              </div>
+
+              {/* Mínimo Dias Sem Vendas */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
+                  Mín. Dias Sem Vendas (ISV)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Ex: 6"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-background font-bold text-xs focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  value={minDiasSemVendas}
+                  onChange={(e) => setMinDiasSemVendas(e.target.value)}
+                />
+              </div>
+
+              {/* Filtro por Corredores */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
+                    Corredores ({selectedCorredores.length === 0 ? 'Todos' : `${selectedCorredores.length}`})
+                  </label>
+                  {selectedCorredores.length > 0 && (
+                    <button
+                      onClick={() => setSelectedCorredores([])}
+                      className="text-[10px] font-black uppercase text-primary hover:underline"
+                    >
+                      Limpar Seleção
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-3 border border-border rounded-xl bg-background custom-scrollbar">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCorredores([])}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                      selectedCorredores.length === 0
+                        ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                        : "bg-card text-muted-foreground border-border hover:border-primary/50"
+                    )}
+                  >
+                    Todos
+                  </button>
+                  {corredoresDisponiveis.map(corredor => {
+                    const isSelected = selectedCorredores.includes(corredor);
+                    return (
+                      <button
+                        key={corredor}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedCorredores(prev => prev.filter(c => c !== corredor));
+                          } else {
+                            setSelectedCorredores(prev => [...prev, corredor]);
+                          }
+                        }}
+                        className={cn(
+                          "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1",
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                            : "bg-card text-foreground border-border hover:border-primary/50"
+                        )}
+                      >
+                        <span>Corredor {corredor}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Ordenação */}
+              <div className="space-y-2 pt-2 border-t border-border">
+                <label className="text-xs font-black uppercase tracking-wider text-muted-foreground block">
+                  Ordenar Resultado por:
+                </label>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdvSort('descricao_asc')}
+                    className={cn(
+                      "w-full px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all text-left flex justify-between items-center",
+                      advSort === 'descricao_asc'
+                        ? "bg-primary/10 border-primary text-primary font-black"
+                        : "bg-background border-border text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    <span>1. Descrição (A-Z)</span>
+                    {advSort === 'descricao_asc' && <span>✓</span>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdvSort('dias_desc')}
+                    className={cn(
+                      "w-full px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all text-left flex justify-between items-center",
+                      advSort === 'dias_desc'
+                        ? "bg-primary/10 border-primary text-primary font-black"
+                        : "bg-background border-border text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    <span>2. Maior ISV (Dias sem venda)</span>
+                    {advSort === 'dias_desc' && <span>✓</span>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdvSort('valor_desc')}
+                    className={cn(
+                      "w-full px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all text-left flex justify-between items-center",
+                      advSort === 'valor_desc'
+                        ? "bg-primary/10 border-primary text-primary font-black"
+                        : "bg-background border-border text-muted-foreground hover:bg-muted"
+                    )}
+                  >
+                    <span>3. Maior Valor em Estoque (R$)</span>
+                    {advSort === 'valor_desc' && <span>✓</span>}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Rodapé do Drawer */}
+            <div className="p-4 border-t border-border bg-card flex gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdvQuery('');
+                  setSelectedCorredores([]);
+                  setMinDiasSemVendas('');
+                  setAdvEstoqueFilter('com_estoque');
+                  setAdvSort('descricao_asc');
+                }}
+                className="w-1/2 py-3 rounded-xl border border-border text-xs font-extrabold uppercase tracking-wider text-muted-foreground hover:bg-muted transition-colors"
+              >
+                Limpar
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAdvFilterDrawer(false)}
+                className="btn-primary w-1/2 py-3 rounded-xl text-xs font-extrabold uppercase tracking-wider shadow-md"
+              >
+                Aplicar Filtros
               </button>
             </div>
           </div>

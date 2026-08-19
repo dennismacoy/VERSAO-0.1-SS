@@ -468,18 +468,18 @@ export default function PreVenda() {
 
       {/* MODAL: Nova Pré-Venda */}
       {isNovaPreVenda && (
-        <div className="fixed inset-0 z-[100] flex flex-col md:items-center md:justify-center bg-black/60 backdrop-blur-sm p-0 md:p-4 animate-in fade-in duration-200">
-          <div className="bg-card w-full h-full md:max-w-5xl md:h-auto md:max-h-[92vh] md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-border/80 animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 md:p-4 animate-in fade-in duration-200">
+          <div className="bg-card w-full max-w-6xl h-[92vh] md:h-[85vh] rounded-2xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-border/80 animate-in zoom-in-95 duration-200">
             
             {/* Header do Modal */}
-            <div className="pt-6 md:pt-4 px-6 py-4 border-b border-border bg-gradient-to-r from-orange-500/10 via-primary/5 to-transparent flex justify-between items-center shrink-0">
+            <div className="pt-4 px-4 md:px-6 py-3.5 border-b border-border bg-gradient-to-r from-orange-500/10 via-primary/5 to-transparent flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-orange-500/15 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold">
-                  <ShoppingCart size={22} />
+                <div className="w-9 h-9 md:w-10 md:h-10 rounded-2xl bg-orange-500/15 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold shrink-0">
+                  <ShoppingCart size={20} />
                 </div>
                 <div>
-                  <h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-foreground">Nova Pré-Venda</h2>
-                  <p className="text-xs text-muted-foreground font-semibold">Monte o orçamento selecionando o cliente e os produtos</p>
+                  <h2 className="text-base md:text-xl font-black uppercase tracking-tight text-foreground">Nova Pré-Venda</h2>
+                  <p className="text-[11px] md:text-xs text-muted-foreground font-semibold">Monte o orçamento selecionando o cliente e os produtos</p>
                 </div>
               </div>
 
@@ -487,7 +487,7 @@ export default function PreVenda() {
                 onClick={() => setIsNovaPreVenda(false)}
                 className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-all"
               >
-                <X size={22} />
+                <X size={20} />
               </button>
             </div>
 
@@ -495,7 +495,7 @@ export default function PreVenda() {
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
               
               {/* Painel Esquerdo: Busca de Produtos & Cliente */}
-              <div className="w-full md:w-1/2 p-5 md:border-r border-b md:border-b-0 border-border flex flex-col gap-4 shrink-0 md:shrink md:min-h-0 max-h-[50vh] md:max-h-none bg-background">
+              <div className="w-full md:w-1/2 p-4 md:p-5 md:border-r border-b md:border-b-0 border-border flex flex-col gap-3 flex-1 min-h-0 bg-background overflow-hidden">
                 <div>
                   <label className="block text-[11px] font-black uppercase text-muted-foreground tracking-wider mb-1 flex items-center gap-1.5">
                     <User size={13} className="text-orange-500" /> Nome do Cliente *

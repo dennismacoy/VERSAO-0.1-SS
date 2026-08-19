@@ -2,6 +2,7 @@ import {
   loginFirebase,
   createPreVendaFirebase,
   createPedidoFirebase,
+  createRecordFirebase,
   getHistoryFirebase,
   updateStatusFirebase,
   updateRecordFirebase,
@@ -98,6 +99,10 @@ export const api = {
   },
 
   // --- FIREBASE: Atualização de campos arbitrários ---
+  async createRecord(nodeName, recordData) {
+    return await createRecordFirebase(nodeName, recordData);
+  },
+
   async updateRecord(nodeName, firebaseId, fields) {
     return await updateRecordFirebase(nodeName, firebaseId, fields);
   },
