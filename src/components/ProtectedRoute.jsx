@@ -13,7 +13,8 @@ import { Loader2 } from 'lucide-react';
  * @param {string} requiredAction - Ação necessária na Matriz de Permissões (ex: 'view_gestao_admin')
  */
 export default function ProtectedRoute({ children, requiredAction }) {
-  const { user, loading } = useAuth();
+  const { user, currentUser, loading } = useAuth();
+  const activeUser = user || currentUser;
   const hasAccess = usePermission(requiredAction);
 
   if (loading) {
@@ -25,7 +26,7 @@ export default function ProtectedRoute({ children, requiredAction }) {
     );
   }
 
-  if (!user) {
+  if (!activeUser) {
     return <Navigate to="/login" replace />;
   }
 

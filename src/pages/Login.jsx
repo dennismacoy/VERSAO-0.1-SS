@@ -58,7 +58,7 @@ export default function Login() {
             )}
             
             <div className="space-y-1">
-              <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">Usuário</label>
+              <label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest ml-1">E-mail ou Usuário</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors">
                   <User size={16} />
@@ -68,7 +68,7 @@ export default function Login() {
                   type="text"
                   required
                   className="block w-full pl-9 pr-3 py-2.5 rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-bold transition-all text-base min-h-[44px]"
-                  placeholder="Seu usuário"
+                  placeholder="seu.email@exemplo.com ou usuário"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"

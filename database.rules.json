@@ -1,5 +1,37 @@
 {
   "rules": {
+    "usuarios": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "roles": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'admin' || auth.token.role === 'admin' || !root.child('roles').exists())"
+    },
+    "permissoes": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'admin' || auth.token.role === 'admin' || !root.child('permissoes').exists())"
+    },
+    "baseProdutos": {
+      ".read": "auth != null",
+      ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('role').val() === 'admin' || auth.token.role === 'admin')"
+    },
+    "prevendas": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "pedidos": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "relatorios_hist": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "telefones": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
     ".read": "auth != null",
     ".write": "auth != null"
   }

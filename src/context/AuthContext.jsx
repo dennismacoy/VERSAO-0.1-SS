@@ -1,6 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { api } from '../lib/api';
-import { listenToPermissions, fetchPermissionsFromFirebase, savePermissionsToFirebase, listenToRoles } from '../lib/firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import {
+  auth,
+  db,
+  ref,
+  get,
+  listenToPermissions,
+  savePermissionsToFirebase,
+  listenToRoles,
+  loginFirebase,
+  logoutFirebase,
+} from '../lib/firebase';
 import { hasRolePermission } from '../lib/permissions';
 
 const AuthContext = createContext({});
@@ -49,6 +59,62 @@ export const AuthProvider = ({ children }) => {
   const unsubPermsRef = useRef(null);
   const unsubRolesRef = useRef(null);
 
+  // Monitora imediatamente as alterações no estado do Firebase Auth
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        let userRole = 'admin';
+        let extraData = {};
+
+        try {
+          const snapshot = await get(ref(db, 'usuarios'));
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            const users = data && typeof data === 'object' && !Array.isArray(data)
+              ? Object.entries(data).map(([key, val]) => ({ ...val, firebaseId: key }))
+              : (Array.isArray(data) ? data.filter(Boolean) : []);
+
+            const found = users.find(u =>
+              (u.email && u.email.toLowerCase() === firebaseUser.email?.toLowerCase()) ||
+              (u.uid && u.uid === firebaseUser.uid) ||
+              (u.usuario && firebaseUser.email && firebaseUser.email.toLowerCase().startsWith(u.usuario.toLowerCase()))
+            );
+
+            if (found) {
+              userRole = found.role || found.perfil || found.cargo || 'admin';
+              extraData = found;
+            }
+          }
+        } catch (err) {
+          console.warn('[AuthContext] Erro ao carregar dados do perfil do RTDB:', err);
+        }
+
+        const userData = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          name: extraData.nome || extraData.usuario || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
+          usuario: extraData.usuario || firebaseUser.email?.split('@')[0] || 'usuario',
+          role: userRole,
+          firebaseId: extraData.firebaseId || firebaseUser.uid,
+          ...extraData,
+        };
+
+        setUser(userData);
+        setRole(userRole);
+        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('role', userRole);
+      } else {
+        setUser(null);
+        setRole(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('role');
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
   // Listener em tempo real para permissões do Firebase
   useEffect(() => {
     unsubPermsRef.current = listenToPermissions((fbPerms) => {
@@ -63,7 +129,6 @@ export const AuthProvider = ({ children }) => {
     unsubRolesRef.current = listenToRoles((rolesData) => {
       if (Array.isArray(rolesData)) {
         setCustomRoles(rolesData);
-        // Transforma o formato { id, name, permissions } em entradas para a matriz
         const roleMatrix = {};
         rolesData.forEach(r => {
           if (r.id && Array.isArray(r.permissions)) {
@@ -80,37 +145,30 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-
-  const login = async (username, password) => {
-    try {
-      const response = await api.login(username, password);
-
-      let userRole = '';
-      let userData = null;
-
-      if (response && response.success === true) {
-        userRole = response.role || 'vendedor';
-        userData = response.user || { name: username };
-      } else {
-        throw new Error(response?.message || "Credenciais inválidas.");
-      }
-
-      setUser(userData);
-      setRole(userRole);
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('role', userRole);
-      return true;
-    } catch (error) {
-      console.error("Login failed", error);
-      throw error;
+  const login = async (emailOrUsername, password) => {
+    const res = await loginFirebase(emailOrUsername, password);
+    if (res && res.success) {
+      setUser(res.user);
+      setRole(res.role);
+      localStorage.setItem('user', JSON.stringify(res.user));
+      localStorage.setItem('role', res.role);
+      return res;
+    } else {
+      throw new Error(res?.message || 'Credenciais inválidas.');
     }
   };
 
   const logout = async () => {
-    setUser(null);
-    setRole(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('role');
+    try {
+      await logoutFirebase();
+    } catch (err) {
+      console.error('[AuthContext] Erro ao deslogar:', err);
+    } finally {
+      setUser(null);
+      setRole(null);
+      localStorage.removeItem('user');
+      localStorage.removeItem('role');
+    }
   };
 
   const hasPermission = React.useCallback((actionName) => {
@@ -131,18 +189,18 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    const savedRole = localStorage.getItem('role');
-    if (savedUser && savedRole) {
-      setUser(JSON.parse(savedUser));
-      setRole(savedRole);
-    }
-    setLoading(false);
-  }, []);
-
   const contextValue = React.useMemo(() => ({
-    user, role, login, logout, loading, permissions, customRoles, hasPermission, updatePermissions, isAdmin
+    user,
+    currentUser: user,
+    role,
+    login,
+    logout,
+    loading,
+    permissions,
+    customRoles,
+    hasPermission,
+    updatePermissions,
+    isAdmin
   }), [user, role, loading, permissions, customRoles, hasPermission, updatePermissions, isAdmin]);
 
   return (
