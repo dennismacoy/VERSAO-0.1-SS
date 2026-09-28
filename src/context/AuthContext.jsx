@@ -20,28 +20,31 @@ export const useAuth = () => useContext(AuthContext);
 
 const defaultPermissions = {
   // Pages
-  'Acesso Dashboard': ['admin', 'gerente', 'vendedor'],
-  'Acesso Consulta': ['admin', 'gerente', 'repositor', 'vendedor'],
-  'Acesso Pedidos': ['clientes'],
-  'Acesso Requisições': ['admin', 'gerente'],
+  'Acesso Dashboard': ['admin', 'gerente', 'vendedor', 'repositor', 'promotor', 'operador'],
+  'Acesso Consulta': ['admin', 'gerente', 'repositor', 'vendedor', 'promotor', 'operador', 'clientes'],
+  'view_consulta': ['admin', 'gerente', 'repositor', 'vendedor', 'promotor', 'operador', 'clientes'],
+  'allow_sheets_sync': ['admin', 'gerente', 'repositor', 'vendedor', 'promotor', 'operador', 'clientes'],
+  'Acesso Pedidos': ['clientes', 'admin', 'gerente', 'vendedor'],
+  'Acesso Requisições': ['admin', 'gerente', 'vendedor'],
   'Acesso Pre-Venda': ['admin', 'gerente', 'vendedor'],
   'Acesso Separacao': ['admin', 'gerente', 'repositor'],
   'Acesso Gestao Administrativa': ['admin', 'gerente', 'vendedor', 'repositor'],
   'gestao_administrativa': ['admin', 'gerente', 'vendedor', 'repositor'],
-  'Acesso Relatorios': ['admin', 'gerente'],
+  'Acesso Relatorios': ['admin', 'gerente', 'vendedor'],
   'Acesso Configuracoes': ['admin', 'gerente', 'repositor', 'vendedor', 'clientes'],
+  'Acesso Telefones': ['admin', 'gerente', 'repositor', 'vendedor', 'promotor', 'operador'],
   'Acessar Sincronização Master': ['admin'],
 
   // Dashboard Cards
   'Ver Separacoes Abertas': ['admin', 'gerente', 'repositor'],
   'Ver Requisicoes Pendentes': ['admin', 'gerente'],
-  'Ver Itens ISV': ['admin', 'gerente'],
-  'Ver Itens Idade': ['admin', 'gerente'],
+  'Ver Itens ISV': ['admin', 'gerente', 'vendedor'],
+  'Ver Itens Idade': ['admin', 'gerente', 'vendedor'],
   'Ver Total Paletes': ['admin', 'gerente', 'repositor'],
   'Ver Valor Estoque': ['admin', 'gerente'],
 
   // Consulta Details (Bottom Sheet)
-  'Ver Card Geral': ['admin', 'gerente', 'vendedor', 'repositor'],
+  'Ver Card Geral': ['admin', 'gerente', 'vendedor', 'repositor', 'promotor', 'operador', 'clientes'],
   'Ver Card Extras': ['admin', 'gerente'],
 
   // Botoes

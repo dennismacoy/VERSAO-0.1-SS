@@ -207,9 +207,69 @@ export const LEGACY_ACTION_MAP = {
   'Criar Prevenda': PERMISSIONS.CREATE_ITEMS
 };
 
-// MATRIZ DE PERMISSÕES PADRÃO MAPEADA POR ROLE (Apenas 'admin' é nativo)
+// MATRIZ DE PERMISSÕES PADRÃO MAPEADA POR ROLE
 export const DEFAULT_ROLE_PERMISSIONS = {
-  admin: ['*'] // Admin é a única role nativa do sistema com acesso irrestrito por padrão
+  admin: ['*'],
+  gerente: ['*'],
+  vendedor: [
+    PERMISSIONS.VIEW_DASHBOARD,
+    PERMISSIONS.VIEW_CONSULTA,
+    PERMISSIONS.VIEW_PREVENDA,
+    PERMISSIONS.VIEW_GESTAO_ADMIN,
+    PERMISSIONS.VIEW_TELEFONES,
+    PERMISSIONS.ALLOW_SHEETS_SYNC,
+    PERMISSIONS.CREATE_ITEMS,
+    'Acesso Dashboard',
+    'Acesso Consulta',
+    'Acesso Pre-Venda',
+    'Acesso Gestao Administrativa',
+    'Acesso Telefones',
+    'Ver Card Geral',
+    'Criar Prevenda',
+  ],
+  repositor: [
+    PERMISSIONS.VIEW_DASHBOARD,
+    PERMISSIONS.VIEW_CONSULTA,
+    PERMISSIONS.VIEW_SEPARACAO,
+    PERMISSIONS.VIEW_GESTAO_ADMIN,
+    PERMISSIONS.VIEW_TELEFONES,
+    PERMISSIONS.ALLOW_SHEETS_SYNC,
+    'Acesso Dashboard',
+    'Acesso Consulta',
+    'Acesso Separacao',
+    'Acesso Gestao Administrativa',
+    'Acesso Telefones',
+    'Ver Card Geral',
+    'Ver Separacoes Abertas',
+  ],
+  promotor: [
+    PERMISSIONS.VIEW_DASHBOARD,
+    PERMISSIONS.VIEW_CONSULTA,
+    PERMISSIONS.VIEW_TELEFONES,
+    PERMISSIONS.ALLOW_SHEETS_SYNC,
+    'Acesso Dashboard',
+    'Acesso Consulta',
+    'Acesso Telefones',
+    'Ver Card Geral',
+  ],
+  operador: [
+    PERMISSIONS.VIEW_DASHBOARD,
+    PERMISSIONS.VIEW_CONSULTA,
+    PERMISSIONS.VIEW_TELEFONES,
+    PERMISSIONS.ALLOW_SHEETS_SYNC,
+    'Acesso Dashboard',
+    'Acesso Consulta',
+    'Acesso Telefones',
+    'Ver Card Geral',
+  ],
+  clientes: [
+    PERMISSIONS.VIEW_PEDIDOS,
+    PERMISSIONS.VIEW_CONSULTA,
+    PERMISSIONS.ALLOW_SHEETS_SYNC,
+    'Acesso Pedidos',
+    'Acesso Consulta',
+    'Ver Card Geral',
+  ],
 };
 
 /**

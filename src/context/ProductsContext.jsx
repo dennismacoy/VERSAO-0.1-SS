@@ -27,21 +27,6 @@ export const ProductsProvider = ({ children }) => {
   useEffect(() => {
     if (!user || hasLoaded) return;
 
-    // =========================================================================
-    // IF DE SEGURANÇA & REGRAS DE NEGÓCIO: BLOQUEIO DE FETCH & CACHE DA PLANILHA
-    // Se o usuário logado não possuir a permissão 'allow_sheets_sync', o sistema
-    // ignora completamente o download e salvamento em cache do Google Sheets.
-    // =========================================================================
-    const canSyncSheets = hasPermission ? hasPermission('allow_sheets_sync') : hasRolePermission(role, 'allow_sheets_sync', permissions);
-
-    if (!canSyncSheets) {
-      console.warn(`🚫 [Permissão Negada] O perfil/role "${role}" NÃO tem permissão "allow_sheets_sync". Ignorando download e cache da Planilha Base.`);
-      setProducts([]);
-      setLoading(false);
-      setHasLoaded(true);
-      return;
-    }
-
     let isMounted = true;
     setLoading(true);
 

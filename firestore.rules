@@ -1,54 +1,6 @@
-rules_version = '2';
-
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    // Função utilitária para verificar se o usuário logado possui perfil/role 'admin'
-    function isAdmin() {
-      return request.auth != null && (
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-        (exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.role == 'admin') ||
-        request.auth.token.role == 'admin'
-      );
-    }
-
-    // Função utilitária para verificar se o próprio usuário é dono do documento
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-
-    // Coleções de perfis de usuários (/users e /usuarios)
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if isOwner(userId) || isAdmin();
-    }
-
-    match /usuarios/{userId} {
-      allow read: if request.auth != null;
-      allow write: if isOwner(userId) || isAdmin();
-    }
-
-    // Coleções de Configurações, Roles e Matriz de Permissões (Modificação restrita a Admins)
-    match /roles/{roleId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-
-    match /permissoes/{permId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-
-    // Coleções padrão do ERP (Produtos, Pedidos, Pré-vendas, Relatórios, etc.)
-    match /{document=**} {
-      // Leitura permitida para qualquer usuário autenticado
-      allow read: if request.auth != null;
-      // Criação e atualização de dados operacionais por usuários autenticados
-      allow create, update: if request.auth != null;
-      // Exclusão de registros restrita a administradores
-      allow delete: if isAdmin();
-    }
+{
+  "rules": {
+    ".read": true,
+    ".write": true
   }
 }
