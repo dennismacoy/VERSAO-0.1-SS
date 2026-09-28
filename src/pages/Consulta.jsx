@@ -168,7 +168,7 @@ export default function Consulta() {
                   <th className="px-4 py-3 font-bold text-muted-foreground uppercase text-xs">Código</th>
                   <th className="px-4 py-3 font-bold text-muted-foreground uppercase text-xs">Descrição</th>
                   <th className="px-4 py-3 font-bold text-muted-foreground uppercase text-xs text-center">Emb</th>
-                  <th className="px-4 py-3 font-bold text-muted-foreground uppercase text-xs text-right">Preços (At/Var)</th>
+                  <th className="px-4 py-3 font-bold text-muted-foreground uppercase text-xs text-center">Corredor</th>
                   <th className="px-4 py-3 font-bold text-muted-foreground uppercase text-xs text-center">Estoque</th>
                 </tr>
               </thead>
@@ -176,6 +176,7 @@ export default function Consulta() {
                 {visibleProducts.map((p, idx) => {
                   const estoqueStr = p.ESTOQUE || p.QTE || p.estoque || '0';
                   const temEstoque = parseEstoque(estoqueStr);
+                  const corredor = getVal(p, 'CORREDOR', 'corredor') || '-';
                   return (
                     <tr
                       key={idx}
@@ -189,11 +190,8 @@ export default function Consulta() {
                       <td className="px-4 py-3 text-center text-xs font-bold bg-muted/30">
                         {p.EMBALAGEM || p.embalagem || p.emb || 'UN'}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex flex-col text-xs font-bold">
-                          <span className="text-foreground">{formatCurrency(p.PRECO_ATACADO || p.preco_atacado)}</span>
-                          <span className="text-muted-foreground">{formatCurrency(p.PRECO_VAREJO || p.preco_unitario)}</span>
-                        </div>
+                      <td className="px-4 py-3 text-center text-xs font-bold text-muted-foreground">
+                        {corredor}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className={cn(
@@ -217,8 +215,7 @@ export default function Consulta() {
                 const codigo = p.CODIGO || p.codigo;
                 const descricao = p.DESCRICAO || p.descricao;
                 const embalagem = p.EMBALAGEM || p.embalagem || p.emb || 'UN';
-                const precoAtacado = p.PRECO_ATACADO || p.preco_atacado;
-                const precoVarejo = p.PRECO_VAREJO || p.preco_unitario;
+                const corredor = getVal(p, 'CORREDOR', 'corredor') || '-';
 
                 return (
                   <div
@@ -240,14 +237,13 @@ export default function Consulta() {
                     <p className="text-sm font-semibold text-foreground leading-tight line-clamp-1">
                       {descricao}
                     </p>
-                    <div className="flex items-center gap-3 mt-1.5 text-[11px]">
+                    <div className="flex items-center justify-between mt-1.5 text-[11px]">
                       <span className="bg-muted px-2 py-0.5 rounded font-bold text-muted-foreground shrink-0">
-                        {embalagem}
+                        Emb: {embalagem}
                       </span>
-                      <div className="flex items-center gap-2 text-[11px] font-bold">
-                        <span className="text-foreground">At: {formatCurrency(precoAtacado)}</span>
-                        <span className="text-muted-foreground">Vr: {formatCurrency(precoVarejo)}</span>
-                      </div>
+                      <span className="text-muted-foreground font-semibold">
+                        Corredor: <strong className="text-primary">{corredor}</strong>
+                      </span>
                     </div>
                   </div>
                 );

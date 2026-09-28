@@ -25,12 +25,21 @@ export default function PreVenda() {
   const [statusFilter, setStatusFilter] = useState('todos');
 
   const [isNovaPreVenda, setIsNovaPreVenda] = useState(false);
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [cliente, setCliente] = useState('');
   const [itens, setItens] = useState([]);
   const [saving, setSaving] = useState(false);
   const [repositores, setRepositores] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
+
+  const handleCloseNovaPreVenda = () => {
+    setQuery('');
+    setCliente('');
+    setItens([]);
+    setIsMobileCartOpen(false);
+    setIsNovaPreVenda(false);
+  };
 
   const unsubRef = useRef(null);
   const unsubUsersRef = useRef(null);
@@ -484,7 +493,8 @@ export default function PreVenda() {
               </div>
 
               <button
-                onClick={() => setIsNovaPreVenda(false)}
+                type="button"
+                onClick={handleCloseNovaPreVenda}
                 className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-all"
               >
                 <X size={20} />
@@ -492,87 +502,108 @@ export default function PreVenda() {
             </div>
 
             {/* Corpo do Modal (Split Panel) */}
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0 relative">
               
-              {/* Painel Esquerdo: Busca de Produtos & Cliente */}
-              <div className="w-full md:w-1/2 p-4 md:p-5 md:border-r border-b md:border-b-0 border-border flex flex-col gap-3 flex-1 min-h-0 bg-background overflow-hidden">
-                <div>
-                  <label className="block text-[11px] font-black uppercase text-muted-foreground tracking-wider mb-1 flex items-center gap-1.5">
-                    <User size={13} className="text-orange-500" /> Nome do Cliente *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Supermercado Silva / Carlos Ribeiro"
-                    value={cliente}
-                    onChange={(e) => setCliente(e.target.value)}
-                    className="w-full h-11 px-3.5 border border-border rounded-xl bg-card font-bold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-black uppercase text-muted-foreground tracking-wider mb-1 flex items-center gap-1.5">
-                    <Search size={13} className="text-orange-500" /> Pesquisar Produtos
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              {/* Painel Esquerdo: Busca de Produtos & Cliente (100% no Mobile) */}
+              <div className="w-full md:w-1/2 p-4 md:p-5 md:border-r border-b md:border-b-0 border-border flex flex-col gap-3 flex-1 min-h-0 bg-background overflow-hidden justify-between">
+                <div className="flex flex-col gap-3 flex-1 min-h-0 overflow-hidden">
+                  <div>
+                    <label className="block text-[11px] font-black uppercase text-muted-foreground tracking-wider mb-1 flex items-center gap-1.5">
+                      <User size={13} className="text-orange-500" /> Nome do Cliente *
+                    </label>
                     <input
                       type="text"
-                      className="w-full h-11 pl-10 pr-4 border border-border rounded-xl bg-card font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
-                      placeholder="Digite o código ou nome do produto..."
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Ex: Supermercado Silva / Carlos Ribeiro"
+                      value={cliente}
+                      onChange={(e) => setCliente(e.target.value)}
+                      className="w-full h-11 px-3.5 border border-border rounded-xl bg-card font-bold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-black uppercase text-muted-foreground tracking-wider mb-1 flex items-center gap-1.5">
+                      <Search size={13} className="text-orange-500" /> Pesquisar Produtos
+                    </label>
+                    <div className="relative">
+                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                      <input
+                        type="text"
+                        className="w-full h-11 pl-10 pr-4 border border-border rounded-xl bg-card font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                        placeholder="Digite o código ou nome do produto..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Lista de Resultados */}
+                  <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1 min-h-0">
+                    {!query ? (
+                      <div className="h-full flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                        <Search size={36} className="mb-2 opacity-30 text-orange-500" />
+                        <p className="text-xs font-bold uppercase tracking-wider">Busca de Catálogo</p>
+                        <p className="text-[11px] opacity-70 mt-0.5">Digite no campo acima para pesquisar produtos em tempo real.</p>
+                      </div>
+                    ) : searchResults.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground">
+                        <p className="text-xs font-bold">Nenhum produto encontrado para "{query}".</p>
+                      </div>
+                    ) : (
+                      searchResults.map(p => (
+                        <div
+                          key={p.CODIGO || p.codigo}
+                          className="p-3 border border-border hover:border-orange-500/50 rounded-2xl flex justify-between items-center bg-card hover:bg-orange-500/5 transition-all group"
+                        >
+                          <div className="flex-1 min-w-0 pr-3">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-orange-500/10 text-orange-600 dark:text-orange-400">
+                                #{p.CODIGO || p.codigo}
+                              </span>
+                              {p.CODIGO_INTERNO && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-muted text-muted-foreground">
+                                  Int: {p.CODIGO_INTERNO}
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-bold text-xs text-foreground truncate mt-1">{p.DESCRICAO || p.descricao}</p>
+                            <p className="text-[11px] text-muted-foreground font-semibold mt-0.5">
+                              Emb: <span className="text-foreground font-bold">{p.EMBALAGEM || p.embalagem || 'UN'}</span> | Atacado: <span className="text-orange-600 dark:text-orange-400 font-extrabold">{formatCurrency(p.PRECO_ATACADO || p.preco_atacado)}</span>
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleAddItem(p)}
+                            className="h-9 px-3 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1 transition-all shrink-0"
+                          >
+                            <Plus size={15} /> Add
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
-                {/* Lista de Resultados */}
-                <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1 min-h-0">
-                  {!query ? (
-                    <div className="h-full flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
-                      <Search size={36} className="mb-2 opacity-30 text-orange-500" />
-                      <p className="text-xs font-bold uppercase tracking-wider">Busca de Catálogo</p>
-                      <p className="text-[11px] opacity-70 mt-0.5">Digite no campo acima para pesquisar produtos em tempo real.</p>
-                    </div>
-                  ) : searchResults.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground">
-                      <p className="text-xs font-bold">Nenhum produto encontrado para "{query}".</p>
-                    </div>
-                  ) : (
-                    searchResults.map(p => (
-                      <div
-                        key={p.CODIGO || p.codigo}
-                        className="p-3 border border-border hover:border-orange-500/50 rounded-2xl flex justify-between items-center bg-card hover:bg-orange-500/5 transition-all group"
-                      >
-                        <div className="flex-1 min-w-0 pr-3">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-orange-500/10 text-orange-600 dark:text-orange-400">
-                              #{p.CODIGO || p.codigo}
-                            </span>
-                            {p.CODIGO_INTERNO && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-muted text-muted-foreground">
-                                Int: {p.CODIGO_INTERNO}
-                              </span>
-                            )}
-                          </div>
-                          <p className="font-bold text-xs text-foreground truncate mt-1">{p.DESCRICAO || p.descricao}</p>
-                          <p className="text-[11px] text-muted-foreground font-semibold mt-0.5">
-                            Emb: <span className="text-foreground font-bold">{p.EMBALAGEM || p.embalagem || 'UN'}</span> | Atacado: <span className="text-orange-600 dark:text-orange-400 font-extrabold">{formatCurrency(p.PRECO_ATACADO || p.preco_atacado)}</span>
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleAddItem(p)}
-                          className="h-9 px-3 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1 transition-all shrink-0"
-                        >
-                          <Plus size={15} /> Add
-                        </button>
+                {/* BOTÃO FLUTUANTE / FIXO NO RODAPÉ DO MOBILE */}
+                {itens.length > 0 && (
+                  <div className="pt-2 md:hidden shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileCartOpen(true)}
+                      className="w-full h-12 bg-orange-500 hover:bg-orange-600 active:scale-98 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-lg flex items-center justify-between px-4 transition-all"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ShoppingCart size={18} />
+                        <span>Ver Orçamento ({itens.length} {itens.length === 1 ? 'item' : 'itens'})</span>
                       </div>
-                    ))
-                  )}
-                </div>
+                      <span className="bg-white/20 px-2.5 py-1 rounded-lg text-xs font-black">
+                        {formatCurrency(itens.reduce((acc, i) => acc + ((Number(i.qtd) || 0) * (Number(i.preco) || 0)), 0))}
+                      </span>
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Painel Direito: Carrinho de Compras */}
-              <div className="w-full md:w-1/2 p-5 flex flex-col bg-muted/20 min-h-0 flex-1 justify-between">
+              {/* Painel Direito: Carrinho de Compras (Desktop Visível / Mobile Oculto) */}
+              <div className="hidden md:flex w-1/2 p-5 flex-col bg-muted/20 min-h-0 flex-1 justify-between">
                 <div className="flex items-center justify-between mb-3 shrink-0">
                   <h3 className="font-extrabold text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                     <ShoppingCart size={15} className="text-orange-500" /> Itens no Orçamento ({itens.length})
@@ -584,7 +615,7 @@ export default function PreVenda() {
                   )}
                 </div>
 
-                {/* Lista do Carrinho */}
+                {/* Lista do Carrinho Desktop */}
                 <div className="flex-1 overflow-y-auto space-y-2.5 custom-scrollbar pr-1 min-h-0">
                   {itens.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
@@ -640,7 +671,7 @@ export default function PreVenda() {
                   )}
                 </div>
 
-                {/* Resumo do Total & Botão de Salvar */}
+                {/* Resumo do Total & Botão de Salvar Desktop */}
                 <div className="mt-4 pt-4 border-t border-border bg-card p-4 rounded-2xl shadow-xs shrink-0 space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="font-extrabold text-xs uppercase tracking-wider text-muted-foreground">Valor Total:</span>
@@ -659,6 +690,104 @@ export default function PreVenda() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DRAWER / MODAL MOBILE DO CARRINHO */}
+      {isMobileCartOpen && (
+        <div className="fixed inset-0 z-[120] md:hidden bg-black/70 backdrop-blur-xs flex flex-col justify-end animate-in fade-in duration-200">
+          <div className="bg-card w-full h-[85vh] rounded-t-3xl shadow-2xl border-t border-border flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-200">
+            {/* Header do Carrinho Mobile */}
+            <div className="p-4 border-b border-border bg-gradient-to-r from-orange-500/10 via-primary/5 to-transparent flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2">
+                <ShoppingCart size={18} className="text-orange-500" />
+                <h3 className="font-extrabold text-sm uppercase text-foreground">
+                  Itens no Orçamento ({itens.length})
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileCartOpen(false)}
+                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Lista do Carrinho Mobile */}
+            <div className="flex-1 p-4 overflow-y-auto space-y-2.5 custom-scrollbar min-h-0 bg-muted/20">
+              {itens.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center p-6 text-center text-muted-foreground">
+                  <ShoppingCart size={40} className="mb-2 opacity-25 text-orange-500" />
+                  <p className="text-xs font-bold uppercase tracking-wider">Carrinho Vazio</p>
+                </div>
+              ) : (
+                itens.map(item => (
+                  <div key={item.codigo} className="p-3.5 border border-border bg-card rounded-2xl shadow-2xs space-y-2">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <p className="font-extrabold text-xs text-foreground truncate">{item.codigo} - {item.descricao}</p>
+                        <p className="text-[10px] text-muted-foreground font-semibold">
+                          Emb: {item.embalagem} {item.codigo_interno ? `| Cód. Int: ${item.codigo_interno}` : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => removeItem(item.codigo)}
+                        className="p-1 text-muted-foreground hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors shrink-0"
+                        title="Remover item"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-1 border-t border-border/40">
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">Quantidade:</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          value={item.qtd}
+                          onChange={(e) => updateItem(item.codigo, 'qtd', e.target.value)}
+                          className="w-full h-9 text-center border border-border rounded-xl font-bold text-sm bg-background focus:outline-none focus:border-orange-500"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block mb-1">Preço Unit. (R$):</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          inputMode="decimal"
+                          value={item.preco}
+                          onChange={(e) => updateItem(item.codigo, 'preco', e.target.value)}
+                          className="w-full h-9 text-center border border-border rounded-xl font-bold text-sm bg-background focus:outline-none focus:border-orange-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Rodapé do Carrinho Mobile */}
+            <div className="p-4 border-t border-border bg-card space-y-3 shrink-0">
+              <div className="flex justify-between items-center">
+                <span className="font-extrabold text-xs uppercase tracking-wider text-muted-foreground">Valor Total:</span>
+                <span className="text-2xl font-black text-orange-600 dark:text-orange-400">
+                  {formatCurrency(itens.reduce((acc, i) => acc + ((Number(i.qtd) || 0) * (Number(i.preco) || 0)), 0))}
+                </span>
+              </div>
+
+              <button
+                onClick={handleSalvar}
+                disabled={saving}
+                className="w-full h-12 bg-orange-500 hover:bg-orange-600 active:scale-98 text-white font-extrabold uppercase tracking-wider text-xs rounded-xl shadow-md flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                Salvar e Emitir Pré-Venda
+              </button>
             </div>
           </div>
         </div>

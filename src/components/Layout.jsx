@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { PERMISSIONS } from '../lib/permissions';
@@ -68,7 +68,28 @@ export default function Layout({ children }) {
     navigate('/login');
   };
 
-  const menuItems = [
+  const [menuOrder, setMenuOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('smartstock_menu_order');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return ['/', '/consulta', '/pedidos', '/requisicoes', '/pre-venda', '/separacao', '/gestao-administrativa', '/relatorios', '/telefones', '/configuracoes'];
+  });
+
+  useEffect(() => {
+    const handleMenuOrderChange = () => {
+      try {
+        const saved = localStorage.getItem('smartstock_menu_order');
+        if (saved) setMenuOrder(JSON.parse(saved));
+        else setMenuOrder(['/', '/consulta', '/pedidos', '/requisicoes', '/pre-venda', '/separacao', '/gestao-administrativa', '/relatorios', '/telefones', '/configuracoes']);
+      } catch (e) {}
+    };
+
+    window.addEventListener('menuOrderChanged', handleMenuOrderChange);
+    return () => window.removeEventListener('menuOrderChanged', handleMenuOrderChange);
+  }, []);
+
+  const menuItems = useMemo(() => [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard, condition: hasPermission(PERMISSIONS.VIEW_DASHBOARD) || hasPermission('Acesso Dashboard') },
     { name: 'Consulta', path: '/consulta', icon: Search, condition: hasPermission(PERMISSIONS.VIEW_CONSULTA) || hasPermission('Acesso Consulta') },
     { name: 'Pedidos', path: '/pedidos', icon: ClipboardList, condition: hasPermission(PERMISSIONS.VIEW_PEDIDOS) || hasPermission('Acesso Pedidos') },
@@ -79,9 +100,19 @@ export default function Layout({ children }) {
     { name: 'Relatórios', path: '/relatorios', icon: BarChart3, condition: hasPermission(PERMISSIONS.VIEW_RELATORIOS) || hasPermission('Acesso Relatorios') },
     { name: 'Telefones', path: '/telefones', icon: Phone, condition: hasPermission(PERMISSIONS.VIEW_TELEFONES) || hasPermission('Acesso Telefones') },
     { name: 'Configurações', path: '/configuracoes', icon: Settings, condition: hasPermission(PERMISSIONS.VIEW_CONFIGURACOES) || hasPermission('Acesso Configuracoes') },
-  ];
+  ], [hasPermission]);
 
-  const filteredMenu = menuItems.filter(item => item.condition);
+  const sortedMenuItems = useMemo(() => {
+    return [...menuItems].sort((a, b) => {
+      const indexA = menuOrder.indexOf(a.path);
+      const indexB = menuOrder.indexOf(b.path);
+      const orderA = indexA === -1 ? 999 : indexA;
+      const orderB = indexB === -1 ? 999 : indexB;
+      return orderA - orderB;
+    });
+  }, [menuItems, menuOrder]);
+
+  const filteredMenu = sortedMenuItems.filter(item => item.condition);
 
   return (
     <div className="min-h-screen bg-background text-foreground flex overflow-hidden transition-colors duration-300">

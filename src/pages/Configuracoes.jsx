@@ -28,6 +28,7 @@ import {
   ListChecks,
   Building2,
   BarChart3,
+  Phone,
   Settings
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -66,6 +67,66 @@ export default function Configuracoes() {
   const [userForm, setUserForm] = useState({ nome: '', usuario: '', senha: '', role: 'admin' });
   const [savingUser, setSavingUser] = useState(false);
   const unsubUsersRef = useRef(null);
+
+  const ALL_PAGES = useMemo(() => [
+    { path: '/', name: 'Dashboard', icon: LayoutDashboard },
+    { path: '/consulta', name: 'Consulta', icon: Search },
+    { path: '/pedidos', name: 'Pedidos', icon: ClipboardList },
+    { path: '/requisicoes', name: 'Requisições', icon: Inbox },
+    { path: '/pre-venda', name: 'Pré-Venda', icon: ShoppingCart },
+    { path: '/separacao', name: 'Separação', icon: ListChecks },
+    { path: '/gestao-administrativa', name: 'Gestão Administrativa', icon: Building2 },
+    { path: '/relatorios', name: 'Relatórios', icon: BarChart3 },
+    { path: '/telefones', name: 'Telefones', icon: Phone },
+    { path: '/configuracoes', name: 'Configurações', icon: Settings },
+  ], []);
+
+  const [customMenuOrder, setCustomMenuOrder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('smartstock_menu_order');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return ALL_PAGES.map(p => p.path);
+  });
+
+  const orderedPagesList = useMemo(() => {
+    return [...ALL_PAGES].sort((a, b) => {
+      const indexA = customMenuOrder.indexOf(a.path);
+      const indexB = customMenuOrder.indexOf(b.path);
+      const orderA = indexA === -1 ? 999 : indexA;
+      const orderB = indexB === -1 ? 999 : indexB;
+      return orderA - orderB;
+    });
+  }, [ALL_PAGES, customMenuOrder]);
+
+  const saveMenuOrder = (newPathsOrder) => {
+    setCustomMenuOrder(newPathsOrder);
+    localStorage.setItem('smartstock_menu_order', JSON.stringify(newPathsOrder));
+    window.dispatchEvent(new Event('menuOrderChanged'));
+  };
+
+  const handleMovePageUp = (index) => {
+    if (index === 0) return;
+    const list = [...orderedPagesList.map(p => p.path)];
+    const temp = list[index - 1];
+    list[index - 1] = list[index];
+    list[index] = temp;
+    saveMenuOrder(list);
+  };
+
+  const handleMovePageDown = (index) => {
+    if (index === orderedPagesList.length - 1) return;
+    const list = [...orderedPagesList.map(p => p.path)];
+    const temp = list[index + 1];
+    list[index + 1] = list[index];
+    list[index] = temp;
+    saveMenuOrder(list);
+  };
+
+  const handleResetMenuOrder = () => {
+    const defaultPaths = ALL_PAGES.map(p => p.path);
+    saveMenuOrder(defaultPaths);
+  };
 
   // ---- ESTADOS DE SINCRONIZAÇÃO E SENHA ----
   const [file, setFile] = useState(null);
@@ -314,6 +375,7 @@ export default function Configuracoes() {
 
   const tabs = [
     ...(canManageConfig ? [{ id: 'permissoes', label: 'Controle de Acessos (Roles)' }] : []),
+    { id: 'menu', label: 'Ordenação do Menu' },
     ...(hasPermission(PERMISSIONS.SYNC_MASTER) || hasPermission('Acessar Sincronização Master') ? [{ id: 'sync', label: 'Sincronização Master' }] : []),
     { id: 'senha', label: 'Trocar Senha' },
   ];
@@ -576,6 +638,76 @@ export default function Configuracoes() {
               {updatingMaster ? <Loader2 className="animate-spin" size={24} /> : <RefreshCw size={24} />}
               <span className="font-bold">{updatingMaster ? 'Atualizando...' : 'Atualizar'}</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: Ordenação do Menu */}
+      {activeTab === 'menu' && (
+        <div className="erp-card p-6 space-y-6 max-w-3xl">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-border pb-4">
+            <div>
+              <h2 className="text-xl font-black flex items-center gap-2 text-foreground">
+                <ArrowUpDown size={22} className="text-primary" />
+                Personalizar Ordem do Menu
+              </h2>
+              <p className="text-xs text-muted-foreground font-semibold mt-0.5">
+                Reordene a sequência das páginas exibidas no menu lateral e mobile.
+              </p>
+            </div>
+            <button
+              onClick={handleResetMenuOrder}
+              className="px-4 py-2 rounded-xl border border-border text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-muted transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <RefreshCw size={14} />
+              Restaurar Ordem Padrão
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {orderedPagesList.map((pg, idx) => {
+              const IconComp = pg.icon;
+              return (
+                <div
+                  key={pg.path}
+                  className="p-3.5 bg-card border border-border rounded-2xl flex items-center justify-between hover:border-primary/40 transition-all shadow-2xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary font-black text-xs flex items-center justify-center">
+                      #{idx + 1}
+                    </span>
+                    <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center text-primary">
+                      <IconComp size={18} />
+                    </div>
+                    <div>
+                      <span className="font-extrabold text-sm text-foreground block">{pg.name}</span>
+                      <span className="text-[10px] text-muted-foreground font-semibold">{pg.path}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => handleMovePageUp(idx)}
+                      className="p-2 rounded-xl border border-border hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all cursor-pointer"
+                      title="Mover para cima"
+                    >
+                      <ArrowUp size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === orderedPagesList.length - 1}
+                      onClick={() => handleMovePageDown(idx)}
+                      className="p-2 rounded-xl border border-border hover:bg-primary/10 hover:text-primary disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all cursor-pointer"
+                      title="Mover para baixo"
+                    >
+                      <ArrowDown size={16} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
