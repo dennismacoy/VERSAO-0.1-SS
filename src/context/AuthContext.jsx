@@ -1,16 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 import {
-  auth,
-  db,
-  ref,
-  get,
   listenToPermissions,
   savePermissionsToFirebase,
   listenToRoles,
   loginFirebase,
-  logoutFirebase,
 } from '../lib/firebase';
 import { hasRolePermission } from '../lib/permissions';
 
@@ -63,78 +57,29 @@ export const AuthProvider = ({ children }) => {
   const unsubPermsRef = useRef(null);
   const unsubRolesRef = useRef(null);
 
-  // Monitora o estado do Firebase Auth em tempo real
+  // Inicializa o estado de autenticação a partir do localStorage
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        let resolvedRole = 'vendedor';
-        let extraData = {};
-
-        try {
-          // A busca da role só acontece após o Firebase Auth confirmar o usuário ativo
-          const snapshot = await get(ref(db, 'usuarios'));
-          if (snapshot.exists()) {
-            const data = snapshot.val();
-            const users = data && typeof data === 'object' && !Array.isArray(data)
-              ? Object.entries(data).map(([key, val]) => ({ ...val, firebaseId: key }))
-              : (Array.isArray(data) ? data.filter(Boolean) : []);
-
-            const found = users.find(u =>
-              (u.email && u.email.toLowerCase() === firebaseUser.email?.toLowerCase()) ||
-              (u.uid && u.uid === firebaseUser.uid) ||
-              (u.usuario && firebaseUser.email && firebaseUser.email.toLowerCase().startsWith(u.usuario.toLowerCase()))
-            );
-
-            if (found) {
-              resolvedRole = found.role || found.perfil || found.cargo || 'vendedor';
-              extraData = found;
-            }
-          }
-        } catch (err) {
-          console.warn('[AuthContext] Erro ao buscar perfil no banco (aplicando role padrão):', err);
-          resolvedRole = 'vendedor';
-        }
-
-        const userData = {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          name: extraData.nome || extraData.usuario || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
-          usuario: extraData.usuario || firebaseUser.email?.split('@')[0] || 'usuario',
-          role: resolvedRole,
-          firebaseId: extraData.firebaseId || firebaseUser.uid,
-          ...extraData,
-        };
-
-        setCurrentUser(userData);
-        setUserRole(resolvedRole);
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('role', resolvedRole);
+    try {
+      const savedUser = localStorage.getItem('user');
+      const savedRole = localStorage.getItem('role');
+      if (savedUser && savedRole) {
+        setCurrentUser(JSON.parse(savedUser));
+        setUserRole(savedRole);
       } else {
         setCurrentUser(null);
         setUserRole(null);
-        localStorage.removeItem('user');
-        localStorage.removeItem('role');
       }
+    } catch (err) {
+      console.warn('[AuthContext] Erro ao ler usuário do localStorage:', err);
+      setCurrentUser(null);
+      setUserRole(null);
+    } finally {
       setLoading(false);
-    });
-
-    return () => unsubscribeAuth();
+    }
   }, []);
 
-  // Listeners em tempo real para permissões do Firebase SOMENTE com usuário autenticado
+  // Listeners em tempo real para permissões e roles dinâmicas do Firebase
   useEffect(() => {
-    if (!currentUser) {
-      if (unsubPermsRef.current) {
-        unsubPermsRef.current();
-        unsubPermsRef.current = null;
-      }
-      if (unsubRolesRef.current) {
-        unsubRolesRef.current();
-        unsubRolesRef.current = null;
-      }
-      return;
-    }
-
     try {
       unsubPermsRef.current = listenToPermissions((fbPerms) => {
         if (fbPerms && typeof fbPerms === 'object') {
@@ -169,7 +114,7 @@ export const AuthProvider = ({ children }) => {
       if (unsubPermsRef.current) unsubPermsRef.current();
       if (unsubRolesRef.current) unsubRolesRef.current();
     };
-  }, [currentUser?.uid]);
+  }, []);
 
   const login = async (emailOrUsername, password) => {
     const res = await loginFirebase(emailOrUsername, password);
@@ -185,16 +130,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    try {
-      await logoutFirebase();
-    } catch (err) {
-      console.error('[AuthContext] Erro ao deslogar:', err);
-    } finally {
-      setCurrentUser(null);
-      setUserRole(null);
-      localStorage.removeItem('user');
-      localStorage.removeItem('role');
-    }
+    setCurrentUser(null);
+    setUserRole(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('role');
   };
 
   const hasPermission = React.useCallback((actionName) => {

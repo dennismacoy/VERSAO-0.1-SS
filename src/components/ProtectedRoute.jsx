@@ -7,10 +7,7 @@ import SemAcesso from '../pages/SemAcesso';
 import { Loader2 } from 'lucide-react';
 
 /**
- * Componente de Proteção de Rotas Dinâmico baseado na Matriz de Permissões.
- * 
- * @param {React.ReactNode} children - Componente/Página a ser renderizada se permitido
- * @param {string} requiredAction - Ação necessária na Matriz de Permissões (ex: 'view_gestao_admin')
+ * Componente de Proteção de Rotas — Autenticação por banco de dados (/usuarios) e matriz de permissões.
  */
 export default function ProtectedRoute({ children, requiredAction }) {
   const { user, currentUser, loading } = useAuth();

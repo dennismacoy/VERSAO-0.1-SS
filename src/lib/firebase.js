@@ -73,73 +73,64 @@ export const listenToProducts = (callback) => {
 // =============================================
 
 /**
- * Autentica usuário via Firebase Authentication e recupera informações de perfil.
+ * Autentica o usuário diretamente consultando o nó /usuarios no banco de dados (RTDB).
+ * Valida o usuário por e-mail ou nome de usuário e compara a senha salva.
  * Retorna { success, role, user } ou { success: false, message }.
  */
 export const loginFirebase = async (emailOrUsername, password) => {
   try {
-    let email = emailOrUsername.trim();
-    if (!email.includes('@')) {
-      email = `${email}@atacadao.com`;
+    const input = (emailOrUsername || '').trim().toLowerCase();
+    const inputPass = (password || '').trim();
+
+    if (!input || !inputPass) {
+      return { success: false, message: 'Preencha o e-mail/usuário e a senha.' };
     }
 
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const fbUser = userCredential.user;
-
-    let role = 'admin';
-    let extraData = {};
-
-    try {
-      const snapshot = await get(ref(db, 'usuarios'));
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const users = data && typeof data === 'object' && !Array.isArray(data)
-          ? Object.entries(data).map(([key, val]) => ({ ...val, firebaseId: key }))
-          : (Array.isArray(data) ? data.filter(Boolean) : []);
-
-        const found = users.find(u =>
-          (u.email && u.email.toLowerCase() === email.toLowerCase()) ||
-          (u.usuario && u.usuario.toLowerCase() === emailOrUsername.toLowerCase()) ||
-          (u.uid && u.uid === fbUser.uid)
-        );
-
-        if (found) {
-          role = found.role || found.perfil || found.cargo || 'admin';
-          extraData = found;
-        }
-      }
-    } catch (e) {
-      console.warn('[Firebase] Não foi possível carregar dados extras do usuário do RTDB:', e);
+    const snapshot = await get(ref(db, 'usuarios'));
+    if (!snapshot.exists()) {
+      return { success: false, message: 'Nenhum usuário cadastrado no sistema.' };
     }
+
+    const data = snapshot.val();
+    const users = data && typeof data === 'object' && !Array.isArray(data)
+      ? Object.entries(data).map(([key, val]) => ({ ...val, firebaseId: key }))
+      : (Array.isArray(data) ? data.filter(Boolean) : []);
+
+    const found = users.find(u => {
+      const uEmail = (u.email || '').toLowerCase();
+      const uName = (u.usuario || u.nome || '').toLowerCase();
+      return uEmail === input || uName === input;
+    });
+
+    if (!found) {
+      return { success: false, message: 'Usuário ou e-mail não encontrado.' };
+    }
+
+    const savedPass = String(found.senha || found.password || '');
+    if (savedPass !== inputPass) {
+      return { success: false, message: 'Senha incorreta.' };
+    }
+
+    const userRole = found.role || found.perfil || found.cargo || 'vendedor';
 
     const userData = {
-      uid: fbUser.uid,
-      email: fbUser.email,
-      name: extraData.nome || extraData.usuario || fbUser.displayName || fbUser.email?.split('@')[0] || emailOrUsername,
-      usuario: extraData.usuario || fbUser.email?.split('@')[0] || emailOrUsername,
-      role: role,
-      firebaseId: extraData.firebaseId || fbUser.uid,
-      ...extraData,
+      uid: found.firebaseId || found.id || found.uid || `user_${Date.now()}`,
+      firebaseId: found.firebaseId || found.id,
+      name: found.nome || found.usuario || emailOrUsername,
+      usuario: found.usuario || found.nome || emailOrUsername,
+      email: found.email || (emailOrUsername.includes('@') ? emailOrUsername : `${emailOrUsername}@atacadao.com`),
+      role: userRole,
+      ...found,
     };
 
     return {
       success: true,
-      role: role,
+      role: userRole,
       user: userData,
     };
   } catch (error) {
-    console.error('[Firebase] Erro no login (Firebase Auth):', error);
-    let message = 'Usuário ou senha incorretos.';
-    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-      message = 'E-mail/Usuário ou senha incorretos.';
-    } else if (error.code === 'auth/invalid-email') {
-      message = 'Formato de e-mail inválido.';
-    } else if (error.code === 'auth/too-many-requests') {
-      message = 'Muitas tentativas sem sucesso. Tente novamente mais tarde.';
-    } else if (error.message) {
-      message = error.message;
-    }
-    return { success: false, message };
+    console.error('[Firebase] Erro ao autenticar no banco de dados:', error);
+    return { success: false, message: error?.message || 'Erro ao realizar login no banco de dados.' };
   }
 };
 
