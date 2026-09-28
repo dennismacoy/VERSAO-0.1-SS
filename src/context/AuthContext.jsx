@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
+import { Loader2 } from 'lucide-react';
 import {
   auth,
   db,
@@ -51,22 +52,23 @@ const defaultPermissions = {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState(defaultPermissions);
   const [customRoles, setCustomRoles] = useState([]);
   const unsubPermsRef = useRef(null);
   const unsubRolesRef = useRef(null);
 
-  // Monitora imediatamente as alterações no estado do Firebase Auth
+  // Monitora o estado do Firebase Auth em tempo real
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        let userRole = 'admin';
+        let resolvedRole = 'vendedor';
         let extraData = {};
 
         try {
+          // A busca da role só acontece após o Firebase Auth confirmar o usuário ativo
           const snapshot = await get(ref(db, 'usuarios'));
           if (snapshot.exists()) {
             const data = snapshot.val();
@@ -81,12 +83,13 @@ export const AuthProvider = ({ children }) => {
             );
 
             if (found) {
-              userRole = found.role || found.perfil || found.cargo || 'admin';
+              resolvedRole = found.role || found.perfil || found.cargo || 'vendedor';
               extraData = found;
             }
           }
         } catch (err) {
-          console.warn('[AuthContext] Erro ao carregar dados do perfil do RTDB:', err);
+          console.warn('[AuthContext] Erro ao buscar perfil no banco (aplicando role padrão):', err);
+          resolvedRole = 'vendedor';
         }
 
         const userData = {
@@ -94,18 +97,18 @@ export const AuthProvider = ({ children }) => {
           email: firebaseUser.email,
           name: extraData.nome || extraData.usuario || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuário',
           usuario: extraData.usuario || firebaseUser.email?.split('@')[0] || 'usuario',
-          role: userRole,
+          role: resolvedRole,
           firebaseId: extraData.firebaseId || firebaseUser.uid,
           ...extraData,
         };
 
-        setUser(userData);
-        setRole(userRole);
+        setCurrentUser(userData);
+        setUserRole(resolvedRole);
         localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('role', userRole);
+        localStorage.setItem('role', resolvedRole);
       } else {
-        setUser(null);
-        setRole(null);
+        setCurrentUser(null);
+        setUserRole(null);
         localStorage.removeItem('user');
         localStorage.removeItem('role');
       }
@@ -115,41 +118,61 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribeAuth();
   }, []);
 
-  // Listener em tempo real para permissões do Firebase
+  // Listeners em tempo real para permissões do Firebase SOMENTE com usuário autenticado
   useEffect(() => {
-    unsubPermsRef.current = listenToPermissions((fbPerms) => {
-      if (fbPerms && typeof fbPerms === 'object') {
-        const { updatedAt, ...cleanPerms } = fbPerms;
-        if (Object.keys(cleanPerms).length > 0) {
-          setPermissions(prev => ({ ...defaultPermissions, ...prev, ...cleanPerms }));
-        }
+    if (!currentUser) {
+      if (unsubPermsRef.current) {
+        unsubPermsRef.current();
+        unsubPermsRef.current = null;
       }
-    });
+      if (unsubRolesRef.current) {
+        unsubRolesRef.current();
+        unsubRolesRef.current = null;
+      }
+      return;
+    }
 
-    unsubRolesRef.current = listenToRoles((rolesData) => {
-      if (Array.isArray(rolesData)) {
-        setCustomRoles(rolesData);
-        const roleMatrix = {};
-        rolesData.forEach(r => {
-          if (r.id && Array.isArray(r.permissions)) {
-            roleMatrix[r.id] = r.permissions;
+    try {
+      unsubPermsRef.current = listenToPermissions((fbPerms) => {
+        if (fbPerms && typeof fbPerms === 'object') {
+          const { updatedAt, ...cleanPerms } = fbPerms;
+          if (Object.keys(cleanPerms).length > 0) {
+            setPermissions(prev => ({ ...defaultPermissions, ...prev, ...cleanPerms }));
           }
-        });
-        setPermissions(prev => ({ ...prev, ...roleMatrix }));
-      }
-    });
+        }
+      });
+    } catch (e) {
+      console.warn('[AuthContext] Falha ao iniciar listener de permissões:', e);
+    }
+
+    try {
+      unsubRolesRef.current = listenToRoles((rolesData) => {
+        if (Array.isArray(rolesData)) {
+          setCustomRoles(rolesData);
+          const roleMatrix = {};
+          rolesData.forEach(r => {
+            if (r.id && Array.isArray(r.permissions)) {
+              roleMatrix[r.id] = r.permissions;
+            }
+          });
+          setPermissions(prev => ({ ...prev, ...roleMatrix }));
+        }
+      });
+    } catch (e) {
+      console.warn('[AuthContext] Falha ao iniciar listener de roles:', e);
+    }
 
     return () => {
       if (unsubPermsRef.current) unsubPermsRef.current();
       if (unsubRolesRef.current) unsubRolesRef.current();
     };
-  }, []);
+  }, [currentUser?.uid]);
 
   const login = async (emailOrUsername, password) => {
     const res = await loginFirebase(emailOrUsername, password);
     if (res && res.success) {
-      setUser(res.user);
-      setRole(res.role);
+      setCurrentUser(res.user);
+      setUserRole(res.role);
       localStorage.setItem('user', JSON.stringify(res.user));
       localStorage.setItem('role', res.role);
       return res;
@@ -164,21 +187,20 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('[AuthContext] Erro ao deslogar:', err);
     } finally {
-      setUser(null);
-      setRole(null);
+      setCurrentUser(null);
+      setUserRole(null);
       localStorage.removeItem('user');
       localStorage.removeItem('role');
     }
   };
 
   const hasPermission = React.useCallback((actionName) => {
-    return hasRolePermission(role, actionName, permissions);
-  }, [role, permissions]);
+    return hasRolePermission(userRole, actionName, permissions);
+  }, [userRole, permissions]);
 
-  // isAdmin derivado exclusivamente da verificação dinâmica da permissão de configurações
   const isAdmin = React.useCallback(() => {
-    return hasRolePermission(role, 'view_configuracoes', permissions);
-  }, [role, permissions]);
+    return hasRolePermission(userRole, 'view_configuracoes', permissions);
+  }, [userRole, permissions]);
 
   const updatePermissions = React.useCallback(async (newPermissions) => {
     setPermissions(newPermissions);
@@ -190,9 +212,10 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const contextValue = React.useMemo(() => ({
-    user,
-    currentUser: user,
-    role,
+    user: currentUser,
+    currentUser,
+    role: userRole,
+    userRole,
     login,
     logout,
     loading,
@@ -201,11 +224,20 @@ export const AuthProvider = ({ children }) => {
     hasPermission,
     updatePermissions,
     isAdmin
-  }), [user, role, loading, permissions, customRoles, hasPermission, updatePermissions, isAdmin]);
+  }), [currentUser, userRole, loading, permissions, customRoles, hasPermission, updatePermissions, isAdmin]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-zinc-950 text-slate-700 dark:text-slate-200">
+        <Loader2 size={36} className="animate-spin text-green-600 mb-3" />
+        <p className="font-bold text-sm uppercase tracking-wider">Verificando Autenticação...</p>
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={contextValue}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
