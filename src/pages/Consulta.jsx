@@ -42,22 +42,48 @@ export default function Consulta() {
     setQuery(e.target.value);
   };
 
+  const cleanPhoneNumber = (phone) => {
+    if (!phone) return '';
+    const digits = String(phone).replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.startsWith('55')) return digits;
+    return `55${digits}`;
+  };
+
   const buildWppMessage = (p) => {
-    const cod = p.CODIGO || p.codigo || '';
-    const desc = p.DESCRICAO || p.descricao || '';
-    const emb = p.EMBALAGEM || p.embalagem || p.emb || 'UN';
-    const estoque = p.ESTOQUE || p.QTE || p.estoque || 0;
-    const idade = p.IDADE || p.idade || 0;
-    const isv = p.DIAS_SEM_VENDA || p.ISV || p.dias_sem_venda || 0;
-    const entrada = p.ENTRADA || p.entrada || '-';
+    const cod = getVal(p, 'CODIGO', 'codigo') || '';
+    const desc = getVal(p, 'DESCRICAO', 'descricao') || '';
+    const emb = getVal(p, 'EMBALAGEM', 'embalagem', 'emb') || 'UN';
+    const estoque = getVal(p, 'ESTOQUE', 'QTE', 'estoque') || '0';
+    const temEst = parseEstoque(estoque);
+
+    const corredor = getVal(p, 'CORREDOR', 'corredor') || '-';
+    const palete = getVal(p, 'PALETE_ESTOQUE', 'PALETES', 'paletes') || '-';
+    const idade = getVal(p, 'IDADE', 'idade') || 0;
+    const isv = getVal(p, 'DIAS_SEM_VENDA', 'ISV', 'dias_sem_venda') || 0;
+    const entrada = getVal(p, 'ENTRADA', 'entrada') || '-';
+
+    const autonomia = getVal(p, 'autonomia_dias', 'AUTONOMIA_DIAS', 'autonomia') || 0;
+    const vendaMes = getVal(p, 'Vendas Qtde.', 'Vendas Qtde', 'VENDAS_QTDE', 'vendas_qtde', 'venda_mes', 'VENDA_MES') || 0;
+
     return [
-      `📦 *PRODUTO:* ${cod} - ${desc}`,
-      `📏 *EMBALAGEM:* ${emb}`,
+      `📦 *RESUMO DO PRODUTO*`,
+      `*Código:* ${cod}`,
+      `*Descrição:* ${desc}`,
+      `*Embalagem:* ${emb}`,
       `--------------------------`,
-      `✅ *ESTOQUE:* ${estoque}`,
-      `📅 *IDADE:* ${idade} dias`,
-      `🚫 *DIAS SEM VENDA:* ${isv}`,
-      `🚚 *ÚLT. ENTRADA:* ${entrada}`,
+      `📊 *SALDO DE ESTOQUE:* ${estoque} (${temEst ? '✅ Disponível' : '⚠️ Sem Estoque'})`,
+      `--------------------------`,
+      `🚚 *INFORMAÇÕES LOGÍSTICAS & OPERAÇÃO*`,
+      `• Corredor / Localização: ${corredor}`,
+      `• Palete Estoque: ${palete}`,
+      `• Idade do Produto: ${idade} dias`,
+      `• Dias sem Venda (ISV): ${isv} dias`,
+      `• Última Entrada no Estoque: ${entrada}`,
+      `--------------------------`,
+      `📈 *MÉTRICAS COMPLEMENTARES*`,
+      `• Autonomia: ${autonomia} dias`,
+      `• Venda Mês: ${vendaMes}`
     ].join('\n');
   };
 
@@ -66,17 +92,31 @@ export default function Consulta() {
     window.open(url, '_blank');
   };
 
-  // Helper blindado contra variações de cabeçalhos do banco/planilha (acentos, espaços, maiúsculas)
+  // Helper blindado contra variações de cabeçalhos do banco/planilha (acentos, espaços, maiúsculas, pontuação)
   const getVal = (p, ...keys) => {
     if (!p) return null;
     
-    // Normaliza a string: remove acentos, transforma espaços e hífens em underline e deixa minúsculo
+    // 1. Tenta acesso direto primeiro
+    for (const k of keys) {
+      if (p[k] !== undefined && p[k] !== null && p[k] !== '') {
+        let val = p[k];
+        if (typeof val === 'string' && String(k).match(/custo|atacado|varejo|preco_atacado|preco_varejo|preco_unitario|rentabilidade/i)) {
+          val = val.replace(/\./g, '').replace(',', '.');
+          const parsed = parseFloat(val);
+          return isNaN(parsed) ? val : parsed;
+        }
+        return val;
+      }
+    }
+
+    // 2. Normaliza a string: remove acentos e quaisquer caracteres especiais
     const normalize = (str) => 
-      str.normalize('NFD')
+      String(str || '')
+         .normalize('NFD')
          .replace(/[\u0300-\u036f]/g, "")
          .trim()
          .toLowerCase()
-         .replace(/[\s\-]+/g, '_');
+         .replace(/[^a-z0-9]/g, '');
          
     const normalizedProduct = {};
     for (const key in p) {
@@ -336,15 +376,15 @@ export default function Consulta() {
                     </div>
                   </div>
 
-                  {hasPermission('Botao Enviar WPP') && (
-                    <button
-                      onClick={() => handleWppContact(buildWppMessage(selectedProduct))}
-                      className="mt-3 w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all active:scale-98"
-                    >
-                      <MessageSquare size={18} />
-                      Enviar Info no WhatsApp
-                    </button>
-                  )}
+                  {/* Botão Enviar Mensagem no WhatsApp */}
+                  <button
+                    type="button"
+                    onClick={() => handleWppContact(buildWppMessage(selectedProduct))}
+                    className="mt-3 w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all active:scale-98 cursor-pointer"
+                  >
+                    <MessageSquare size={18} />
+                    Enviar Mensagem no WhatsApp
+                  </button>
                 </div>
               )}
 
@@ -361,13 +401,58 @@ export default function Consulta() {
                     </div>
                     <div className="bg-muted/40 p-2.5 rounded-xl border border-border/50">
                       <p className="text-[10px] text-muted-foreground font-bold uppercase">Venda Mês</p>
-                      <p className="font-extrabold text-sm text-foreground mt-0.5">{getVal(selectedProduct, 'venda_mes', 'VENDA_MES') || 0}</p>
+                      <p className="font-extrabold text-sm text-foreground mt-0.5">{getVal(selectedProduct, 'Vendas Qtde.', 'Vendas Qtde', 'VENDAS_QTDE', 'vendas_qtde', 'venda_mes', 'VENDA_MES') || 0}</p>
+                    </div>
+
+                    {/* Comprador & Telefone */}
+                    <div className="bg-muted/40 p-2.5 rounded-xl border border-border/50 col-span-2 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase">Comprador / Contato</p>
+                          <p className="font-extrabold text-sm text-foreground mt-0.5">
+                            {getVal(selectedProduct, 'COMPRADOR', 'comprador', 'COMPRADORES') || 'Não informado'}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-semibold mt-0.5">
+                            Tel: {getVal(selectedProduct, 'TELEFONE', 'telefone', 'TEL', 'tel', 'FONE', 'fone', 'CELULAR', 'celular') || 'Não informado'}
+                          </p>
+                        </div>
+
+                        {/* Botões de Ação Direta (WhatsApp e Ligar) */}
+                        {(() => {
+                          const rawPhone = getVal(selectedProduct, 'TELEFONE', 'telefone', 'TEL', 'tel', 'FONE', 'fone', 'CELULAR', 'celular');
+                          const cleanPhone = cleanPhoneNumber(rawPhone);
+                          if (!cleanPhone) return null;
+
+                          return (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <a
+                                href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Olá, gostaria de falar sobre o produto ${getVal(selectedProduct, 'CODIGO', 'codigo')} - ${getVal(selectedProduct, 'DESCRICAO', 'descricao')}`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="h-9 px-3 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95"
+                                title="Enviar mensagem no WhatsApp"
+                              >
+                                <MessageSquare size={15} />
+                                <span>WhatsApp</span>
+                              </a>
+                              <a
+                                href={`tel:${cleanPhone}`}
+                                className="h-9 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95"
+                                title="Ligar para Comprador"
+                              >
+                                <Phone size={15} />
+                                <span>Ligar</span>
+                              </a>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
 
                   {hasPermission('Botao Ligar Comprador') && (
                     <button
-                      onClick={() => handleWppContact(`Atenção comprador, sobre o item ${getVal(selectedProduct, 'CODIGO', 'codigo')}.`)}
+                      onClick={() => handleWppContact(`Atenção comprador, sobre o item ${getVal(selectedProduct, 'CODIGO', 'codigo')} - ${getVal(selectedProduct, 'DESCRICAO', 'descricao')}.`)}
                       className="mt-3 w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent/90 text-accent-foreground py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-sm transition-all active:scale-98"
                     >
                       <Phone size={18} />

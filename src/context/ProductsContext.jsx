@@ -180,18 +180,19 @@ export const ProductsProvider = ({ children }) => {
   };
 
   const searchLocal = (query) => {
-    if (!query) return products;
-    const lowerQ = query.toLowerCase();
+    if (!query || !query.trim()) return products;
+    const lowerQ = query.trim().toLowerCase();
 
     return products.filter(p => {
-      const cod = p.CODIGO || p.codigo || '';
-      const desc = p.DESCRICAO || p.descricao || '';
-      const rz = p.RAZAOSOCIAL || p.razaosocial || p.fornecedor || '';
+      if (!p) return false;
+      const cod = String(p.CODIGO ?? p.codigo ?? p.COD ?? p.CODIGO_INTERNO ?? p.codigo_interno ?? '').toLowerCase();
+      const desc = String(p.DESCRICAO ?? p.descricao ?? p.NOME ?? p.COMPLEMENTO ?? '').toLowerCase();
+      const rz = String(p.RAZAOSOCIAL ?? p.razaosocial ?? p.fornecedor ?? '').toLowerCase();
 
       return (
-        cod.toString().toLowerCase().includes(lowerQ) ||
-        desc.toString().toLowerCase().includes(lowerQ) ||
-        rz.toString().toLowerCase().includes(lowerQ)
+        cod.includes(lowerQ) ||
+        desc.includes(lowerQ) ||
+        rz.includes(lowerQ)
       );
     });
   };
