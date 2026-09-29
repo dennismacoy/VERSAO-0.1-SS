@@ -121,23 +121,52 @@ export const api = {
     return await saveReportFirebase(reportData);
   },
 
-  // --- GAS: Sincronização Master (ÚNICO uso restante do GAS) ---
-  // Dispara dados para as planilhas smg13 e smg32
+  // --- GAS: Sincronização Master (smg13 / smg32) ---
+  // Upload em lote de dados convertidos de XLSX/CSV para o Google Sheets
+  async uploadData(jsonData, targetBase = 'smg13') {
+    if (!jsonData || !Array.isArray(jsonData) || jsonData.length === 0) {
+      throw new Error('Nenhum dado válido fornecido para sincronização.');
+    }
+
+    const payload = {
+      action: 'syncMaster',
+      targetBase: targetBase,
+      data: jsonData
+    };
+
+    const res = await fetchGAS(payload);
+    if (res && typeof res === 'object' && res.success === false) {
+      throw new Error(res.message || 'Erro retornado pela planilha do Google.');
+    }
+    return res;
+  },
+
   async syncMaster(target, payload) {
-    // Formatando o pacote EXATAMENTE como o code.gs exige
+    if (Array.isArray(payload)) {
+      return await this.uploadData(payload, target);
+    }
+
     const bodyFormatado = {
       action: 'syncMaster',
       targetBase: target,
       data: payload
     };
-    return await fetchGAS(bodyFormatado);
+    const res = await fetchGAS(bodyFormatado);
+    if (res && typeof res === 'object' && res.success === false) {
+      throw new Error(res.message || 'Erro retornado pela planilha do Google.');
+    }
+    return res;
   },
 
   async triggerMasterUpdate() {
     const bodyFormatado = {
       action: 'triggerUpdate'
     };
-    return await fetchGAS(bodyFormatado);
+    const res = await fetchGAS(bodyFormatado);
+    if (res && typeof res === 'object' && res.success === false) {
+      throw new Error(res.message || 'Erro ao executar atualização mestre.');
+    }
+    return res;
   },
 };
 

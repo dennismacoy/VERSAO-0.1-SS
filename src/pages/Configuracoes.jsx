@@ -32,6 +32,7 @@ import {
   Settings
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
@@ -313,36 +314,156 @@ export default function Configuracoes() {
     }
   };
 
-  // ---- Sincronização ----
+  // ---- Rotinas de Processamento Dual de Arquivos (XLSX / XLS e CSV) ----
+  const parseExcelFile = (uploadedFile) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const buffer = e.target.result;
+          const workbook = XLSX.read(buffer, {
+            type: 'array',
+            cellDates: true,
+            dateNF: 'yyyy-mm-dd',
+            raw: false
+          });
+          if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            return reject(new Error('Nenhuma planilha/aba encontrada no arquivo Excel (.xlsx/.xls).'));
+          }
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: "", blankrows: false });
+
+          if (!rawJson || rawJson.length === 0) {
+            return reject(new Error('A planilha selecionada no arquivo Excel está vazia.'));
+          }
+
+          // Sanitiza chaves de cabeçalho removendo espaços e quebras de linha acidentais
+          const cleaned = rawJson.map((row) => {
+            const cleanRow = {};
+            Object.entries(row).forEach(([colKey, val]) => {
+              const cleanKey = String(colKey || '').trim().replace(/[\r\n]+/g, ' ');
+              if (cleanKey) {
+                if (val instanceof Date) {
+                  cleanRow[cleanKey] = val.toISOString().split('T')[0];
+                } else if (val === null || val === undefined) {
+                  cleanRow[cleanKey] = "";
+                } else {
+                  cleanRow[cleanKey] = typeof val === 'string' ? val.trim() : val;
+                }
+              }
+            });
+            return cleanRow;
+          });
+
+          resolve(cleaned);
+        } catch (err) {
+          reject(new Error(`Erro ao ler arquivo Excel: ${err?.message || err}`));
+        }
+      };
+      reader.onerror = () => reject(new Error('Erro ao ler os bytes do arquivo Excel.'));
+      reader.readAsArrayBuffer(uploadedFile);
+    });
+  };
+
+  const parseCSVFile = (uploadedFile) => {
+    return new Promise((resolve, reject) => {
+      Papa.parse(uploadedFile, {
+        header: true,
+        skipEmptyLines: 'greedy',
+        transformHeader: (header) => String(header || '').trim().replace(/[\r\n]+/g, ' '),
+        complete: (results) => {
+          if (results.errors && results.errors.length > 0 && (!results.data || results.data.length === 0)) {
+            return reject(new Error(`Erro ao processar CSV: ${results.errors[0]?.message || 'Arquivo corrompido'}`));
+          }
+          const cleaned = (results.data || []).map((row) => {
+            const cleanRow = {};
+            Object.entries(row).forEach(([k, v]) => {
+              const cleanK = String(k || '').trim().replace(/[\r\n]+/g, ' ');
+              if (cleanK) {
+                cleanRow[cleanK] = v === null || v === undefined ? "" : (typeof v === 'string' ? v.trim() : v);
+              }
+            });
+            return cleanRow;
+          });
+          resolve(cleaned);
+        },
+        error: (err) => reject(new Error(`Falha no parse do CSV: ${err?.message || err}`)),
+      });
+    });
+  };
+
+  const parseUploadedFile = async (uploadedFile) => {
+    const fileName = uploadedFile.name || '';
+    const extension = fileName.split('.').pop()?.toLowerCase();
+
+    let rawData = [];
+    if (extension === 'xlsx' || extension === 'xls') {
+      rawData = await parseExcelFile(uploadedFile);
+    } else if (extension === 'csv') {
+      rawData = await parseCSVFile(uploadedFile);
+    } else {
+      throw new Error(`Formato de arquivo ".${extension}" não suportado. Utilize arquivos .xlsx, .xls ou .csv.`);
+    }
+
+    // Validação de Payload: bloquear se vazio ou sem linhas válidas
+    if (!rawData || !Array.isArray(rawData) || rawData.length === 0) {
+      throw new Error('O arquivo selecionado está vazio ou não possui linhas.');
+    }
+
+    const validRows = rawData.filter((row) => {
+      if (!row || typeof row !== 'object') return false;
+      return Object.values(row).some((val) => val !== null && val !== undefined && String(val).trim() !== '');
+    });
+
+    if (validRows.length === 0) {
+      throw new Error('Nenhuma linha com dados válidos foi encontrada no arquivo.');
+    }
+
+    return validRows;
+  };
+
+  // ---- Sincronização Master ----
   const handleSync = async (target) => {
     setSyncingTarget(target); 
     setSyncStatus({ type: '', message: '' });
     
     if (file) {
       try {
-        const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        
-        await api.syncMaster(target, jsonData);
-        setSyncStatus({ type: 'success', message: `Base ${target.toUpperCase()} sincronizada com sucesso!` });
+        // 1. Processar arquivo (suporte dual XLSX e CSV) com validação de payload
+        const jsonData = await parseUploadedFile(file);
+
+        // 2. Chamar api.uploadData com a URL do ambiente da filial ativa
+        const response = await api.uploadData(jsonData, target);
+
+        const countMsg = response?.count ? ` (${response.count} registros gravados)` : ` (${jsonData.length} registros)`;
+        setSyncStatus({ 
+          type: 'success', 
+          message: `Base ${target.toUpperCase()} sincronizada com sucesso!${countMsg}` 
+        });
         setFile(null);
       } catch (err) {
-        console.error("Erro no processamento do arquivo:", err);
-        setSyncStatus({ type: 'error', message: `Falha na sincronização do ${target.toUpperCase()}.` });
+        console.error("Erro na sincronização:", err);
+        setSyncStatus({ 
+          type: 'error', 
+          message: err?.message || `Falha na sincronização da base ${target.toUpperCase()}.` 
+        });
       } finally {
         setSyncingTarget(null);
       }
     } else {
       try {
         await api.syncMaster(target, { action: "sync_trigger", timestamp: new Date().toISOString() });
-        setSyncStatus({ type: 'success', message: `Base ${target.toUpperCase()} sincronizada com sucesso!` });
+        setSyncStatus({ type: 'success', message: `Disparo da base ${target.toUpperCase()} enviado com sucesso!` });
       } catch (err) { 
-        setSyncStatus({ type: 'error', message: `Falha na sincronização do ${target.toUpperCase()}.` }); 
+        console.error("Erro no disparo:", err);
+        setSyncStatus({ 
+          type: 'error', 
+          message: err?.message || `Falha na sincronização do ${target.toUpperCase()}.` 
+        }); 
+      } finally { 
+        setSyncingTarget(null); 
       }
-      finally { setSyncingTarget(null); }
     }
   };
 
@@ -589,9 +710,22 @@ export default function Configuracoes() {
       {/* TAB: Sincronização */}
       {activeTab === 'sync' && hasPermission('Acessar Sincronização Master') && (
         <div className="max-w-lg mx-auto erp-card p-8 border-t-8 border-t-primary space-y-6">
-          <div className="flex items-center gap-3">
-            <UploadCloud size={24} className="text-primary" />
-            <h2 className="text-xl font-black uppercase">Sincronização Master</h2>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3">
+              <UploadCloud size={24} className="text-primary" />
+              <h2 className="text-xl font-black uppercase">Sincronização Master</h2>
+            </div>
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              {import.meta.env.VITE_FILIAL_NOME || `Filial ${import.meta.env.VITE_FILIAL_ID || 'Ativa'}`}
+            </span>
+          </div>
+
+          <div className="bg-muted/40 border border-border rounded-xl p-3 text-xs flex items-center justify-between">
+            <span className="text-muted-foreground font-medium">Planilha de Destino:</span>
+            <span className="font-bold text-foreground flex items-center gap-1">
+              Google Sheets — {import.meta.env.VITE_FILIAL_NOME || `Filial ${import.meta.env.VITE_FILIAL_ID || '685'}`}
+            </span>
           </div>
           
           <div
@@ -599,12 +733,24 @@ export default function Configuracoes() {
             onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}
             onDragLeave={() => setDragActive(false)}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); setDragActive(false); if (e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]); }}
+            onDrop={(e) => { e.preventDefault(); setDragActive(false); if (e.dataTransfer.files?.[0]) { setFile(e.dataTransfer.files[0]); setSyncStatus({ type: '', message: '' }); } }}
           >
-            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept=".csv, .xlsx, .xls" onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
-            <p className="font-black text-sm uppercase">{file ? file.name : "Arraste o arquivo Excel/CSV (Opcional)"}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">{file ? `${(file.size / 1024).toFixed(1)} KB` : "Se não selecionado, fará a sincronização padrão."}</p>
+            <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept=".csv, .xlsx, .xls" onChange={(e) => { if (e.target.files?.[0]) { setFile(e.target.files[0]); setSyncStatus({ type: '', message: '' }); } }} />
+            <p className="font-black text-sm uppercase text-foreground">{file ? file.name : "Arraste o arquivo Excel (.xlsx, .xls) ou CSV"}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{file ? `${(file.size / 1024).toFixed(1)} KB — Pronto para sincronizar` : "Selecione o arquivo de dados. Se não selecionado, fará o disparo padrão."}</p>
           </div>
+
+          {file && (
+            <div className="flex justify-end -mt-3">
+              <button
+                type="button"
+                onClick={() => setFile(null)}
+                className="text-xs text-red-500 hover:text-red-700 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <X size={14} /> Remover arquivo selecionado
+              </button>
+            </div>
+          )}
           
           {syncStatus.message && (
             <div className={cn("p-4 rounded-xl flex items-center gap-3", syncStatus.type === 'success' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
