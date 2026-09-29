@@ -5,7 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:685": "vite --mode filial685",
+    "dev:948": "vite --mode filial948",
     "build": "vite build",
+    "build:685": "vite build --mode filial685",
+    "build:948": "vite build --mode filial948",
+    "deploy:685": "vite build --mode filial685 && firebase deploy --project filial685",
+    "deploy:948": "vite build --mode filial948 && firebase deploy --project filial948",
+    "deploy:hosting:685": "vite build --mode filial685 && firebase deploy --only hosting --project filial685",
+    "deploy:hosting:948": "vite build --mode filial948 && firebase deploy --only hosting --project filial948",
+    "seed:admin:948": "node scripts/inject-admin-948.cjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -3,14 +3,14 @@ import { getDatabase, ref, get, set, push, update, remove, onValue, query, order
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCxTCOr-ud2h2Ec17WCXfUp5krrngZNqs4",
-  authDomain: "atacadao-ss.firebaseapp.com",
-  databaseURL: "https://atacadao-ss-default-rtdb.firebaseio.com",
-  projectId: "atacadao-ss",
-  storageBucket: "atacadao-ss.firebasestorage.app",
-  messagingSenderId: "66416290882",
-  appId: "1:66416290882:web:8917d52f92568c7d2711db",
-  measurementId: "G-PL1JVTNRLZ"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCxTCOr-ud2h2Ec17WCXfUp5krrngZNqs4",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "atacadao-ss.firebaseapp.com",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://atacadao-ss-default-rtdb.firebaseio.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "atacadao-ss",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "atacadao-ss.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "66416290882",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:66416290882:web:8917d52f92568c7d2711db",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-PL1JVTNRLZ"
 };
 
 // Initialize Firebase

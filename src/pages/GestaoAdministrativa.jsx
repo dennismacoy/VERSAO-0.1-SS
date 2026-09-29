@@ -35,7 +35,7 @@ import FiltroEExportacao from '../components/FiltroEExportacao';
 import { generateGestaoAdministrativaPDF } from '../lib/pdfGenerator';
 
 // URL da API do Google Apps Script
-const API_URL = "https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec";
+const API_URL = import.meta.env.VITE_GOOGLE_SHEETS_URL || "https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec";
 
 // Função utilitária para requisições ao GAS
 const fetchGAS = async (payload) => {

@@ -11,10 +11,10 @@ const ProductsContext = createContext({});
 // CONFIGURAÇÃO DA URL / CHAVE DA API DO GOOGLE SHEETS (GOOGLE APPS SCRIPT)
 // Caso sua planilha mude de URL ou necessite de chave/ID de API, atualize o valor abaixo:
 // =============================================================================
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec";
+const GAS_URL = import.meta.env.VITE_GOOGLE_SHEETS_URL || "https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec";
 
 // Trava de cache no Firebase (Nó super leve apenas com a data de atualização)
-const FIREBASE_SISTEMA_URL = "https://atacadao-ss-default-rtdb.firebaseio.com/sistema.json";
+const FIREBASE_SISTEMA_URL = `${import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://atacadao-ss-default-rtdb.firebaseio.com"}/sistema.json`;
 
 export const useProducts = () => useContext(ProductsContext);
 

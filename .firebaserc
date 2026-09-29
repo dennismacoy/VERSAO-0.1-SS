@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "atacadao-ss"
+    "default": "atacadao-ss",
+    "filial685": "atacadao-ss",
+    "filial948": "atacadaoss948"
   }
 }

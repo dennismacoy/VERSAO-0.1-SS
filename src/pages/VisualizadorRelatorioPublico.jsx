@@ -53,7 +53,8 @@ export default function VisualizadorRelatorioPublico() {
             const controller = new AbortController();
             const fetchTimeout = setTimeout(() => controller.abort(), 20000);
 
-            const res = await fetch("https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec", {
+            const gasUrl = import.meta.env.VITE_GOOGLE_SHEETS_URL || "https://script.google.com/macros/s/AKfycbyatPC_b9psYhtPry34w0R9q2jZkLXnFlZ6oeoWcRUXXPfHE0MClrEiTsnLvUpeOSdDcA/exec";
+            const res = await fetch(gasUrl, {
               method: "POST",
               redirect: "follow",
               headers: { "Content-Type": "text/plain;charset=utf-8" },
