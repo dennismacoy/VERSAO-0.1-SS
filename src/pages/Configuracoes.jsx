@@ -408,7 +408,7 @@ export default function Configuracoes() {
 
     // Validação de Payload: bloquear se vazio ou sem linhas válidas
     if (!rawData || !Array.isArray(rawData) || rawData.length === 0) {
-      throw new Error('O arquivo selecionado está vazio ou não possui linhas.');
+      throw new Error('O arquivo selecionado está vazio ou não contém dados válidos.');
     }
 
     const validRows = rawData.filter((row) => {
@@ -417,7 +417,7 @@ export default function Configuracoes() {
     });
 
     if (validRows.length === 0) {
-      throw new Error('Nenhuma linha com dados válidos foi encontrada no arquivo.');
+      throw new Error('O arquivo selecionado está vazio ou não contém dados válidos.');
     }
 
     return validRows;
